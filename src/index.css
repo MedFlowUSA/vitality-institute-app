@@ -1,0 +1,276 @@
+/* =========================
+   Vitality UI - Base
+   Replace the Vite starter defaults (no more centered body)
+   ========================= */
+
+:root {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Vitality theme tokens */
+  --v-bg: radial-gradient(1200px 700px at 15% 10%, rgba(120, 80, 255, 0.18), transparent 55%),
+          radial-gradient(900px 600px at 85% 15%, rgba(0, 190, 255, 0.14), transparent 55%),
+          radial-gradient(1000px 800px at 40% 90%, rgba(255, 190, 60, 0.10), transparent 55%),
+          linear-gradient(180deg, #0b1020 0%, #080b14 100%);
+
+  --v-card: rgba(255,255,255,0.06);
+  --v-card-2: rgba(255,255,255,0.08);
+  --v-border: rgba(255,255,255,0.10);
+  --v-border-2: rgba(255,255,255,0.14);
+  --v-text: rgba(255,255,255,0.92);
+  --v-muted: rgba(255,255,255,0.68);
+  --v-muted2: rgba(255,255,255,0.55);
+  --v-glow: 0 0 0 1px rgba(255,255,255,0.08), 0 10px 40px rgba(0,0,0,0.45);
+  --v-glow-2: 0 0 0 1px rgba(255,255,255,0.10), 0 16px 60px rgba(0,0,0,0.55);
+
+  color-scheme: dark;
+}
+
+/* Reset / base layout */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--v-bg);
+  color: var(--v-text);
+}
+
+/* Links */
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* App containers */
+.app-bg {
+  min-height: 100vh;
+  background: var(--v-bg);
+  color: var(--v-text);
+}
+
+.shell {
+  width: min(1120px, calc(100% - 24px));
+  margin: 0 auto;
+  padding: 22px 0 40px;
+}
+
+/* Cards */
+.card {
+  background: var(--v-card);
+  border: 1px solid var(--v-border);
+  border-radius: 18px;
+  box-shadow: var(--v-glow);
+  backdrop-filter: blur(10px);
+}
+
+.card-pad { padding: 18px; }
+
+/* Typography helpers */
+.h1 {
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: 0.2px;
+}
+.h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+.muted { color: var(--v-muted); }
+
+.space { height: 14px; }
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+/* Buttons */
+.btn {
+  border-radius: 14px;
+  border: 1px solid var(--v-border);
+  background: rgba(255,255,255,0.06);
+  color: var(--v-text);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: transform 0.10s ease, background 0.15s ease, border-color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  background: rgba(255,255,255,0.09);
+  border-color: var(--v-border-2);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, rgba(120,80,255,0.75), rgba(0,190,255,0.55));
+  border-color: rgba(160,140,255,0.35);
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, rgba(120,80,255,0.90), rgba(0,190,255,0.70));
+}
+
+.btn-ghost { background: rgba(255,255,255,0.04); }
+
+/* Inputs */
+.input,
+textarea.input,
+select.input {
+  border-radius: 14px;
+  border: 1px solid var(--v-border);
+  background: rgba(0,0,0,0.22);
+  color: var(--v-text);
+  padding: 10px 12px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s ease, transform 0.10s ease;
+}
+
+.input:focus {
+  border-color: rgba(120,80,255,0.55);
+  transform: translateY(-1px);
+}
+
+/* ===== Hero header ===== */
+.v-hero {
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--v-border);
+  background:
+    radial-gradient(800px 300px at 10% 0%, rgba(120,80,255,0.18), transparent 60%),
+    radial-gradient(600px 240px at 90% 0%, rgba(0,190,255,0.14), transparent 55%),
+    rgba(255,255,255,0.06);
+  box-shadow: var(--v-glow-2);
+}
+
+.v-brand { display: flex; align-items: center; gap: 12px; }
+
+.v-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.v-logo img { width: 100%; height: 100%; object-fit: cover; }
+
+.v-brand-title { display: flex; flex-direction: column; line-height: 1.05; }
+
+.v-brand-title .title {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  font-size: 18px;
+}
+
+.v-brand-title .sub {
+  font-size: 12px;
+  color: var(--v-muted);
+  margin-top: 5px;
+}
+
+.v-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.v-chip {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.20);
+  color: rgba(255,255,255,0.86);
+}
+.v-chip strong { color: rgba(255,255,255,0.95); }
+
+.v-statgrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+@media (max-width: 900px) {
+  .v-statgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.v-stat {
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.18);
+  border-radius: 16px;
+  padding: 12px;
+}
+.v-stat .k { font-size: 11px; color: var(--v-muted); }
+.v-stat .v { font-size: 18px; font-weight: 850; margin-top: 6px; }
+
+/* helper */
+.hr-soft {
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+  border: none;
+  margin: 14px 0;
+}
+/* =========================
+   Vitality Button Contrast Fix
+   ========================= */
+
+:root {
+  --v-btn-bg: rgba(255,255,255,0.10);
+  --v-btn-bg-hover: rgba(255,255,255,0.16);
+  --v-btn-border: rgba(255,255,255,0.18);
+  --v-btn-border-hover: rgba(255,255,255,0.28);
+  --v-btn-text: rgba(255,255,255,0.94);
+}
+
+/* Base button: slightly more visible */
+.btn {
+  background: var(--v-btn-bg);
+  border-color: var(--v-btn-border);
+  color: var(--v-btn-text);
+}
+
+.btn:hover {
+  background: var(--v-btn-bg-hover);
+  border-color: var(--v-btn-border-hover);
+}
+
+/* Ghost buttons: make them readable */
+.btn-ghost {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.16);
+  color: rgba(255,255,255,0.92);
+}
+
+.btn-ghost:hover {
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.26);
+}
+
+/* Optional: make focus ring visible */
+.btn:focus,
+.btn:focus-visible {
+  outline: 3px solid rgba(120, 80, 255, 0.55);
+  outline-offset: 2px;
+}
