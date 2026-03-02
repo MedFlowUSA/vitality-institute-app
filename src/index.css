@@ -274,3 +274,64 @@ select.input {
   outline: 3px solid rgba(120, 80, 255, 0.55);
   outline-offset: 2px;
 }
+/* =========================
+   HARD FIX: force slot text visible
+   Paste at VERY BOTTOM of index.css
+   ========================= */
+
+/* Common "time slot" button patterns */
+button,
+button * {
+  -webkit-text-fill-color: initial;
+}
+
+/* If the time text is nested in spans/labels, force visibility */
+.time-slot,
+.time-slot *,
+.slot,
+.slot *,
+.appt-slot,
+.appt-slot *,
+.booking-slot,
+.booking-slot *,
+.timeslot,
+.timeslot * {
+  color: rgba(255,255,255,0.96) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  -webkit-text-fill-color: rgba(255,255,255,0.96) !important;
+}
+
+/* If your time grid container exists, target inside it */
+.booking-times button,
+.appointment-times button,
+.time-grid button,
+.times-grid button,
+.slots button {
+  color: rgba(255,255,255,0.96) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  -webkit-text-fill-color: rgba(255,255,255,0.96) !important;
+
+  background: rgba(255,255,255,0.10) !important;
+  border: 2px solid rgba(255,255,255,0.22) !important;
+  border-radius: 999px !important;
+  font-weight: 800 !important;
+}
+
+/* If they are disabled (very common), the base CSS may fade them too much */
+.booking-times button:disabled,
+.appointment-times button:disabled,
+.time-grid button:disabled,
+.slots button:disabled {
+  opacity: 0.95 !important; /* keep readable */
+  cursor: not-allowed;
+}
+
+/* If your UI uses input + label pills (radio/checkbox), force label text visible */
+input[type="radio"] + label,
+input[type="checkbox"] + label {
+  color: rgba(255,255,255,0.96) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: rgba(255,255,255,0.96) !important;
+}

@@ -54,10 +54,14 @@ function statusBadge(status: string) {
     background: "rgba(255,255,255,.08)",
   } as const;
 
-  if (s === "locked") return { ...base, background: "rgba(34,197,94,.18)", border: "1px solid rgba(34,197,94,.35)" };
-  if (s === "approved") return { ...base, background: "rgba(59,130,246,.18)", border: "1px solid rgba(59,130,246,.35)" };
-  if (s === "needs_info") return { ...base, background: "rgba(245,158,11,.18)", border: "1px solid rgba(245,158,11,.35)" };
-  if (s === "submitted") return { ...base, background: "rgba(148,163,184,.18)", border: "1px solid rgba(148,163,184,.35)" };
+  if (s === "locked")
+    return { ...base, background: "rgba(34,197,94,.18)", border: "1px solid rgba(34,197,94,.35)" };
+  if (s === "approved")
+    return { ...base, background: "rgba(59,130,246,.18)", border: "1px solid rgba(59,130,246,.35)" };
+  if (s === "needs_info")
+    return { ...base, background: "rgba(245,158,11,.18)", border: "1px solid rgba(245,158,11,.35)" };
+  if (s === "submitted")
+    return { ...base, background: "rgba(148,163,184,.18)", border: "1px solid rgba(148,163,184,.35)" };
 
   return base;
 }
@@ -65,6 +69,9 @@ function statusBadge(status: string) {
 export default function PatientHome() {
   const { user, role, signOut } = useAuth();
   const navigate = useNavigate();
+
+  // ✅ ONBOARDING GATE
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [services, setServices] = useState<ServiceRow[]>([]);
@@ -174,13 +181,50 @@ export default function PatientHome() {
       const latest = (data?.[0] ?? null) as LatestWoundIntake | null;
       setLatestWoundIntake(latest);
     } catch {
-      // don't hard-fail the page if this widget can't load
       setLatestWoundIntake(null);
     } finally {
       setLoadingWound(false);
     }
   };
 
+  // ✅ ONBOARDING GATE EFFECT (runs first)
+  useEffect(() => {
+    let cancelled = false;
+
+    const check = async () => {
+      if (!user?.id) return;
+
+      try {
+        setCheckingOnboarding(true);
+
+        const { data, error } = await supabase
+          .from("patients")
+          .select("id")
+          .eq("profile_id", user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (!cancelled && !data?.id) {
+          navigate("/patient/onboarding", { replace: true });
+          return;
+        }
+      } catch (e) {
+        console.error("Patient onboarding gate failed:", e);
+        // Don't lock the user out if something temporary fails.
+      } finally {
+        if (!cancelled) setCheckingOnboarding(false);
+      }
+    };
+
+    check();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, navigate]);
+
+  // ✅ Prevent running the heavy portal loaders until onboarding is confirmed
   useEffect(() => {
     let cancelled = false;
 
@@ -193,7 +237,6 @@ export default function PatientHome() {
           .from("locations")
           .select("id,name,city,state")
           .order("name");
-
         if (locErr) throw locErr;
 
         const { data: svcs, error: svcErr } = await supabase
@@ -201,7 +244,6 @@ export default function PatientHome() {
           .select("id,name,location_id,category,visit_type")
           .eq("is_active", true)
           .order("name");
-
         if (svcErr) throw svcErr;
 
         if (cancelled) return;
@@ -218,13 +260,13 @@ export default function PatientHome() {
       }
     };
 
-    if (user?.id) load();
+    if (user?.id && !checkingOnboarding) load();
 
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, checkingOnboarding]);
 
   useEffect(() => {
     let cancelled = false;
@@ -352,7 +394,6 @@ export default function PatientHome() {
       .select("id")
       .eq("appointment_id", appt.id)
       .maybeSingle();
-
     if (exErr) return alert(exErr.message);
 
     let threadId = existing?.id;
@@ -381,9 +422,22 @@ export default function PatientHome() {
   };
 
   const quickBtnProps = {
-    onMouseDown: (e: React.MouseEvent) => e.preventDefault(), // prevents weird “bounce” focus behavior
+    onMouseDown: (e: React.MouseEvent) => e.preventDefault(),
     type: "button" as const,
   };
+
+  // ✅ Gate loading UI (keeps your full page intact, but prevents rendering before gate check)
+  if (checkingOnboarding) {
+    return (
+      <div className="app-bg">
+        <div className="shell">
+          <div className="card card-pad">
+            <div className="muted">Loading patient profile…</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-bg">
@@ -419,7 +473,6 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        {/* Quick actions so links never “disappear” */}
         <div className="card card-pad">
           <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
@@ -434,9 +487,7 @@ export default function PatientHome() {
                 {loadingWound ? (
                   <span className="muted">Loading…</span>
                 ) : latestWoundIntake ? (
-                  <span style={statusBadge(latestWoundIntake.status)}>
-                    {latestWoundIntake.status.toUpperCase()}
-                  </span>
+                  <span style={statusBadge(latestWoundIntake.status)}>{latestWoundIntake.status.toUpperCase()}</span>
                 ) : (
                   <span className="muted">Not submitted</span>
                 )}
@@ -570,6 +621,17 @@ export default function PatientHome() {
                             disabled={disabled}
                             title={disabled ? "Already booked" : "Select"}
                             type="button"
+                            style={{
+                              minWidth: 96,
+                              fontWeight: 800,
+                              letterSpacing: 0.2,
+                              color: active ? undefined : "rgba(255,255,255,0.96)",
+                              WebkitTextFillColor: active ? undefined : "rgba(255,255,255,0.96)",
+                              opacity: disabled ? 0.45 : 1,
+                              borderWidth: 2,
+                              borderColor: active ? undefined : "rgba(255,255,255,0.22)",
+                              background: active ? undefined : "rgba(0,0,0,0.18)",
+                            }}
                           >
                             {s.label}
                           </button>
