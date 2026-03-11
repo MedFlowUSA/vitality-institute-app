@@ -1,6 +1,6 @@
 // src/pages/ProviderIntake.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
@@ -78,7 +78,6 @@ function badgeStyle(status: string) {
 }
 
 export default function ProviderIntake() {
-  const nav = useNavigate();
   const { user, role, signOut } = useAuth();
   const [params] = useSearchParams();
 

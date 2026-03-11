@@ -4,6 +4,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
+import SystemStatusBar from "../components/SystemStatusBar";
+import InsightRibbon from "../components/InsightRibbon";
+import LocationPicker from "../components/LocationPicker";
 
 type LocationRow = { id: string; name: string };
 type ServiceRow = { id: string; name: string; location_id: string };
@@ -33,7 +36,7 @@ type ProviderCounts = {
 };
 
 export default function ProviderHome() {
-  const { user, role, signOut } = useAuth();
+  const { user, role, signOut, activeLocationId } = useAuth();
   const navigate = useNavigate();
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
@@ -55,6 +58,8 @@ export default function ProviderHome() {
   const [countsLoading, setCountsLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const [startingVisitId, setStartingVisitId] = useState<string | null>(null);
+
   const isAdmin = useMemo(() => role === "super_admin" || role === "location_admin", [role]);
   const canChooseLocation = useMemo(() => isAdmin, [isAdmin]);
 
@@ -71,12 +76,33 @@ export default function ProviderHome() {
   const fmt = (iso: string) => new Date(iso).toLocaleString();
 
   const didInit = useRef(false);
+  const effectiveLocationId = activeLocationId || locationId;
 
   const getLocationScopeFilter = (query: any) => {
-    // Admins: if locationId empty => all locations. If set => filter.
-    // Non-admins: locationId should be set to allowed location by loadBase; filter to it.
-    if (locationId) return query.eq("location_id", locationId);
+    if (effectiveLocationId) return query.eq("location_id", effectiveLocationId);
     return query;
+  };
+
+  const resolvePatientRecordId = async (candidateId: string) => {
+    if (!candidateId) throw new Error("Missing patient id.");
+
+    const { data: byId, error: byIdErr } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("id", candidateId)
+      .maybeSingle();
+    if (byIdErr) throw byIdErr;
+    if (byId?.id) return byId.id as string;
+
+    const { data: byProfile, error: byProfileErr } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("profile_id", candidateId)
+      .maybeSingle();
+    if (byProfileErr) throw byProfileErr;
+    if (byProfile?.id) return byProfile.id as string;
+
+    throw new Error("Patient record not found.");
   };
 
   const loadBase = async (uid: string) => {
@@ -205,7 +231,6 @@ export default function ProviderHome() {
       const confirmedUpcoming = (upRows ?? []).filter((a: any) => (a.status || "").toLowerCase() === "confirmed").length;
 
       // 3) Wound intake pending (submitted / needs_info)
-      // Assumes patient_intakes has location_id, service_type, status columns.
       let qWound = supabase
         .from("patient_intakes")
         .select("id,status,location_id")
@@ -260,7 +285,7 @@ export default function ProviderHome() {
     loadAppointments();
     loadCounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationId, canChooseLocation, user?.id]);
+  }, [locationId, canChooseLocation, user?.id, activeLocationId]);
 
   const refreshAll = async () => {
     await loadAppointments();
@@ -319,6 +344,51 @@ export default function ProviderHome() {
     }
 
     navigate(`/provider/chat?threadId=${threadId}`);
+  };
+
+  // ✅ NEW: Start Visit (create patient_visits row if missing, then open chart)
+  const startVisit = async (appt: ApptRow) => {
+    try {
+      setErr(null);
+      setStartingVisitId(appt.id);
+      const visitPatientId = await resolvePatientRecordId(appt.patient_id);
+
+      // 1) If visit already exists for this appointment, open it
+      const { data: existingVisit, error: evErr } = await supabase
+        .from("patient_visits")
+        .select("id")
+        .eq("appointment_id", appt.id)
+        .maybeSingle();
+
+      if (evErr) throw evErr;
+
+      if (existingVisit?.id) {
+        navigate(`/provider/patients/${visitPatientId}?visitId=${existingVisit.id}`);
+        return;
+      }
+
+      // 2) Otherwise create via RPC
+      const { data: visitId, error: rpcErr } = await supabase.rpc("start_patient_visit", {
+        p_patient: visitPatientId,
+        p_location: appt.location_id,
+        p_appointment: appt.id,
+      });
+
+      if (rpcErr) throw rpcErr;
+
+      const vid = typeof visitId === "string" ? visitId : (visitId as any)?.id;
+      if (!vid) throw new Error("Visit created but no visitId was returned.");
+
+      // 3) Navigate to patient center with visitId
+      navigate(`/provider/patients/${visitPatientId}?visitId=${vid}`);
+
+      // Optional: refresh counts/appointments
+      await refreshAll();
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to start visit.");
+    } finally {
+      setStartingVisitId(null);
+    }
   };
 
   const StatPill = ({ label, value }: { label: string; value: number | string }) => (
@@ -389,13 +459,34 @@ export default function ProviderHome() {
           secondaryCta={{ label: "Refresh", onClick: refreshAll }}
           primaryCta={{ label: "Queue", to: "/provider/queue" }}
           rightActions={
-            <button className="btn btn-ghost" onClick={signOut} type="button">
-              Sign out
-            </button>
+            <>
+              <button
+                className="btn btn-primary"
+                onClick={() => navigate("/provider/intakes")}
+                type="button"
+              >
+                Intake Queue
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/command")}>
+                Command Center
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/referrals")}>
+                Referrals
+              </button>
+              <button className="btn btn-ghost" onClick={signOut} type="button">
+                Sign out
+              </button>
+            </>
           }
           showKpis={true}
         />
 
+        <SystemStatusBar />
+
+        <div className="space" />
+        <InsightRibbon />
+        <div className="space" />
+        <LocationPicker />
         <div className="space" />
 
         <div className="card card-pad">
@@ -411,8 +502,14 @@ export default function ProviderHome() {
                 className="input"
                 value={locationId}
                 onChange={(e) => setLocationId(e.target.value)}
-                disabled={!canChooseLocation}
-                title={!canChooseLocation ? "Location is set by your access membership." : "Filter by location"}
+                disabled={!canChooseLocation || !!activeLocationId}
+                title={
+                  activeLocationId
+                    ? "Location is controlled by Active Location in the status bar."
+                    : !canChooseLocation
+                    ? "Location is set by your access membership."
+                    : "Filter by location"
+                }
               >
                 {canChooseLocation && <option value="">All Locations</option>}
                 {locations.map((l) => (
@@ -422,7 +519,11 @@ export default function ProviderHome() {
                 ))}
               </select>
               <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                {locationId ? `Viewing: ${locName(locationId)}` : canChooseLocation ? "Viewing: All Locations" : "Viewing: Assigned Location"}
+                {effectiveLocationId
+                  ? `Viewing: ${locName(effectiveLocationId)}`
+                  : canChooseLocation
+                  ? "Viewing: All Locations"
+                  : "Viewing: Assigned Location"}
               </div>
             </div>
           </div>
@@ -450,11 +551,8 @@ export default function ProviderHome() {
           <div className="space" />
 
           <div className="grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
-            <ActionCard
-              title="Provider Queue"
-              desc="Your working list of visits. Open patient center fast."
-              to="/provider/queue"
-            />
+            <ActionCard title="Command Center" desc="Today’s schedule + wound intake queue in one view." to="/provider/command" />
+            <ActionCard title="Provider Queue" desc="Your working list of visits. Open patient center fast." to="/provider/queue" />
             <ActionCard
               title="Intake Review"
               desc="Review incoming submissions and move them forward."
@@ -462,6 +560,7 @@ export default function ProviderHome() {
               badge={countsLoading ? "…" : `${counts.woundIntakesPending} pending`}
             />
             <ActionCard title="Patient Center" desc="Search patients, open their chart, notes, files." to="/provider/patients" />
+            <ActionCard title="Referrals" desc="Referral inbox with urgency + denial-risk triage." to="/provider/referrals" />
             <ActionCard title="Messages" desc="Secure threads with patients tied to appointments." to="/provider/chat" />
             <ActionCard title="Labs" desc="Review uploaded lab results & provider notes." to="/provider/labs" />
             <ActionCard title="AI Drafts" desc="Generate plans, summaries, and documentation drafts." to="/provider/ai" />
@@ -500,8 +599,7 @@ export default function ProviderHome() {
               <div className="muted" style={{ marginTop: 6 }}>
                 Review requests and update status.
                 <span className="muted" style={{ marginLeft: 10, fontSize: 12 }}>
-                  Upcoming 7 days:{" "}
-                  <strong>{countsLoading ? "…" : counts.requestedUpcoming}</strong> requested •{" "}
+                  Upcoming 7 days: <strong>{countsLoading ? "…" : counts.requestedUpcoming}</strong> requested •{" "}
                   <strong>{countsLoading ? "…" : counts.confirmedUpcoming}</strong> confirmed
                 </span>
               </div>
@@ -553,12 +651,19 @@ export default function ProviderHome() {
                           Message Patient
                         </button>
 
-                        <button
-                          className="btn btn-ghost"
-                          type="button"
-                          onClick={() => navigate(`/provider/patients/${a.patient_id}`)}
-                        >
+                        <button className="btn btn-ghost" type="button" onClick={() => navigate(`/provider/patients/${a.patient_id}`)}>
                           Open Patient
+                        </button>
+
+                        {/* ✅ NEW: Start Visit */}
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          onClick={() => startVisit(a)}
+                          disabled={startingVisitId === a.id}
+                          title="Creates (or opens) a patient visit tied to this appointment."
+                        >
+                          {startingVisitId === a.id ? "Starting…" : "Start Visit"}
                         </button>
 
                         <button className="btn btn-ghost" type="button" onClick={() => setStatus(a.id, "confirmed")}>

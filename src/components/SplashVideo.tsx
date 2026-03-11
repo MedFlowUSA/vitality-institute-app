@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 type Props = {
   show: boolean;
@@ -9,66 +9,45 @@ type Props = {
 
 export default function SplashVideo({ show, onFinish, src, maxMs = 3200 }: Props) {
   const vidRef = useRef<HTMLVideoElement | null>(null);
-  const [visible, setVisible] = useState(show);
-  const [fadeOut, setFadeOut] = useState(false);
 
   useEffect(() => {
     if (!show) return;
 
-    setVisible(true);
-    setFadeOut(false);
-
     const v = vidRef.current;
-
-    // ✅ Force reload for reliable playback across SPA navigation
     if (v) {
       try {
         v.pause();
         v.currentTime = 0;
         v.load();
-      } catch {}
+      } catch (e) {
+        console.warn("Splash video reset failed.", e);
+      }
     }
 
-    const tryPlay = async () => {
-      try {
-        await v?.play(); // muted autoplay should work broadly
-      } catch {
-        // If blocked, safety timeout still dismisses
-      }
+    const playTimer = window.setTimeout(() => {
+      void vidRef.current?.play().catch((e) => {
+        console.warn("Splash video autoplay blocked.", e);
+      });
+    }, 0);
+
+    const safetyTimer = window.setTimeout(onFinish, maxMs);
+
+    return () => {
+      window.clearTimeout(playTimer);
+      window.clearTimeout(safetyTimer);
     };
-
-    tryPlay();
-
-    const safety = window.setTimeout(() => {
-      setFadeOut(true);
-      window.setTimeout(() => {
-        setVisible(false);
-        onFinish();
-      }, 350);
-    }, maxMs);
-
-    return () => window.clearTimeout(safety);
   }, [show, onFinish, maxMs, src]);
 
-  if (!visible) return null;
+  if (!show) return null;
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex items-center justify-center transition-opacity duration-500 ${
-        fadeOut ? "opacity-0" : "opacity-100"
-      }`}
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
       style={{ backgroundColor: "#F8F9FC" }}
-      onClick={() => {
-        // Optional: tap anywhere to skip
-        setFadeOut(true);
-        window.setTimeout(() => {
-          setVisible(false);
-          onFinish();
-        }, 200);
-      }}
+      onClick={onFinish}
     >
       <video
-        key={src} // ✅ remount if src changes (dev cache-busting)
+        key={src}
         ref={vidRef}
         src={src}
         autoPlay
@@ -76,21 +55,8 @@ export default function SplashVideo({ show, onFinish, src, maxMs = 3200 }: Props
         playsInline
         preload="auto"
         crossOrigin="anonymous"
-        onEnded={() => {
-          setFadeOut(true);
-          window.setTimeout(() => {
-            setVisible(false);
-            onFinish();
-          }, 350);
-        }}
-        onError={() => {
-          // ✅ never block the app if video fails
-          setFadeOut(true);
-          window.setTimeout(() => {
-            setVisible(false);
-            onFinish();
-          }, 200);
-        }}
+        onEnded={onFinish}
+        onError={onFinish}
         style={{
           width: "min(520px, 92vw)",
           height: "auto",

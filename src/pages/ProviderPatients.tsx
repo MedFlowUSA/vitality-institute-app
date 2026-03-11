@@ -6,6 +6,11 @@ import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 
 type LocationRow = { id: string; name: string };
+type MembershipRow = {
+  patient_id: string;
+  created_at: string | null;
+  location_id: string;
+};
 
 type PatientRow = {
   id: string; // patient uuid
@@ -16,7 +21,7 @@ type PatientRow = {
 };
 
 export default function ProviderPatients() {
-  const { user, role, signOut } = useAuth();
+  const { user, role, signOut, activeLocationId } = useAuth();
   const nav = useNavigate();
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
@@ -66,18 +71,16 @@ export default function ProviderPatients() {
     setLoading(true);
 
     try {
-      /**
-       * EXPECTATION:
-       * patient_location_memberships has at least:
-       * patient_id, first_name, last_name, phone, created_at, location_id
-       */
+      // 1) Read scoped memberships from the view
       let query = supabase
-        .from("patient_location_memberships")
-        .select("patient_id, first_name, last_name, phone, created_at, location_id")
+        .from("v_patient_location_memberships")
+        .select("patient_id, created_at, location_id")
         .order("created_at", { ascending: false })
         .limit(250);
 
-      if (isAdmin) {
+      if (activeLocationId) {
+        query = query.eq("location_id", activeLocationId);
+      } else if (isAdmin) {
         if (locationId) query = query.eq("location_id", locationId);
       } else {
         if (allowedLocationIds.length === 0) {
@@ -88,32 +91,55 @@ export default function ProviderPatients() {
         if (locationId) query = query.eq("location_id", locationId);
       }
 
-      if (q.trim()) {
-        const t = q.trim();
-        query = query.or(`first_name.ilike.%${t}%,last_name.ilike.%${t}%,phone.ilike.%${t}%`);
-      }
-
       const { data, error } = await query;
       if (error) throw error;
 
-      // de-dupe by patient_id
-      const map = new Map<string, PatientRow>();
-      for (const r of data ?? []) {
-        const pid = (r as any).patient_id as string;
-        if (!pid) continue;
+      const membershipRows = (data as MembershipRow[]) ?? [];
 
-        if (!map.has(pid)) {
-          map.set(pid, {
-            id: pid,
-            first_name: (r as any).first_name ?? null,
-            last_name: (r as any).last_name ?? null,
-            phone: (r as any).phone ?? null,
-            created_at: (r as any).created_at ?? new Date().toISOString(),
-          });
-        }
+      // De-dupe memberships by patient_id while preserving newest-first ordering.
+      const membershipByPatient = new Map<string, MembershipRow>();
+      for (const r of membershipRows) {
+        const pid = r.patient_id;
+        if (!pid) continue;
+        if (!membershipByPatient.has(pid)) membershipByPatient.set(pid, r);
       }
 
-      setPatients(Array.from(map.values()));
+      const patientIds = Array.from(membershipByPatient.keys());
+      if (patientIds.length === 0) {
+        setPatients([]);
+        return;
+      }
+
+      // 2) Fetch patient demographics from patients table (source of first/last/phone).
+      let pQuery = supabase.from("patients").select("id,first_name,last_name,phone").in("id", patientIds);
+      if (q.trim()) {
+        const t = q.trim();
+        pQuery = pQuery.or(`first_name.ilike.%${t}%,last_name.ilike.%${t}%,phone.ilike.%${t}%`);
+      }
+
+      const { data: patientData, error: patientErr } = await pQuery;
+      if (patientErr) throw patientErr;
+
+      const patientRows = (patientData ?? []) as Array<{
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+        phone: string | null;
+      }>;
+
+      const out: PatientRow[] = [];
+      for (const p of patientRows) {
+        const m = membershipByPatient.get(p.id);
+        out.push({
+          id: p.id,
+          first_name: p.first_name ?? null,
+          last_name: p.last_name ?? null,
+          phone: p.phone ?? null,
+          created_at: m?.created_at ?? new Date().toISOString(),
+        });
+      }
+      out.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+      setPatients(out);
     } catch (e: any) {
       setErr(e?.message ?? "Failed to load patients.");
       setPatients([]);
@@ -138,13 +164,17 @@ export default function ProviderPatients() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAdmin]);
 
+  useEffect(() => {
+    if (activeLocationId) setLocationId(activeLocationId);
+  }, [activeLocationId]);
+
   // Load directory once base is ready + when location access changes (keeps it feeling “alive”)
   useEffect(() => {
     if (loadingBase) return;
     if (!isAdmin && allowedLocationIds.length === 0) return;
     loadPatients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadingBase, locationId, allowedLocationIds.join(","), isAdmin]);
+  }, [loadingBase, locationId, allowedLocationIds.join(","), isAdmin, activeLocationId]);
 
   return (
     <div className="app-bg">
@@ -271,6 +301,10 @@ export default function ProviderPatients() {
                         {/* ✅ FIXED ROUTE: matches App.tsx /provider/patients/:patientId */}
                         <button className="btn btn-primary" type="button" onClick={() => nav(`/provider/patients/${p.id}`)}>
                           Open Patient
+                        </button>
+
+                        <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/visit-builder/${p.id}`)}>
+                          New Visit
                         </button>
 
                         <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/intake`)}>

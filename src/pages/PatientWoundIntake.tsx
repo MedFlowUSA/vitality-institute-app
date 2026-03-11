@@ -1,4 +1,4 @@
-// src/pages/PatientWoundIntake.tsx
+﻿// src/pages/PatientWoundIntake.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -121,11 +121,11 @@ export default function PatientWoundIntake() {
   }, [user?.id]);
 
   async function handleUpload(file: File, category: string) {
-    if (!patient || !location) return;
+    if (!patient || !location || !user?.id) return;
     setUploadError(null);
 
     try {
-      const res = (await uploadPatientFile({
+      const inserted = (await uploadPatientFile({
         patientId: patient.id,
         locationId: location.id,
         visitId: null,
@@ -133,14 +133,14 @@ export default function PatientWoundIntake() {
         file,
       })) as { bucket: string; path: string; filename: string };
 
-      const signedUrl = await getSignedUrl(res.bucket, res.path);
+      const signedUrl = await getSignedUrl(inserted.bucket, inserted.path);
 
       setUploads((prev) => [
         ...prev,
         {
-          filename: res.filename,
-          path: res.path,
-          bucket: res.bucket,
+          filename: inserted.filename,
+          path: inserted.path,
+          bucket: inserted.bucket,
           category,
           signedUrl,
         },
@@ -150,7 +150,6 @@ export default function PatientWoundIntake() {
       setUploadError(e?.message || "Upload failed.");
     }
   }
-
   async function submitIntake() {
     if (!patient || !location) return;
 
@@ -223,7 +222,7 @@ export default function PatientWoundIntake() {
       <div className="p-6">
         <VitalityHero
           title="We received your information"
-          subtitle="Next steps: our clinical team will review your wound care intake. If we need anything else, we’ll notify you inside your portal."
+          subtitle="Next steps: our clinical team will review your wound care intake. If we need anything else, weâ€™ll notify you inside your portal."
         />
         <div className="max-w-3xl mx-auto mt-6 bg-white/70 rounded-xl p-5 border">
           <div className="text-sm opacity-80">
@@ -288,7 +287,7 @@ export default function PatientWoundIntake() {
 
           <div className="grid md:grid-cols-3 gap-4">
             <label className="form-control">
-              <span className="label-text">Pain level (0–10)</span>
+              <span className="label-text">Pain level (0â€“10)</span>
               <input
                 type="number"
                 min={0}
@@ -334,41 +333,48 @@ export default function PatientWoundIntake() {
 
           {uploadError ? <div className="alert alert-error">{uploadError}</div> : null}
 
-          <div className="grid md:grid-cols-3 gap-4">
-            <div>
-              <div className="text-sm font-medium mb-2">Photo ID</div>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleUpload(f, "id");
-                }}
-              />
-            </div>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => e.preventDefault()}
+          >
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <div className="text-sm font-medium mb-2">Photo ID</div>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleUpload(f, "id");
+                  }}
+                />
+              </div>
 
-            <div>
-              <div className="text-sm font-medium mb-2">Insurance Card</div>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleUpload(f, "insurance");
-                }}
-              />
-            </div>
+              <div>
+                <div className="text-sm font-medium mb-2">Insurance Card</div>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleUpload(f, "insurance");
+                  }}
+                />
+              </div>
 
-            <div>
-              <div className="text-sm font-medium mb-2">Wound Photos</div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleUpload(f, "wound_photo");
-                }}
-              />
+              <div>
+                <div className="text-sm font-medium mb-2">Wound Photos</div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    files.forEach((f) => handleUpload(f, "wound_photo"));
+                    e.currentTarget.value = "";
+                  }}
+                />
+              </div>
             </div>
           </div>
 
@@ -444,3 +450,5 @@ export default function PatientWoundIntake() {
     </div>
   );
 }
+
+

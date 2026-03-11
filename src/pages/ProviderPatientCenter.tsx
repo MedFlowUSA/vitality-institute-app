@@ -1,10 +1,22 @@
+// src/pages/ProviderPatientCenter.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import VitalityHero from "../components/VitalityHero";
+import SystemStatusBar from "../components/SystemStatusBar";
+import InsightRibbon from "../components/InsightRibbon";
 import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
+import { auditWrite } from "../lib/audit";
+
+import SoapNotePanel from "../components/SoapNotePanel";
 import TreatmentPlanSection from "../components/provider/TreatmentPlanSection";
+import VisitTimelinePanel from "../components/VisitTimelinePanel";
+import WoundPhotosPanel from "../components/provider/WoundPhotosPanel";
+import WoundAssessmentPanel from "../components/provider/WoundAssessmentPanel";
+import WoundHealingCurvePanel from "../components/provider/WoundHealingCurvePanel";
+import IVRPacketPanel from "../components/provider/IVRPacketPanel";
+import ChargeCapturePanel from "../components/provider/ChargeCapturePanel";
 
 type VisitRow = {
   id: string;
@@ -15,6 +27,22 @@ type VisitRow = {
   status: string | null;
   summary: string | null;
   created_at: string;
+};
+
+// If your view exists, we prefer this
+type VisitTimelineRow = {
+  visit_id: string;
+  patient_id: string;
+  location_id: string;
+  visit_date: string;
+  visit_status: string | null;
+  summary: string | null;
+
+  soap_id: string | null;
+  is_signed: boolean | null;
+  is_locked: boolean | null;
+  signed_at: string | null;
+  soap_created_at: string | null;
 };
 
 type FileRow = {
@@ -39,7 +67,7 @@ type NoteRow = {
   patient_id: string;
   location_id: string;
   visit_id: string | null;
-  note_type: string | null; // clinical/admin/billing etc
+  note_type: string | null;
   body: string;
   created_at: string;
   created_by: string;
@@ -79,30 +107,6 @@ type AlertRow = {
   created_at: string;
 };
 
-type SoapRow = {
-  id: string;
-  patient_id: string;
-  location_id: string;
-  visit_id: string;
-  subjective: string | null;
-  objective: string | null;
-  assessment: string | null;
-  plan: string | null;
-  status: string | null;
-  locked: boolean;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string | null;
-  signed_by: string | null;
-  signed_at: string | null;
-};
-
-type ProfileMini = {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-};
-
 type LabRow = {
   id: string;
   patient_id: string;
@@ -118,20 +122,27 @@ type LabRow = {
   updated_at: string;
 };
 
-type PatientTab = "overview" | "soap" | "plan" | "labs" | "notes" | "files";
+type PatientTab = "overview" | "wound" | "soap" | "plan" | "labs" | "notes" | "files" | "photos" | "ivr" | "charges";
 
 export default function ProviderPatientCenter() {
   const { user, role, signOut } = useAuth();
   const nav = useNavigate();
-  const params = useParams<{ patientId: string }>();
-  const patientId = params.patientId ?? "";
+  const params = useParams<{ patientId?: string; visitId?: string }>();
+  const patientIdFromRoute = params.patientId ?? "";
+  const visitIdFromRoute = params.visitId ?? "";
+  const [resolvedPatientId, setResolvedPatientId] = useState<string>(patientIdFromRoute);
+  const patientId = resolvedPatientId || patientIdFromRoute;
 
   const [tab, setTab] = useState<PatientTab>("overview");
 
-  const [visits, setVisits] = useState<VisitRow[]>([]);
+  // Timeline (prefer v_patient_visit_timeline; fallback to patient_visits)
+  const [timeline, setTimeline] = useState<VisitTimelineRow[]>([]);
+  const [visitsFallback, setVisitsFallback] = useState<VisitRow[]>([]);
+  const [activeVisitId, setActiveVisitId] = useState<string>("");
+
   const [files, setFiles] = useState<FileRow[]>([]);
   const [notes, setNotes] = useState<NoteRow[]>([]);
-  const [activeVisitId, setActiveVisitId] = useState<string>("");
+  const [labs, setLabs] = useState<LabRow[]>([]);
 
   const [demo, setDemo] = useState<DemoRow | null>(null);
   const [insurance, setInsurance] = useState<InsuranceRow | null>(null);
@@ -140,31 +151,17 @@ export default function ProviderPatientCenter() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
+  // NOTES (create)
   const [noteBody, setNoteBody] = useState("");
   const [noteType, setNoteType] = useState<"clinical" | "admin" | "billing">("clinical");
   const [savingNote, setSavingNote] = useState(false);
 
+  // FILES (upload)
   const [uploading, setUploading] = useState(false);
   const [fileNotes, setFileNotes] = useState("");
   const [pickedFile, setPickedFile] = useState<File | null>(null);
 
-  // SOAP
-  const [soap, setSoap] = useState<SoapRow | null>(null);
-  const [soapDraft, setSoapDraft] = useState({
-    subjective: "",
-    objective: "",
-    assessment: "",
-    plan: "",
-  });
-  const [soapLoading, setSoapLoading] = useState(false);
-  const [soapSaving, setSoapSaving] = useState(false);
-  const [soapSigning, setSoapSigning] = useState(false);
-
-  // Profiles mini cache
-  const [profileMap, setProfileMap] = useState<Record<string, ProfileMini>>({});
-
-  // LABS
-  const [labs, setLabs] = useState<LabRow[]>([]);
+  // LABS (create)
   const [labName, setLabName] = useState("");
   const [labStatus, setLabStatus] = useState<"ordered" | "collected" | "resulted" | "reviewed" | "cancelled">(
     "ordered"
@@ -172,15 +169,15 @@ export default function ProviderPatientCenter() {
   const [labSaving, setLabSaving] = useState(false);
   const [labUpdatingId, setLabUpdatingId] = useState<string | null>(null);
 
-  // LABS v2 (per-row upload + per-row summary draft)
+  // LABS v2 (per-row upload + summary)
   const [labPickedFiles, setLabPickedFiles] = useState<Record<string, File | null>>({});
   const [labUploadingId, setLabUploadingId] = useState<string | null>(null);
   const [labSummaryDrafts, setLabSummaryDrafts] = useState<Record<string, string>>({});
-  const [labAttachId, setLabAttachId] = useState<string | null>(null);
+  const [labBusyId, setLabBusyId] = useState<string | null>(null);
 
-  // Helpers
+  const authNotReady = !role;
+
   const fmt = (iso: string) => new Date(iso).toLocaleString();
-  const isStaff = useMemo(() => role !== "patient", [role]);
 
   const calcAge = (dob?: string | null) => {
     if (!dob) return null;
@@ -190,8 +187,6 @@ export default function ProviderPatientCenter() {
     const ageDt = new Date(diff);
     return Math.abs(ageDt.getUTCFullYear() - 1970);
   };
-
-  const age = calcAge(demo?.dob);
 
   const fmtDob = (dob?: string | null) => {
     if (!dob) return "—";
@@ -254,27 +249,71 @@ export default function ProviderPatientCenter() {
     return map;
   }, [labs]);
 
-  const activeVisit = visits.find((v) => v.id === activeVisitId) ?? null;
+  const activeTimelineVisit = timeline.find((t) => t.visit_id === activeVisitId) ?? null;
+  const activeVisitFallback = visitsFallback.find((v) => v.id === activeVisitId) ?? null;
 
-  const loadProfilesMini = async (ids: Array<string | null | undefined>) => {
-    const uniq = Array.from(new Set(ids.filter(Boolean) as string[])).filter((id) => !profileMap[id]);
-    if (uniq.length === 0) return;
-
-    const { data, error } = await supabase.from("profiles").select("id,full_name,email").in("id", uniq);
-    if (error) {
-      console.error("profiles mini load error:", error);
-      return;
+  const activeVisit = useMemo(() => {
+    if (activeTimelineVisit) {
+      return {
+        id: activeTimelineVisit.visit_id,
+        patient_id: activeTimelineVisit.patient_id,
+        location_id: activeTimelineVisit.location_id,
+        visit_date: activeTimelineVisit.visit_date,
+        status: activeTimelineVisit.visit_status,
+        summary: activeTimelineVisit.summary,
+      };
     }
+    if (activeVisitFallback) {
+      return {
+        id: activeVisitFallback.id,
+        patient_id: activeVisitFallback.patient_id,
+        location_id: activeVisitFallback.location_id,
+        visit_date: activeVisitFallback.visit_date,
+        status: activeVisitFallback.status,
+        summary: activeVisitFallback.summary,
+      };
+    }
+    return null;
+  }, [activeTimelineVisit, activeVisitFallback]);
 
-    const next: Record<string, ProfileMini> = {};
-    for (const p of (data as ProfileMini[]) ?? []) next[p.id] = p;
-    setProfileMap((prev) => ({ ...prev, ...next }));
-  };
+  const locationId = activeVisit?.location_id ?? timeline[0]?.location_id ?? visitsFallback[0]?.location_id ?? "";
 
-  const displayName = (id?: string | null) => {
-    if (!id) return "—";
-    const p = profileMap[id];
-    return p?.full_name?.trim() || p?.email?.trim() || id.slice(0, 8);
+  const snapshot = useMemo(() => {
+    const vid = activeVisitId || "general";
+    const vLabs = labsByVisit.get(vid) ?? [];
+    const vNotes = notesByVisit.get(vid) ?? [];
+    const vFiles = filesByVisit.get(vid) ?? [];
+
+    const tl = timeline.find((x) => x.visit_id === activeVisitId) ?? null;
+    const soapVal = !activeVisitId
+      ? "—"
+      : tl?.soap_id
+      ? tl.is_locked || tl.is_signed
+        ? "Signed"
+        : "Draft"
+      : "None";
+
+    return {
+      soap: soapVal,
+      labs: vLabs.length,
+      notes: vNotes.length,
+      files: vFiles.length,
+    };
+  }, [activeVisitId, timeline, labsByVisit, notesByVisit, filesByVisit]);
+
+  const TabButton = ({ id, label }: { id: PatientTab; label: string }) => {
+    const active = tab === id;
+    return (
+      <button
+        type="button"
+        className={active ? "btn btn-primary" : "btn btn-ghost"}
+        onClick={() => setTab(id)}
+        disabled={!activeVisitId && id !== "overview"}
+        title={!activeVisitId && id !== "overview" ? "Select a visit first" : undefined}
+      >
+        {label}
+      </button>
+    );
   };
 
   const loadAll = async (opts?: { setDefaultActiveVisit?: boolean }) => {
@@ -283,6 +322,7 @@ export default function ProviderPatientCenter() {
     setLoading(true);
 
     try {
+      // DEMO
       const { data: d, error: dErr } = await supabase
         .from("patient_demographics")
         .select("patient_id,dob,sex,email,phone,address_line1,address_line2,city,state,zip")
@@ -291,6 +331,7 @@ export default function ProviderPatientCenter() {
       if (dErr) throw dErr;
       setDemo((d as DemoRow) ?? null);
 
+      // INSURANCE
       const { data: ins, error: insErr } = await supabase
         .from("patient_insurance")
         .select("id,patient_id,payer_name,member_id,group_id,plan_name,is_primary,created_at")
@@ -301,6 +342,7 @@ export default function ProviderPatientCenter() {
       if (insErr) throw insErr;
       setInsurance((ins?.[0] as InsuranceRow) ?? null);
 
+      // ALERTS
       const { data: al, error: alErr } = await supabase
         .from("patient_alerts")
         .select("id,patient_id,alert_type,label,severity,is_active,created_at")
@@ -310,20 +352,48 @@ export default function ProviderPatientCenter() {
       if (alErr) throw alErr;
       setAlerts((al as AlertRow[]) ?? []);
 
-      const { data: v, error: vErr } = await supabase
-        .from("patient_visits")
-        .select("id,patient_id,location_id,appointment_id,visit_date,status,summary,created_at")
+      // TIMELINE (preferred)
+      let timelineRows: VisitTimelineRow[] = [];
+      let hasTimelineView = true;
+
+      const { data: tl, error: tlErr } = await supabase
+        .from("v_patient_visit_timeline")
+        .select(
+          "visit_id,patient_id,location_id,visit_date,visit_status,summary,soap_id,is_signed,is_locked,signed_at,soap_created_at"
+        )
         .eq("patient_id", patientId)
         .order("visit_date", { ascending: false });
-      if (vErr) throw vErr;
 
-      const visitRows = (v as VisitRow[]) ?? [];
-      setVisits(visitRows);
+      if (tlErr) {
+        // View missing or column mismatch — fall back to patient_visits
+        hasTimelineView = false;
+        setTimeline([]);
+        console.warn("v_patient_visit_timeline not available, falling back to patient_visits:", tlErr.message);
 
-      if (opts?.setDefaultActiveVisit && visitRows.length > 0) {
-        setActiveVisitId(visitRows[0].id);
+        const { data: v, error: vErr } = await supabase
+          .from("patient_visits")
+          .select("id,patient_id,location_id,appointment_id,visit_date,status,summary,created_at")
+          .eq("patient_id", patientId)
+          .order("visit_date", { ascending: false });
+
+        if (vErr) throw vErr;
+        const visitRows = (v as VisitRow[]) ?? [];
+        setVisitsFallback(visitRows);
+
+        if (opts?.setDefaultActiveVisit && !activeVisitId && visitRows.length > 0) {
+          setActiveVisitId(visitRows[0].id);
+        }
+      } else {
+        timelineRows = (tl as VisitTimelineRow[]) ?? [];
+        setTimeline(timelineRows);
+        setVisitsFallback([]); // we don’t need fallback if view works
+
+        if (opts?.setDefaultActiveVisit && !activeVisitId && timelineRows.length > 0) {
+          setActiveVisitId(timelineRows[0].visit_id);
+        }
       }
 
+      // FILES
       const { data: f, error: fErr } = await supabase
         .from("patient_files")
         .select(
@@ -334,6 +404,7 @@ export default function ProviderPatientCenter() {
       if (fErr) throw fErr;
       setFiles((f as FileRow[]) ?? []);
 
+      // NOTES
       const { data: n, error: nErr } = await supabase
         .from("patient_visit_notes")
         .select("id,patient_id,location_id,visit_id,note_type,body,created_at,created_by")
@@ -342,6 +413,7 @@ export default function ProviderPatientCenter() {
       if (nErr) throw nErr;
       setNotes((n as NoteRow[]) ?? []);
 
+      // LABS
       const { data: l, error: lErr } = await supabase
         .from("patient_labs")
         .select(
@@ -350,14 +422,21 @@ export default function ProviderPatientCenter() {
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false });
       if (lErr) throw lErr;
+
       const labRows = (l as LabRow[]) ?? [];
       setLabs(labRows);
 
+      // seed drafts once
       const seeded: Record<string, string> = {};
       for (const r of labRows) {
         if (r.result_summary && !seeded[r.id]) seeded[r.id] = r.result_summary;
       }
       setLabSummaryDrafts((prev) => ({ ...seeded, ...prev }));
+
+      // if timeline view exists and is empty, still keep a clean state
+      if (hasTimelineView && timelineRows.length === 0) {
+        // leave activeVisitId as-is
+      }
     } catch (e: any) {
       setErr(e?.message ?? "Failed to load patient center.");
     } finally {
@@ -365,70 +444,69 @@ export default function ProviderPatientCenter() {
     }
   };
 
-  // Initial load
+  useEffect(() => {
+    setResolvedPatientId(patientIdFromRoute);
+  }, [patientIdFromRoute]);
+
+  useEffect(() => {
+    if (!visitIdFromRoute) return;
+
+    let cancelled = false;
+
+    (async () => {
+      const { data: visit, error: vErr } = await supabase
+        .from("patient_visits")
+        .select("id,patient_id,location_id,appointment_id,visit_date,status")
+        .eq("id", visitIdFromRoute)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (vErr) {
+        setErr(vErr.message);
+        return;
+      }
+
+      if (!visit?.id || !visit.patient_id) {
+        setErr("Visit not found.");
+        return;
+      }
+
+      setResolvedPatientId(visit.patient_id);
+      setActiveVisitId(visit.id);
+
+      await auditWrite({
+        event_type: "visit_opened",
+        location_id: visit.location_id,
+        patient_id: visit.patient_id,
+        visit_id: visit.id,
+        entity_type: "patient_visits",
+        entity_id: visit.id,
+        metadata: { route_visit_id: visitIdFromRoute },
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visitIdFromRoute]);
+
   useEffect(() => {
     if (!patientId) return;
     loadAll({ setDefaultActiveVisit: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId]);
 
-  // SOAP load for selected visit
-  useEffect(() => {
-    const loadSoap = async () => {
-      if (!activeVisitId) {
-        setSoap(null);
-        setSoapDraft({ subjective: "", objective: "", assessment: "", plan: "" });
-        return;
-      }
-
-      setSoapLoading(true);
-
-      const { data, error } = await supabase
-        .from("patient_soap_notes")
-        .select(
-          "id,patient_id,location_id,visit_id,subjective,objective,assessment,plan,status,locked,created_by,created_at,updated_at,signed_by,signed_at"
-        )
-        .eq("visit_id", activeVisitId)
-        .maybeSingle();
-
-      setSoapLoading(false);
-
-      if (error) {
-        console.error("SOAP load error:", error);
-        setSoap(null);
-        return;
-      }
-
-      const row = (data as SoapRow) ?? null;
-      setSoap(row);
-      setSoapDraft({
-        subjective: row?.subjective ?? "",
-        objective: row?.objective ?? "",
-        assessment: row?.assessment ?? "",
-        plan: row?.plan ?? "",
-      });
-    };
-
-    loadSoap();
-  }, [activeVisitId]);
-
-  useEffect(() => {
-    loadProfilesMini([soap?.created_by, soap?.signed_by]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [soap?.id, soap?.created_by, soap?.signed_by]);
-
-  const soapLocked = !!soap?.locked;
-  const soapHasChanges =
-    (soapDraft.subjective ?? "") !== (soap?.subjective ?? "") ||
-    (soapDraft.objective ?? "") !== (soap?.objective ?? "") ||
-    (soapDraft.assessment ?? "") !== (soap?.assessment ?? "") ||
-    (soapDraft.plan ?? "") !== (soap?.plan ?? "");
-
   const createVisit = async () => {
     if (!patientId) return;
     setErr(null);
 
-    const fallbackLocationId = visits[0]?.location_id ?? null;
+    const fallbackLocationId =
+      locationId ||
+      timeline[0]?.location_id ||
+      visitsFallback[0]?.location_id ||
+      null;
+
     if (!fallbackLocationId) {
       setErr("No location found for this patient yet. Create a visit from an appointment or set a location.");
       return;
@@ -450,20 +528,24 @@ export default function ProviderPatientCenter() {
 
     if (error) return setErr(error.message);
 
-    const newVisit = data as VisitRow;
-    setVisits((prev) => [newVisit, ...prev]);
-    setActiveVisitId(newVisit.id);
-    setTab("overview");
+    // Reload so timeline view picks up the new visit (and any soap joins)
+    await loadAll({ setDefaultActiveVisit: false });
+
+    const newVisitId = (data as VisitRow | null)?.id ?? null;
+    if (newVisitId) {
+      setActiveVisitId(newVisitId);
+      setTab("overview");
+    }
   };
 
   const addNote = async () => {
     if (!user) return setErr("You must be signed in.");
     if (!patientId) return;
     if (!noteBody.trim()) return;
+    if (!activeVisitId) return setErr("Select a visit first.");
 
-    const visit = activeVisitId ? visits.find((v) => v.id === activeVisitId) : null;
-    const locationId = visit?.location_id ?? visits[0]?.location_id ?? null;
-    if (!locationId) return setErr("Missing location for note.");
+    const locId = activeVisit?.location_id ?? locationId ?? null;
+    if (!locId) return setErr("Missing location for note.");
 
     setSavingNote(true);
     setErr(null);
@@ -471,8 +553,8 @@ export default function ProviderPatientCenter() {
     const { error } = await supabase.from("patient_visit_notes").insert([
       {
         patient_id: patientId,
-        location_id: locationId,
-        visit_id: activeVisitId || null,
+        location_id: locId,
+        visit_id: activeVisitId,
         note_type: noteType,
         body: noteBody.trim(),
         created_by: user.id,
@@ -482,6 +564,15 @@ export default function ProviderPatientCenter() {
     setSavingNote(false);
     if (error) return setErr(error.message);
 
+    await auditWrite({
+      event_type: "note_created",
+      location_id: locId,
+      patient_id: patientId,
+      visit_id: activeVisitId,
+      entity_type: "patient_visit_notes",
+      metadata: { note_type: noteType },
+    });
+
     setNoteBody("");
     await loadAll();
   };
@@ -489,6 +580,15 @@ export default function ProviderPatientCenter() {
   const openFile = async (f: FileRow) => {
     try {
       const url = await getSignedUrl(f.bucket, f.path, 120);
+      await auditWrite({
+        event_type: "file_opened",
+        location_id: f.location_id,
+        patient_id: f.patient_id,
+        visit_id: f.visit_id,
+        entity_type: "patient_files",
+        entity_id: f.id,
+        metadata: { filename: f.filename, category: f.category },
+      });
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
       setErr(e?.message ?? "Failed to open file.");
@@ -499,10 +599,10 @@ export default function ProviderPatientCenter() {
     if (!user) return setErr("You must be signed in.");
     if (!pickedFile) return;
     if (!patientId) return;
+    if (!activeVisitId) return setErr("Select a visit first.");
 
-    const visit = activeVisitId ? visits.find((v) => v.id === activeVisitId) : null;
-    const locationId = visit?.location_id ?? visits[0]?.location_id ?? null;
-    if (!locationId) return setErr("Missing location for upload.");
+    const locId = activeVisit?.location_id ?? locationId ?? null;
+    if (!locId) return setErr("Missing location for upload.");
 
     setUploading(true);
     setErr(null);
@@ -510,16 +610,17 @@ export default function ProviderPatientCenter() {
     try {
       const { bucket, path } = await uploadPatientFile({
         file: pickedFile,
-        locationId,
+        locationId: locId,
         patientId,
-        visitId: activeVisitId || null,
+        visitId: activeVisitId,
+        category: "general",
       });
 
       const { error } = await supabase.from("patient_files").insert([
         {
           patient_id: patientId,
-          location_id: locationId,
-          visit_id: activeVisitId || null,
+          location_id: locId,
+          visit_id: activeVisitId,
           uploaded_by: user.id,
           bucket,
           path,
@@ -544,119 +645,15 @@ export default function ProviderPatientCenter() {
     }
   };
 
-  const saveSoap = async () => {
-    if (!user) return setErr("You must be signed in.");
-    if (!patientId) return;
-    if (!activeVisitId) return setErr("Select a visit first.");
-    if (!activeVisit?.location_id) return setErr("Missing location for this visit.");
-    if (soapLocked) return setErr("This SOAP note is signed/locked.");
-
-    setSoapSaving(true);
-    setErr(null);
-
-    try {
-      const { data, error } = await supabase
-        .from("patient_soap_notes")
-        .upsert(
-          [
-            {
-              ...(soap?.id ? { id: soap.id } : {}),
-              patient_id: patientId,
-              location_id: activeVisit.location_id,
-              visit_id: activeVisitId,
-              subjective: soapDraft.subjective.trim() || null,
-              objective: soapDraft.objective.trim() || null,
-              assessment: soapDraft.assessment.trim() || null,
-              plan: soapDraft.plan.trim() || null,
-              status: soap?.status ?? "draft",
-              locked: false,
-              created_by: soap?.created_by ?? user.id,
-            },
-          ],
-          { onConflict: "visit_id" }
-        )
-        .select(
-          "id,patient_id,location_id,visit_id,subjective,objective,assessment,plan,status,locked,created_by,created_at,updated_at,signed_by,signed_at"
-        )
-        .maybeSingle();
-
-      if (error) throw error;
-      setSoap((data as SoapRow) ?? null);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to save SOAP.");
-    } finally {
-      setSoapSaving(false);
-    }
-  };
-
-  const signSoap = async () => {
-    if (!user) return setErr("You must be signed in.");
-    if (!patientId) return;
-    if (!activeVisitId) return setErr("Select a visit first.");
-    if (!activeVisit?.location_id) return setErr("Missing location for this visit.");
-    if (soapLocked) return;
-
-    setSoapSigning(true);
-    setErr(null);
-
-    try {
-      if (!soap?.id) await saveSoap();
-
-      let target = soap;
-      if (!target?.id) {
-        const { data, error } = await supabase
-          .from("patient_soap_notes")
-          .select(
-            "id,patient_id,location_id,visit_id,subjective,objective,assessment,plan,status,locked,created_by,created_at,updated_at,signed_by,signed_at"
-          )
-          .eq("visit_id", activeVisitId)
-          .maybeSingle();
-        if (error) throw error;
-        target = (data as SoapRow) ?? null;
-      }
-
-      if (!target?.id) throw new Error("Could not find SOAP note to sign.");
-
-      const { data: signed, error: sErr } = await supabase
-        .from("patient_soap_notes")
-        .update({
-          locked: true,
-          status: "signed",
-          signed_by: user.id,
-          signed_at: new Date().toISOString(),
-        })
-        .eq("id", target.id)
-        .select(
-          "id,patient_id,location_id,visit_id,subjective,objective,assessment,plan,status,locked,created_by,created_at,updated_at,signed_by,signed_at"
-        )
-        .maybeSingle();
-
-      if (sErr) throw sErr;
-      setSoap((signed as SoapRow) ?? null);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to sign SOAP.");
-    } finally {
-      setSoapSigning(false);
-    }
-  };
-
-  const resetSoapDraft = () => {
-    setSoapDraft({
-      subjective: soap?.subjective ?? "",
-      objective: soap?.objective ?? "",
-      assessment: soap?.assessment ?? "",
-      plan: soap?.plan ?? "",
-    });
-  };
-
-  // LABS actions
+  // LABS
   const createLab = async () => {
     if (!user) return setErr("You must be signed in.");
     if (!patientId) return;
-    if (!activeVisit?.location_id && !visits[0]?.location_id) return setErr("Missing location for lab order.");
+    if (!activeVisitId) return setErr("Select a visit first.");
     if (!labName.trim()) return;
 
-    const locationId = activeVisit?.location_id ?? visits[0]?.location_id;
+    const locId = activeVisit?.location_id ?? locationId ?? null;
+    if (!locId) return setErr("Missing location for lab order.");
 
     setLabSaving(true);
     setErr(null);
@@ -665,14 +662,23 @@ export default function ProviderPatientCenter() {
       const { error } = await supabase.from("patient_labs").insert([
         {
           patient_id: patientId,
-          location_id: locationId,
-          visit_id: activeVisitId || null,
+          location_id: locId,
+          visit_id: activeVisitId,
           lab_name: labName.trim(),
           status: labStatus,
           created_by: user.id,
         },
       ]);
       if (error) throw error;
+
+      await auditWrite({
+        event_type: "lab_created",
+        location_id: locId,
+        patient_id: patientId,
+        visit_id: activeVisitId,
+        entity_type: "patient_labs",
+        metadata: { lab_name: labName.trim(), status: labStatus },
+      });
 
       setLabName("");
       setLabStatus("ordered");
@@ -690,6 +696,18 @@ export default function ProviderPatientCenter() {
     try {
       const { error } = await supabase.from("patient_labs").update({ status }).eq("id", labId);
       if (error) throw error;
+      const locId = activeVisit?.location_id ?? locationId ?? null;
+      if (locId) {
+        await auditWrite({
+          event_type: "lab_status_updated",
+          location_id: locId,
+          patient_id: patientId,
+          visit_id: activeVisitId,
+          entity_type: "patient_labs",
+          entity_id: labId,
+          metadata: { status },
+        });
+      }
       await loadAll();
     } catch (e: any) {
       setErr(e?.message ?? "Failed to update lab.");
@@ -699,7 +717,7 @@ export default function ProviderPatientCenter() {
   };
 
   const attachResultFile = async (labId: string, fileId: string | null) => {
-    setLabAttachId(labId);
+    setLabBusyId(labId);
     setErr(null);
     try {
       const { error } = await supabase.from("patient_labs").update({ result_file_id: fileId }).eq("id", labId);
@@ -708,12 +726,12 @@ export default function ProviderPatientCenter() {
     } catch (e: any) {
       setErr(e?.message ?? "Failed to attach result file.");
     } finally {
-      setLabAttachId(null);
+      setLabBusyId(null);
     }
   };
 
   const saveLabSummary = async (labId: string, summary: string) => {
-    setLabAttachId(labId);
+    setLabBusyId(labId);
     setErr(null);
     try {
       const { error } = await supabase
@@ -725,7 +743,7 @@ export default function ProviderPatientCenter() {
     } catch (e: any) {
       setErr(e?.message ?? "Failed to save lab summary.");
     } finally {
-      setLabAttachId(null);
+      setLabBusyId(null);
     }
   };
 
@@ -736,12 +754,10 @@ export default function ProviderPatientCenter() {
     await openFile(f);
   };
 
-  // LABS v2: upload result file from the lab row, create patient_files row, link result_file_id
   const uploadLabResult = async (lab: LabRow) => {
     if (!user) return setErr("You must be signed in.");
     if (!patientId) return;
-    if (!lab.id) return;
-    if (!lab.location_id) return setErr("Missing location for lab.");
+    if (!activeVisitId) return setErr("Select a visit first.");
 
     const file = labPickedFiles?.[lab.id] ?? null;
     if (!file) return;
@@ -754,7 +770,8 @@ export default function ProviderPatientCenter() {
         file,
         locationId: lab.location_id,
         patientId,
-        visitId: lab.visit_id || null,
+        visitId: lab.visit_id || activeVisitId,
+        category: "lab_result",
       });
 
       const { data: inserted, error: insErr } = await supabase
@@ -763,7 +780,7 @@ export default function ProviderPatientCenter() {
           {
             patient_id: patientId,
             location_id: lab.location_id,
-            visit_id: lab.visit_id || null,
+            visit_id: lab.visit_id || activeVisitId,
             uploaded_by: user.id,
             bucket,
             path,
@@ -785,6 +802,16 @@ export default function ProviderPatientCenter() {
       const { error: linkErr } = await supabase.from("patient_labs").update({ result_file_id: fileId }).eq("id", lab.id);
       if (linkErr) throw linkErr;
 
+      await auditWrite({
+        event_type: "lab_result_uploaded",
+        location_id: lab.location_id,
+        patient_id: patientId,
+        visit_id: lab.visit_id || activeVisitId,
+        entity_type: "patient_labs",
+        entity_id: lab.id,
+        metadata: { lab_name: lab.lab_name, file_id: fileId },
+      });
+
       setLabPickedFiles((prev) => ({ ...prev, [lab.id]: null }));
       await loadAll();
     } catch (e: any) {
@@ -794,7 +821,6 @@ export default function ProviderPatientCenter() {
     }
   };
 
-  // FIX: attach list should be files for *this visit*, plus general files
   const visitFilesForAttach = useMemo(() => {
     const visitSpecific = filesByVisit.get(activeVisitId || "general") ?? [];
     const general = filesByVisit.get("general") ?? [];
@@ -803,35 +829,8 @@ export default function ProviderPatientCenter() {
     return merged.filter((x) => (seen.has(x.id) ? false : (seen.add(x.id), true)));
   }, [filesByVisit, activeVisitId]);
 
-  const authNotReady = !role;
+  const age = calcAge(demo?.dob);
 
-  const TabButton = ({ id, label }: { id: PatientTab; label: string }) => {
-    const active = tab === id;
-    return (
-      <button
-        type="button"
-        className={active ? "btn btn-primary" : "btn btn-ghost"}
-        onClick={() => setTab(id)}
-        disabled={!activeVisitId && id !== "overview"}
-        title={!activeVisitId && id !== "overview" ? "Select a visit first" : undefined}
-      >
-        {label}
-      </button>
-    );
-  };
-
-  const snapshot = useMemo(() => {
-    const vid = activeVisitId || "general";
-    const vLabs = labsByVisit.get(vid) ?? [];
-    const vNotes = notesByVisit.get(vid) ?? [];
-    const vFiles = filesByVisit.get(vid) ?? [];
-    return {
-      soap: soap?.id ? (soapLocked ? "Signed" : "Draft") : "None",
-      labs: vLabs.length,
-      notes: vNotes.length,
-      files: vFiles.length,
-    };
-  }, [activeVisitId, labsByVisit, notesByVisit, filesByVisit, soap?.id, soapLocked]);
 
   return (
     <div className="app-bg">
@@ -847,6 +846,34 @@ export default function ProviderPatientCenter() {
             </button>
           }
           showKpis={true}
+        />
+
+        <SystemStatusBar />
+        <div className="space" />
+
+        <InsightRibbon
+          title="Patient Center"
+          subtitle="High-signal snapshot for the active visit"
+          status={activeVisit ? "Visit Active" : "No Visit Selected"}
+          kpis={[
+            { label: "SOAP", value: snapshot.soap },
+            { label: "Labs", value: String(snapshot.labs) },
+            { label: "Notes", value: String(snapshot.notes) },
+            { label: "Files", value: String(snapshot.files) },
+          ]}
+          right={
+            <>
+              <button className="btn btn-ghost" type="button" onClick={() => setTab("soap")} disabled={!activeVisitId}>
+                Go SOAP
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => setTab("plan")} disabled={!activeVisitId}>
+                Go Plan
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => setTab("labs")} disabled={!activeVisitId}>
+                Go Labs
+              </button>
+            </>
+          }
         />
 
         <div className="space" />
@@ -866,12 +893,7 @@ export default function ProviderPatientCenter() {
             <div className="card card-pad">
               <div
                 className="row"
-                style={{
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  gap: 14,
-                  flexWrap: "wrap",
-                }}
+                style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}
               >
                 <div style={{ flex: "1 1 520px" }}>
                   <div className="h1">Patient</div>
@@ -914,7 +936,7 @@ export default function ProviderPatientCenter() {
                   </div>
 
                   <div className="muted" style={{ marginTop: 6 }}>
-                    Role: {role} • Staff Access: {isStaff ? "Yes" : "No"}
+                    Role: {role}
                   </div>
                 </div>
 
@@ -951,11 +973,15 @@ export default function ProviderPatientCenter() {
             <div className="card card-pad">
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                 <TabButton id="overview" label="Overview" />
+                <TabButton id="wound" label="Wound" />
                 <TabButton id="soap" label="SOAP" />
                 <TabButton id="plan" label="Plan" />
                 <TabButton id="labs" label="Labs" />
                 <TabButton id="notes" label="Notes" />
                 <TabButton id="files" label="Files" />
+                <TabButton id="photos" label="Photos" />
+                <TabButton id="ivr" label="IVR Packet" />
+                <TabButton id="charges" label="Charges" />
               </div>
               <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
                 {activeVisit ? (
@@ -986,45 +1012,15 @@ export default function ProviderPatientCenter() {
 
                     <div className="space" />
 
-                    {visits.length === 0 ? (
-                      <div className="muted">No visits yet. Create a new visit to begin.</div>
-                    ) : (
-                      visits.map((v) => {
-                        const active = v.id === activeVisitId;
-                        const visitFiles = filesByVisit.get(v.id) ?? [];
-                        const visitNotes = notesByVisit.get(v.id) ?? [];
-                        const visitLabs = labsByVisit.get(v.id) ?? [];
-
-                        return (
-                          <button
-                            key={v.id}
-                            type="button"
-                            className={active ? "btn btn-primary" : "btn btn-ghost"}
-                            style={{
-                              width: "100%",
-                              justifyContent: "space-between",
-                              marginBottom: 8,
-                              textAlign: "left",
-                            }}
-                            onClick={() => {
-                              setActiveVisitId(v.id);
-                              setTab("overview");
-                            }}
-                          >
-                            <span>
-                              <div style={{ fontWeight: 750 }}>{new Date(v.visit_date).toLocaleDateString()}</div>
-                              <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>
-                                {v.status ?? "—"} • {visitLabs.length} labs • {visitNotes.length} notes •{" "}
-                                {visitFiles.length} files
-                              </div>
-                            </span>
-                            <span className="muted" style={{ fontSize: 12 }}>
-                              {v.summary ?? ""}
-                            </span>
-                          </button>
-                        );
-                      })
-                    )}
+                    <VisitTimelinePanel
+                      patientId={patientId}
+                      locationId={locationId}
+                      activeVisitId={activeVisitId}
+                      onSelectVisit={(id) => {
+                        setActiveVisitId(id);
+                        setTab("overview");
+                      }}
+                    />
 
                     <div className="space" />
 
@@ -1054,9 +1050,7 @@ export default function ProviderPatientCenter() {
                               {fmt(f.created_at)}
                             </span>
                           </span>
-                          <span className="muted" style={{ fontSize: 12 }}>
-                            Open
-                          </span>
+                          <span className="muted" style={{ fontSize: 12 }}>Open</span>
                         </button>
                       ))
                     )}
@@ -1066,17 +1060,14 @@ export default function ProviderPatientCenter() {
                   <div className="card card-pad" style={{ flex: "2 1 620px", minWidth: 340 }}>
                     <div
                       className="row"
-                      style={{
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: 10,
-                        flexWrap: "wrap",
-                      }}
+                      style={{ justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}
                     >
                       <div>
                         <div className="h2">{activeVisit ? `Visit: ${fmt(activeVisit.visit_date)}` : "Select a visit"}</div>
                         <div className="muted" style={{ marginTop: 4 }}>
-                          {activeVisit ? `${activeVisit.status ?? "—"} • ${activeVisit.summary ?? ""}` : "Pick a visit from the timeline."}
+                          {activeVisit
+                            ? `${activeVisit.status ?? "—"} • ${activeVisit.summary ?? ""}`
+                            : "Pick a visit from the timeline."}
                         </div>
                       </div>
 
@@ -1143,6 +1134,9 @@ export default function ProviderPatientCenter() {
                           <button className="btn btn-ghost" type="button" onClick={() => setTab("files")} disabled={!activeVisitId}>
                             Go Files
                           </button>
+                          <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/wound-timeline/${patientId}`)}>
+                            Wound Timeline
+                          </button>
                         </div>
 
                         {!activeVisitId ? (
@@ -1153,102 +1147,40 @@ export default function ProviderPatientCenter() {
                       </div>
                     )}
 
-                    {/* SOAP */}
+                    {tab === "wound" && (
+                      <div className="card card-pad">
+                        {!activeVisit ? (
+                          <div className="muted">Select a visit first.</div>
+                        ) : (
+                          <>
+                            <WoundHealingCurvePanel
+                              patientId={activeVisit.patient_id}
+                              locationId={activeVisit.location_id}
+                              visitId={activeVisit.id}
+                            />
+                            <div className="space" />
+                            <WoundAssessmentPanel
+                              patientId={activeVisit.patient_id}
+                              locationId={activeVisit.location_id}
+                              visitId={activeVisit.id}
+                            />
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* SOAP (single source of truth = SoapNotePanel) */}
                     {tab === "soap" && (
                       <div className="card card-pad">
-                        <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                          <div>
-                            <div className="h2">SOAP Note</div>
-                            <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-                              {soapLoading ? (
-                                "Loading SOAP…"
-                              ) : soapLocked ? (
-                                <>
-                                  <div>
-                                    <strong>Signed/Locked</strong>
-                                    {soap?.signed_at ? ` • ${fmt(soap.signed_at)}` : ""}
-                                    {soap?.signed_by ? ` • by ${displayName(soap.signed_by)}` : ""}
-                                  </div>
-                                  <div style={{ marginTop: 4 }}>
-                                    Created by {displayName(soap?.created_by)} {soap?.created_at ? `• ${fmt(soap.created_at)}` : ""}
-                                  </div>
-                                </>
-                              ) : soap?.id ? (
-                                <>
-                                  <div>Draft • Save anytime • Sign to lock</div>
-                                  <div style={{ marginTop: 4 }}>
-                                    Created by {displayName(soap?.created_by)} {soap?.created_at ? `• ${fmt(soap.created_at)}` : ""}
-                                  </div>
-                                </>
-                              ) : (
-                                "No SOAP yet • Start writing and save"
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                            <button
-                              className="btn btn-ghost"
-                              type="button"
-                              disabled={!activeVisitId || soapLocked || soapSaving || soapLoading}
-                              onClick={resetSoapDraft}
-                            >
-                              Reset
-                            </button>
-
-                            <button
-                              className="btn btn-primary"
-                              type="button"
-                              disabled={!activeVisitId || soapLocked || soapSaving || soapLoading}
-                              onClick={saveSoap}
-                            >
-                              {soapSaving ? "Saving…" : "Save SOAP"}
-                            </button>
-
-                            <button
-                              className="btn btn-primary"
-                              type="button"
-                              disabled={!activeVisitId || soapLocked || soapSigning || soapLoading}
-                              onClick={signSoap}
-                            >
-                              {soapLocked ? "Locked" : soapSigning ? "Signing…" : "Sign & Lock"}
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="space" />
-
-                        {!soapLocked && soapHasChanges ? (
-                          <div className="muted" style={{ marginBottom: 8, fontSize: 12 }}>
-                            Unsaved changes.
-                          </div>
-                        ) : null}
-
-                        <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-                          {(["subjective", "objective", "assessment", "plan"] as const).map((k) => (
-                            <div key={k} style={{ flex: "1 1 260px", minWidth: 260 }}>
-                              <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                                {k.charAt(0).toUpperCase() + k.slice(1)}
-                              </div>
-                              <textarea
-                                className="input"
-                                style={{ width: "100%", minHeight: 110 }}
-                                value={(soapDraft as any)[k]}
-                                onChange={(e) => setSoapDraft((s) => ({ ...s, [k]: e.target.value }))}
-                                disabled={!activeVisitId || soapLocked || soapLoading}
-                                placeholder={
-                                  k === "subjective"
-                                    ? "Patient-reported symptoms, concerns, history…"
-                                    : k === "objective"
-                                    ? "Exam findings, vitals, wound measurements, labs…"
-                                    : k === "assessment"
-                                    ? "Dx, wound status, clinical impression…"
-                                    : "Treatment plan, grafts, offloading, follow-up, orders…"
-                                }
-                              />
-                            </div>
-                          ))}
-                        </div>
+                        {!activeVisit ? (
+                          <div className="muted">Select a visit first.</div>
+                        ) : (
+                          <SoapNotePanel
+                            visitId={activeVisit.id}
+                            patientId={activeVisit.patient_id}
+                            locationId={activeVisit.location_id}
+                          />
+                        )}
                       </div>
                     )}
 
@@ -1284,6 +1216,7 @@ export default function ProviderPatientCenter() {
                             value={labName}
                             onChange={(e) => setLabName(e.target.value)}
                             style={{ flex: "1 1 320px" }}
+                            disabled={!activeVisitId}
                           />
 
                           <select
@@ -1291,6 +1224,7 @@ export default function ProviderPatientCenter() {
                             value={labStatus}
                             onChange={(e) => setLabStatus(e.target.value as any)}
                             style={{ flex: "0 0 180px" }}
+                            disabled={!activeVisitId}
                           >
                             <option value="ordered">ordered</option>
                             <option value="collected">collected</option>
@@ -1377,12 +1311,7 @@ export default function ProviderPatientCenter() {
                                         {labUploadingId === l.id ? "Uploading…" : "Upload Result"}
                                       </button>
 
-                                      <button
-                                        className="btn btn-ghost"
-                                        type="button"
-                                        disabled={!l.result_file_id}
-                                        onClick={() => openLabResult(l)}
-                                      >
+                                      <button className="btn btn-ghost" type="button" disabled={!l.result_file_id} onClick={() => openLabResult(l)}>
                                         Open Result
                                       </button>
                                     </div>
@@ -1395,7 +1324,7 @@ export default function ProviderPatientCenter() {
                                       className="input"
                                       value={l.result_file_id ?? ""}
                                       onChange={(e) => attachResultFile(l.id, e.target.value ? e.target.value : null)}
-                                      disabled={labAttachId === l.id}
+                                      disabled={labBusyId === l.id}
                                       style={{ flex: "1 1 340px" }}
                                     >
                                       <option value="">Or attach an existing uploaded file…</option>
@@ -1421,7 +1350,7 @@ export default function ProviderPatientCenter() {
                                       className="btn btn-ghost"
                                       type="button"
                                       onClick={() => saveLabSummary(l.id, rowSummary)}
-                                      disabled={labAttachId === l.id || !rowSummary.trim()}
+                                      disabled={labBusyId === l.id || !rowSummary.trim()}
                                     >
                                       Save Summary
                                     </button>
@@ -1564,13 +1493,67 @@ export default function ProviderPatientCenter() {
                                     {fmt(f.created_at)} {f.notes ? `• ${f.notes}` : ""}
                                   </div>
                                 </span>
-                                <span className="muted" style={{ fontSize: 12 }}>
-                                  Open
-                                </span>
+                                <span className="muted" style={{ fontSize: 12 }}>Open</span>
                               </button>
                             ))
                           )}
                         </div>
+                      </div>
+                    )}
+
+                    {/* PHOTOS */}
+                    {tab === "photos" && (
+                      <div className="card card-pad">
+                        {!activeVisit ? (
+                          <div className="muted">Select a visit first.</div>
+                        ) : (
+                          <WoundPhotosPanel
+                            patientId={activeVisit.patient_id}
+                            locationId={activeVisit.location_id}
+                            visitId={activeVisit.id}
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {tab === "ivr" && (
+                      <div className="card card-pad">
+                        {!activeVisit ? (
+                          <div className="muted">Select a visit first.</div>
+                        ) : (
+                          <>
+                            <div className="row" style={{ justifyContent: "flex-end" }}>
+                              <button
+                                className="btn btn-ghost"
+                                type="button"
+                                onClick={() => window.open(`/provider/ivr/print/${activeVisitId}`, "_blank")}
+                                disabled={!activeVisitId}
+                              >
+                                Export PDF
+                              </button>
+                            </div>
+                            <div className="space" />
+                            <IVRPacketPanel
+                              patientId={activeVisit.patient_id}
+                              locationId={activeVisit.location_id}
+                              visitId={activeVisit.id}
+                            />
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {tab === "charges" && (
+                      <div className="card card-pad">
+                        {!activeVisit ? (
+                          <div className="muted">Select a visit first.</div>
+                        ) : (
+                          <ChargeCapturePanel
+                            patientId={activeVisit.patient_id}
+                            locationId={activeVisit.location_id}
+                            visitId={activeVisit.id}
+                          />
+                        )}
                       </div>
                     )}
                   </div>

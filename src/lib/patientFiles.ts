@@ -1,49 +1,79 @@
 // src/lib/patientFiles.ts
 import { supabase } from "./supabase";
 
-function safeName(name: string) {
-  return name.replace(/[^\w.\-]+/g, "_");
-}
-
-export function buildPatientFilePath(opts: {
-  locationId: string;
+type UploadArgs = {
   patientId: string;
-  visitId?: string | null;
-  filename: string;
-}) {
-  const clean = safeName(opts.filename);
-  const ts = Date.now();
-  const folder = opts.visitId ? opts.visitId : "general";
-  return `${opts.locationId}/${opts.patientId}/${folder}/${ts}_${clean}`;
-}
-
-export async function uploadPatientFile(opts: {
+  locationId: string;
+  visitId: string | null;
+  appointmentId?: string | null;
+  category: string;
   file: File;
-  locationId: string;
-  patientId: string;
-  visitId?: string | null;
-}) {
+};
+
+export async function uploadPatientFile(args: UploadArgs) {
+  const { patientId, locationId, visitId, appointmentId = null, category, file } = args;
+
+  if (!patientId) throw new Error("Missing patientId");
+  if (!locationId) throw new Error("Missing locationId");
+  if (!category) throw new Error("Missing category");
+  if (!file) throw new Error("Missing file");
+
   const bucket = "patient-files";
 
-  const path = buildPatientFilePath({
-    locationId: opts.locationId,
-    patientId: opts.patientId,
-    visitId: opts.visitId ?? null,
-    filename: opts.file.name,
-  });
+  // patient_files.patient_id expects auth.users.id; callers may pass patients.id.
+  let effectivePatientId = patientId;
+  const { data: patientRow } = await supabase
+    .from("patients")
+    .select("profile_id")
+    .eq("id", patientId)
+    .maybeSingle();
+  if (patientRow?.profile_id) effectivePatientId = patientRow.profile_id as string;
 
-  const { data, error } = await supabase.storage.from(bucket).upload(path, opts.file, {
+  const safeName = file.name.replace(/[^\w.-]+/g, "_");
+  const ext = safeName.includes(".") ? safeName.split(".").pop() : "";
+  const stamp = Date.now();
+  const filename = ext ? `${stamp}_${safeName}` : `${stamp}_${safeName}`;
+
+  let path = `patients/${effectivePatientId}`;
+  if (appointmentId) path += `/appointments/${appointmentId}`;
+  else if (visitId) path += `/visits/${visitId}`;
+  else path += `/misc`;
+
+  path += `/${category}/${filename}`;
+
+  const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, {
     upsert: false,
-    contentType: opts.file.type,
+    contentType: file.type || undefined,
   });
+  if (upErr) throw upErr;
 
-  if (error) throw new Error(error.message);
+  const authUser = await supabase.auth.getUser();
 
-  return { bucket, path: data.path };
+  const { data: inserted, error: insErr } = await supabase
+    .from("patient_files")
+    .insert({
+      patient_id: effectivePatientId,
+      location_id: locationId,
+      visit_id: visitId,
+      appointment_id: appointmentId,
+      uploaded_by: authUser.data.user?.id ?? null,
+      bucket,
+      path,
+      filename: file.name,
+      content_type: file.type || null,
+      size_bytes: file.size || null,
+      category,
+    })
+    .select("bucket,path,filename")
+    .maybeSingle();
+
+  if (insErr) throw insErr;
+
+  return inserted ?? { bucket, path, filename: file.name };
 }
 
-export async function getSignedUrl(bucket: string, path: string, seconds = 120) {
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, seconds);
-  if (error) throw new Error(error.message);
+export async function getSignedUrl(bucket: string, path: string, expiresInSeconds = 60 * 60) {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds);
+  if (error) throw error;
   return data.signedUrl;
 }

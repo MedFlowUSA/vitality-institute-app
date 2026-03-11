@@ -1,6 +1,7 @@
 /* =========================
    Vitality UI - Base
-   Replace the Vite starter defaults (no more centered body)
+   Clean + Darker Buttons + Slot Visibility Fix
+   Paste into src/index.css (replace file)
    ========================= */
 
 :root {
@@ -14,20 +15,34 @@
   -moz-osx-font-smoothing: grayscale;
 
   /* Vitality theme tokens */
-  --v-bg: radial-gradient(1200px 700px at 15% 10%, rgba(120, 80, 255, 0.18), transparent 55%),
-          radial-gradient(900px 600px at 85% 15%, rgba(0, 190, 255, 0.14), transparent 55%),
-          radial-gradient(1000px 800px at 40% 90%, rgba(255, 190, 60, 0.10), transparent 55%),
-          linear-gradient(180deg, #0b1020 0%, #080b14 100%);
+  --v-bg:
+    radial-gradient(1200px 700px at 15% 10%, rgba(120, 80, 255, 0.18), transparent 55%),
+    radial-gradient(900px 600px at 85% 15%, rgba(0, 190, 255, 0.14), transparent 55%),
+    radial-gradient(1000px 800px at 40% 90%, rgba(255, 190, 60, 0.10), transparent 55%),
+    linear-gradient(180deg, #0b1020 0%, #080b14 100%);
 
   --v-card: rgba(255,255,255,0.06);
   --v-card-2: rgba(255,255,255,0.08);
   --v-border: rgba(255,255,255,0.10);
   --v-border-2: rgba(255,255,255,0.14);
+
   --v-text: rgba(255,255,255,0.92);
   --v-muted: rgba(255,255,255,0.68);
   --v-muted2: rgba(255,255,255,0.55);
+
   --v-glow: 0 0 0 1px rgba(255,255,255,0.08), 0 10px 40px rgba(0,0,0,0.45);
   --v-glow-2: 0 0 0 1px rgba(255,255,255,0.10), 0 16px 60px rgba(0,0,0,0.55);
+
+  /* DARKER BUTTON TOKENS (this is the main change) */
+  --v-btn-bg: rgba(0,0,0,0.30);
+  --v-btn-bg-hover: rgba(0,0,0,0.42);
+  --v-btn-border: rgba(255,255,255,0.22);
+  --v-btn-border-hover: rgba(255,255,255,0.32);
+  --v-btn-text: rgba(255,255,255,0.94);
+
+  /* Ghost a bit darker too */
+  --v-ghost-bg: rgba(0,0,0,0.26);
+  --v-ghost-bg-hover: rgba(0,0,0,0.34);
 
   color-scheme: dark;
 }
@@ -90,45 +105,108 @@ a:hover { text-decoration: underline; }
   align-items: center;
 }
 
-/* Buttons */
+/* =========================
+   Buttons (Darker + higher contrast)
+   ========================= */
 .btn {
-  border-radius: 14px;
-  border: 1px solid var(--v-border);
-  background: rgba(255,255,255,0.06);
-  color: var(--v-text);
-  padding: 10px 14px;
-  cursor: pointer;
-  transition: transform 0.10s ease, background 0.15s ease, border-color 0.15s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  user-select: none;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1;
+  border: 1px solid var(--v-btn-border);
+  cursor: pointer;
+  transition: transform 0.06s ease, background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+
+  background: var(--v-btn-bg);
+  color: var(--v-btn-text);
 }
 
 .btn:hover {
-  transform: translateY(-1px);
-  background: rgba(255,255,255,0.09);
-  border-color: var(--v-border-2);
+  background: var(--v-btn-bg-hover);
+  border-color: var(--v-btn-border-hover);
 }
+
+.btn:active { transform: translateY(1px); }
 
 .btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
-  transform: none;
 }
 
+/* Primary stays bright (CTA) */
 .btn-primary {
-  background: linear-gradient(135deg, rgba(120,80,255,0.75), rgba(0,190,255,0.55));
-  border-color: rgba(160,140,255,0.35);
+  background: rgba(210, 214, 224, 0.24);
+  color: rgba(255, 255, 255, 0.96);
+  border-color: rgba(255, 255, 255, 0.34);
 }
+.btn-primary:hover { background: rgba(210, 214, 224, 0.34); }
+
+/* Ghost darker so it’s readable on pale cards */
+.btn-ghost {
+  background: rgba(0,0,0,0.42);
+  color: rgba(255, 255, 255, 0.94);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+.btn-ghost:hover {
+  background: rgba(0,0,0,0.52);
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+/* Focus ring visible */
+.btn:focus,
+.btn:focus-visible {
+  outline: 3px solid rgba(120, 80, 255, 0.55);
+  outline-offset: 2px;
+}
+
+/* ===============================
+   BUTTON SYSTEM FIX
+   =============================== */
+
+.btn {
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+/* Primary button */
+.btn-primary {
+  background: linear-gradient(135deg,#7a5cff,#5a3cff);
+  color: white;
+  border: none;
+}
+
 .btn-primary:hover {
-  background: linear-gradient(135deg, rgba(120,80,255,0.90), rgba(0,190,255,0.70));
+  filter: brightness(1.1);
 }
 
-.btn-ghost { background: rgba(255,255,255,0.04); }
+/* Ghost button */
+.btn-ghost {
+  background: rgba(0,0,0,0.04);
+  color: #1a1a1a;
+  border: 1px solid rgba(0,0,0,0.08);
+}
 
-/* Inputs */
+.btn-ghost:hover {
+  background: rgba(0,0,0,0.08);
+}
+
+/* Disabled */
+.btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* =========================
+   Inputs
+   ========================= */
 .input,
 textarea.input,
 select.input {
@@ -147,7 +225,9 @@ select.input {
   transform: translateY(-1px);
 }
 
-/* ===== Hero header ===== */
+/* =========================
+   Hero header
+   ========================= */
 .v-hero {
   padding: 18px;
   border-radius: 20px;
@@ -161,10 +241,11 @@ select.input {
 
 .v-brand { display: flex; align-items: center; gap: 12px; }
 
+/* ✅ Logo: "tad bigger" but controlled (prevents blow-up) */
 .v-logo {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width: 56px;   /* was 44px */
+  height: 56px;  /* was 44px */
+  border-radius: 16px;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.12);
   background: rgba(255,255,255,0.06);
@@ -173,7 +254,11 @@ select.input {
   flex: 0 0 auto;
 }
 
-.v-logo img { width: 100%; height: 100%; object-fit: cover; }
+.v-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* contain prevents weird cropping + "blow up" look */
+}
 
 .v-brand-title { display: flex; flex-direction: column; line-height: 1.05; }
 
@@ -228,81 +313,31 @@ select.input {
 /* helper */
 .hr-soft {
   height: 1px;
-  background: rgba(255,255,255,0.08);
+  width: 100%;
+  background: rgba(255,255,255,.10);
   border: none;
   margin: 14px 0;
-}
-/* =========================
-   Vitality Button Contrast Fix
-   ========================= */
-
-:root {
-  --v-btn-bg: rgba(255,255,255,0.10);
-  --v-btn-bg-hover: rgba(255,255,255,0.16);
-  --v-btn-border: rgba(255,255,255,0.18);
-  --v-btn-border-hover: rgba(255,255,255,0.28);
-  --v-btn-text: rgba(255,255,255,0.94);
+  border-radius: 999px;
 }
 
-/* Base button: slightly more visible */
-.btn {
-  background: var(--v-btn-bg);
-  border-color: var(--v-btn-border);
-  color: var(--v-btn-text);
-}
-
-.btn:hover {
-  background: var(--v-btn-bg-hover);
-  border-color: var(--v-btn-border-hover);
-}
-
-/* Ghost buttons: make them readable */
-.btn-ghost {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.16);
-  color: rgba(255,255,255,0.92);
-}
-
-.btn-ghost:hover {
-  background: rgba(255,255,255,0.14);
-  border-color: rgba(255,255,255,0.26);
-}
-
-/* Optional: make focus ring visible */
-.btn:focus,
-.btn:focus-visible {
-  outline: 3px solid rgba(120, 80, 255, 0.55);
-  outline-offset: 2px;
-}
 /* =========================
    HARD FIX: force slot text visible
-   Paste at VERY BOTTOM of index.css
    ========================= */
 
-/* Common "time slot" button patterns */
-button,
-button * {
-  -webkit-text-fill-color: initial;
-}
+/* Prevent weird Safari/Chromium text-fill inheritance */
+button, button * { -webkit-text-fill-color: initial; }
 
-/* If the time text is nested in spans/labels, force visibility */
-.time-slot,
-.time-slot *,
-.slot,
-.slot *,
-.appt-slot,
-.appt-slot *,
-.booking-slot,
-.booking-slot *,
-.timeslot,
-.timeslot * {
+.time-slot, .time-slot *,
+.slot, .slot *,
+.appt-slot, .appt-slot *,
+.booking-slot, .booking-slot *,
+.timeslot, .timeslot * {
   color: rgba(255,255,255,0.96) !important;
   opacity: 1 !important;
   visibility: visible !important;
   -webkit-text-fill-color: rgba(255,255,255,0.96) !important;
 }
 
-/* If your time grid container exists, target inside it */
 .booking-times button,
 .appointment-times button,
 .time-grid button,
@@ -313,13 +348,13 @@ button * {
   visibility: visible !important;
   -webkit-text-fill-color: rgba(255,255,255,0.96) !important;
 
-  background: rgba(255,255,255,0.10) !important;
+  /* darker pill */
+  background: rgba(0,0,0,0.30) !important;
   border: 2px solid rgba(255,255,255,0.22) !important;
   border-radius: 999px !important;
-  font-weight: 800 !important;
+  font-weight: 850 !important;
 }
 
-/* If they are disabled (very common), the base CSS may fade them too much */
 .booking-times button:disabled,
 .appointment-times button:disabled,
 .time-grid button:disabled,
@@ -328,10 +363,409 @@ button * {
   cursor: not-allowed;
 }
 
-/* If your UI uses input + label pills (radio/checkbox), force label text visible */
 input[type="radio"] + label,
 input[type="checkbox"] + label {
   color: rgba(255,255,255,0.96) !important;
   opacity: 1 !important;
   -webkit-text-fill-color: rgba(255,255,255,0.96) !important;
+}
+/* =========================
+   Standout: Insight Ribbon
+   Paste at BOTTOM of index.css
+   ========================= */
+
+.v-ribbon {
+  border-radius: 22px;
+  padding: 1px;
+  background:
+    linear-gradient(90deg, rgba(120,80,255,0.65), rgba(0,190,255,0.55), rgba(255,190,60,0.45));
+  box-shadow: var(--v-glow-2);
+}
+
+.v-ribbon-inner {
+  border-radius: 21px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background:
+    radial-gradient(900px 250px at 15% 0%, rgba(120,80,255,0.20), transparent 60%),
+    radial-gradient(700px 240px at 85% 0%, rgba(0,190,255,0.14), transparent 55%),
+    rgba(10,12,20,0.65);
+  backdrop-filter: blur(10px);
+  padding: 14px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.v-ribbon-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.v-ribbon-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.v-ribbon-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.90);
+  box-shadow: 0 0 0 6px rgba(255,255,255,0.06);
+  position: relative;
+  overflow: hidden;
+}
+.v-ribbon-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(120,80,255,0.55);
+  animation: vPulse 1.8s ease-in-out infinite;
+}
+@keyframes vPulse {
+  0% { opacity: 0.25; transform: scale(0.9); }
+  50% { opacity: 0.75; transform: scale(1.25); }
+  100% { opacity: 0.25; transform: scale(0.9); }
+}
+
+.v-ribbon-title-text {
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  font-size: 14px;
+  color: rgba(255,255,255,0.96);
+}
+
+.v-ribbon-sub {
+  font-size: 12px;
+  color: rgba(255,255,255,0.70);
+}
+
+.v-badge {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.92);
+}
+
+.v-ribbon-kpis {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: flex-start;
+  flex: 1 1 420px;
+}
+
+.v-kpi {
+  min-width: 160px;
+  flex: 1 1 160px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.22);
+  padding: 10px 12px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+.v-kpi-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.65);
+}
+
+.v-kpi-value {
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 950;
+  color: rgba(255,255,255,0.95);
+  letter-spacing: 0.2px;
+}
+
+.v-kpi-hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.62);
+}
+
+.v-ribbon-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+/* =========================
+   System Status Bar
+   ========================= */
+.v-statusbar {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.24);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.v-statusbar-left,
+.v-statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.v-statusbar-title {
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  color: rgba(255,255,255,0.92);
+}
+
+.v-statusbar-meta {
+  font-size: 12px;
+  color: rgba(255,255,255,0.70);
+}
+
+.v-statusbar-meta strong {
+  color: rgba(255,255,255,0.92);
+}
+
+.v-statusbar-sep {
+  color: rgba(255,255,255,0.35);
+}
+
+.v-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 6px rgba(255,255,255,0.05);
+}
+
+.v-dot-checking { background: rgba(255,190,60,0.85); }
+.v-dot-online { background: rgba(60,255,190,0.85); }
+.v-dot-offline { background: rgba(255,80,110,0.85); }
+/* =========================
+   System Status Bar (visible polish)
+   ========================= */
+
+.v-statusbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.18);
+  margin-top: 12px;
+}
+
+.v-status-left,
+.v-status-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.v-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+}
+
+.v-pill strong {
+  color: rgba(255,255,255,0.98);
+}
+
+.v-pill-ok {
+  background: rgba(0, 255, 180, 0.10);
+  border-color: rgba(0, 255, 180, 0.22);
+}
+
+.v-pill-warn {
+  background: rgba(255, 190, 60, 0.10);
+  border-color: rgba(255, 190, 60, 0.22);
+}
+
+.v-pill-bad {
+  background: rgba(255, 90, 90, 0.10);
+  border-color: rgba(255, 90, 90, 0.22);
+}
+
+.v-pill-neutral {
+  background: rgba(255,255,255,0.06);
+}
+
+.pill {
+  display: inline-block;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.06);
+}
+
+.pill-green { border-color: rgba(80,200,120,.35); background: rgba(80,200,120,.12); }
+.pill-amber { border-color: rgba(255,193,7,.35); background: rgba(255,193,7,.12); }
+
+/* ===============================
+   BUTTON SYSTEM FIX
+   =============================== */
+
+.btn {
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+/* Primary button */
+.btn-primary {
+  background: linear-gradient(135deg,#7a5cff,#5a3cff);
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+/* Ghost button */
+.btn-ghost {
+  background: rgba(0,0,0,0.04);
+  color: #1a1a1a;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+
+.btn-ghost:hover {
+  background: rgba(0,0,0,0.08);
+}
+
+/* Disabled */
+.btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* Input contrast */
+.input {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #222;
+}
+
+.input::placeholder {
+  color: #888;
+}
+
+/* Glass card contrast */
+.card {
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(14px);
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Active ghost tab state */
+.btn-ghost.active {
+  background: #ecebff;
+  color: #6b5cff;
+}
+
+/* ===============================
+   PROVIDER ACTION TILES FIX
+   (cards that behave like buttons)
+   =============================== */
+
+/* Catch common patterns: links/buttons that look like tiles */
+a.card,
+button.card,
+.action-card,
+.quick-card,
+.nav-card,
+.tile,
+.tile-btn,
+.provider-tile,
+.provider-action,
+.provider-actions a,
+.provider-actions button {
+  display: block;
+  width: 100%;
+  text-align: left;
+
+  /* make them visible */
+  background: rgba(255, 255, 255, 0.92);
+  color: #111 !important;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 14px 16px;
+
+  opacity: 1 !important;
+  text-decoration: none !important;
+
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+a.card:hover,
+button.card:hover,
+.action-card:hover,
+.quick-card:hover,
+.nav-card:hover,
+.tile:hover,
+.tile-btn:hover,
+.provider-tile:hover,
+.provider-action:hover,
+.provider-actions a:hover,
+.provider-actions button:hover {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(0, 0, 0, 0.16);
+  transform: translateY(-1px);
+}
+
+/* Force ALL text inside tiles to be readable */
+a.card *,
+button.card *,
+.action-card *,
+.quick-card *,
+.nav-card *,
+.tile *,
+.tile-btn *,
+.provider-tile *,
+.provider-action * {
+  color: #111 !important;
+  opacity: 1 !important;
+}
+
+/* Muted text inside tiles */
+a.card .muted,
+button.card .muted,
+.action-card .muted,
+.quick-card .muted,
+.nav-card .muted,
+.tile .muted,
+.tile-btn .muted,
+.provider-tile .muted,
+.provider-action .muted {
+  color: rgba(0, 0, 0, 0.65) !important;
 }

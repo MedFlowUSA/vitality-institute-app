@@ -26,7 +26,7 @@ type LabRow = {
 };
 
 export default function ProviderLabs() {
-  const { user, role, signOut } = useAuth();
+  const { user, role, signOut, activeLocationId } = useAuth();
   const nav = useNavigate();
   const [params] = useSearchParams();
 
@@ -118,7 +118,9 @@ export default function ProviderLabs() {
     // If coming from intake review, show matching labs first by filtering intake id
     if (prefillIntakeId) q = q.eq("intake_submission_id", prefillIntakeId);
 
-    if (isAdmin) {
+    if (activeLocationId) {
+      q = q.eq("location_id", activeLocationId);
+    } else if (isAdmin) {
       if (locationId) q = q.eq("location_id", locationId);
     } else {
       if (allowedLocationIds.length === 0) {
@@ -157,6 +159,10 @@ export default function ProviderLabs() {
   }, [user?.id, isAdmin]);
 
   useEffect(() => {
+    if (activeLocationId) setLocationId(activeLocationId);
+  }, [activeLocationId]);
+
+  useEffect(() => {
     (async () => {
       try {
         await loadLabs();
@@ -165,7 +171,7 @@ export default function ProviderLabs() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationId, allowedLocationIds.join(","), isAdmin]);
+  }, [locationId, allowedLocationIds.join(","), isAdmin, activeLocationId]);
 
   const active = rows.find((r) => r.id === activeId) ?? null;
 

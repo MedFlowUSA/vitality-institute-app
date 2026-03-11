@@ -4,405 +4,777 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import VitalityHero from "../components/VitalityHero";
-
-type LocationRow = { id: string; name: string | null; city: string | null; state: string | null };
+import SystemStatusBar from "../components/SystemStatusBar";
+import { auditWrite } from "../lib/audit";
+import { analyzeWoundProgression } from "../lib/woundProgression";
+import { analyzeWoundRisk } from "../lib/woundRiskAlerts";
 
 type ApptRow = {
   id: string;
   location_id: string;
+  service_id: string | null;
   patient_id: string;
   start_time: string;
   status: string;
-  service_id: string | null;
   notes: string | null;
 };
 
 type IntakeRow = {
   id: string;
   patient_id: string;
-  location_id: string;
-  service_type: string;
-  status: string;
+  location_id: string | null;
+  status: string | null;
+  service_type: string | null;
+  wound_data: unknown;
+  medications: string | null;
+  consent_accepted: boolean | null;
+  consent_signed_name: string | null;
+  consent_signed_at: string | null;
   created_at: string;
-  locked_at: string | null;
+  patients:
+    | {
+        id: string;
+        profile_id: string | null;
+        first_name: string | null;
+        last_name: string | null;
+        phone: string | null;
+        email: string | null;
+      }[]
+    | null;
 };
 
-type PatientRow = {
+type LocationRow = { id: string; name: string };
+type ServiceRow = { id: string; name: string };
+
+type WoundAssessmentLite = {
+  id: string;
+  patient_id: string;
+  visit_id: string;
+  wound_label: string | null;
+  created_at: string;
+  length_cm: number | null;
+  width_cm: number | null;
+  depth_cm: number | null;
+  exudate: string | null;
+  infection_signs: string | null;
+  pain_score: number | null;
+};
+
+type PatientLite = {
   id: string;
   first_name: string | null;
   last_name: string | null;
-  dob: string | null;
-  phone: string | null;
-  email: string | null;
 };
 
-function sameDayLocalIsoRange(date: Date) {
-  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
-  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
-  return { startIso: start.toISOString(), endIso: end.toISOString() };
-}
-
-function badgeStyle(status: string) {
-  const s = (status || "").toLowerCase();
-  const base: React.CSSProperties = {
-    padding: "2px 10px",
-    borderRadius: 999,
-    fontSize: 12,
-    border: "1px solid rgba(255,255,255,.25)",
-    background: "rgba(255,255,255,.08)",
-  };
-
-  if (s === "locked") return { ...base, background: "rgba(34,197,94,.18)", border: "1px solid rgba(34,197,94,.35)" };
-  if (s === "approved") return { ...base, background: "rgba(59,130,246,.18)", border: "1px solid rgba(59,130,246,.35)" };
-  if (s === "needs_info") return { ...base, background: "rgba(245,158,11,.18)", border: "1px solid rgba(245,158,11,.35)" };
-  if (s === "submitted") return { ...base, background: "rgba(148,163,184,.18)", border: "1px solid rgba(148,163,184,.35)" };
-
-  return base;
-}
-
-function patientLabel(p?: PatientRow | null) {
-  if (!p) return "Unknown patient";
-  const name = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
-  return name || p.email || p.phone || "Patient";
-}
+type WoundAttentionItem = {
+  patient_id: string;
+  patient_name: string;
+  visit_id: string;
+  wound_label: string;
+  trajectory: string;
+  confidence: string;
+  risk_level: "low" | "moderate" | "high";
+  alert_title: string;
+  alert_message: string;
+  suggested_action: string;
+};
 
 export default function ProviderCommandCenter() {
+  const { user, role, activeLocationId } = useAuth();
   const nav = useNavigate();
-  const { user, role, signOut } = useAuth();
-
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
-  const [allowedLocationIds, setAllowedLocationIds] = useState<string[]>([]);
+  const [services, setServices] = useState<ServiceRow[]>([]);
+  const [localLocationId, setLocalLocationId] = useState<string>("");
 
-  const [appts, setAppts] = useState<ApptRow[]>([]);
-  const [intakes, setIntakes] = useState<IntakeRow[]>([]);
+  const [apptsToday, setApptsToday] = useState<ApptRow[]>([]);
+  const [intakesPending, setIntakesPending] = useState<IntakeRow[]>([]);
 
-  const [patientsById, setPatientsById] = useState<Record<string, PatientRow>>({});
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [attentionItems, setAttentionItems] = useState<WoundAttentionItem[]>([]);
 
-  const locationName = useMemo(() => {
-    const m = new Map(locations.map((l) => [l.id, l.name ?? l.id]));
+  // Action loading for buttons so we don’t double-click
+  const [busyApptId, setBusyApptId] = useState<string | null>(null);
+
+  const isAdmin = useMemo(() => role === "super_admin" || role === "location_admin", [role]);
+  const effectiveLocationId = activeLocationId || localLocationId;
+
+  const locName = useMemo(() => {
+    const m = new Map(locations.map((l) => [l.id, l.name]));
     return (id: string) => m.get(id) ?? id;
   }, [locations]);
 
-  async function ensureChatThreadForAppointment(appt: ApptRow) {
-    // 1) try existing
-    const { data: existing, error: exErr } = await supabase
-      .from("chat_threads")
+  const svcName = useMemo(() => {
+    const m = new Map(services.map((s) => [s.id, s.name]));
+    return (id: string | null) => (id ? m.get(id) ?? "—" : "—");
+  }, [services]);
+
+  const fmtTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  const scope = (q: any) => (effectiveLocationId ? q.eq("location_id", effectiveLocationId) : q);
+
+  const resolvePatientRecordId = async (candidateId: string) => {
+    if (!candidateId) throw new Error("Missing patient id.");
+
+    const { data: byId, error: byIdErr } = await supabase
+      .from("patients")
       .select("id")
-      .eq("appointment_id", appt.id)
+      .eq("id", candidateId)
       .maybeSingle();
+    if (byIdErr) throw byIdErr;
+    if (byId?.id) return byId.id as string;
 
-    if (exErr) throw exErr;
+    const { data: byProfile, error: byProfileErr } = await supabase
+      .from("patients")
+      .select("id")
+      .eq("profile_id", candidateId)
+      .maybeSingle();
+    if (byProfileErr) throw byProfileErr;
+    if (byProfile?.id) return byProfile.id as string;
 
-    let threadId = existing?.id as string | undefined;
+    throw new Error("Patient record not found.");
+  };
 
-    // 2) create if missing
-    if (!threadId) {
-      const subject = `Appointment • ${new Date(appt.start_time).toLocaleString()}`;
-      const { data: created, error: crErr } = await supabase
+  const loadBase = async () => {
+    // locations (admin can see all; non-admin normally uses activeLocationId already)
+    if (isAdmin) {
+      const { data, error } = await supabase.from("locations").select("id,name").order("name");
+      if (error) throw error;
+      setLocations((data as LocationRow[]) ?? []);
+    }
+
+    // services (for labels)
+    const { data: svcs, error: svcErr } = await supabase
+      .from("services")
+      .select("id,name")
+      .eq("is_active", true)
+      .order("name");
+    if (svcErr) throw svcErr;
+    setServices(((svcs ?? []) as any[]).map((s) => ({ id: s.id, name: s.name })) as ServiceRow[]);
+  };
+
+  const loadMain = async () => {
+    setErr(null);
+    setLoading(true);
+
+    try {
+      // If you’re not admin, you MUST have effectiveLocationId
+      if (!isAdmin && !effectiveLocationId) {
+        setApptsToday([]);
+        setIntakesPending([]);
+        throw new Error("No active location found. Set Active Location in the status bar.");
+      }
+
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+      // Today appointments
+      let qA = supabase
+        .from("appointments")
+        .select("id,location_id,service_id,patient_id,start_time,status,notes")
+        .gte("start_time", start.toISOString())
+        .lte("start_time", end.toISOString())
+        .order("start_time", { ascending: true });
+
+      qA = scope(qA);
+
+      const { data: appts, error: aErr } = await qA;
+      if (aErr) throw aErr;
+
+      setApptsToday((appts as ApptRow[]) ?? []);
+
+      // Pending wound intakes
+      let qI = supabase
+        .from("patient_intakes")
+        .select(
+          `
+          id,
+          patient_id,
+          location_id,
+          service_type,
+          status,
+          wound_data,
+          medications,
+          consent_accepted,
+          consent_signed_name,
+          consent_signed_at,
+          created_at,
+          patients:patients (
+            id,
+            profile_id,
+            first_name,
+            last_name,
+            phone,
+            email
+          )
+        `
+        )
+        .in("status", ["submitted", "needs_info"])
+        .order("created_at", { ascending: false });
+
+      qI = scope(qI);
+
+      const { data: intakes, error: iErr } = await qI;
+      if (iErr) throw iErr;
+
+      setIntakesPending((intakes as IntakeRow[]) ?? []);
+
+      let qW = supabase
+        .from("wound_assessments")
+        .select(`
+          id,
+          patient_id,
+          visit_id,
+          wound_label,
+          created_at,
+          length_cm,
+          width_cm,
+          depth_cm,
+          exudate,
+          infection_signs,
+          pain_score
+        `)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (effectiveLocationId) {
+        qW = qW.eq("location_id", effectiveLocationId);
+      }
+
+      const { data: woundRows, error: wErr } = await qW;
+      if (wErr) throw wErr;
+
+      const woundList = (woundRows as WoundAssessmentLite[]) ?? [];
+
+      const patientIds = Array.from(new Set(woundList.map((w) => w.patient_id).filter(Boolean)));
+
+      let patientMap = new Map<string, string>();
+      if (patientIds.length > 0) {
+        const { data: patientRows, error: pLiteErr } = await supabase
+          .from("patients")
+          .select("id,first_name,last_name")
+          .in("id", patientIds);
+
+        if (pLiteErr) throw pLiteErr;
+
+        patientMap = new Map(
+          ((patientRows as PatientLite[]) ?? []).map((p) => [
+            p.id,
+            `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "Patient",
+          ])
+        );
+      }
+
+      const grouped = new Map<string, WoundAssessmentLite[]>();
+      for (const row of woundList) {
+        const label = (row.wound_label || "Unlabeled wound").trim();
+        const key = `${row.patient_id}::${label}`;
+        const arr = grouped.get(key) ?? [];
+        arr.push(row);
+        grouped.set(key, arr);
+      }
+
+      const items: WoundAttentionItem[] = [];
+
+      for (const [, rows] of grouped.entries()) {
+        const sorted = [...rows].sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
+        const latest = sorted[sorted.length - 1];
+        const patientName = patientMap.get(latest.patient_id) ?? latest.patient_id;
+
+        const progression = analyzeWoundProgression(
+          sorted.map((r) => ({
+            created_at: r.created_at,
+            length_cm: r.length_cm,
+            width_cm: r.width_cm,
+            depth_cm: r.depth_cm,
+            exudate: r.exudate,
+            infection_signs: !!(r.infection_signs && r.infection_signs.trim()),
+            pain_score: r.pain_score,
+          }))
+        );
+
+        const risks = analyzeWoundRisk(
+          sorted.map((r) => ({
+            created_at: r.created_at,
+            length_cm: r.length_cm,
+            width_cm: r.width_cm,
+            exudate: r.exudate,
+            infection_signs: !!(r.infection_signs && r.infection_signs.trim()),
+            pain_score: r.pain_score,
+          }))
+        );
+
+        const topRisk =
+          risks.find((r) => r.level === "high") ??
+          risks.find((r) => r.level === "moderate") ??
+          risks[0];
+
+        if (!topRisk) continue;
+
+        if (
+          topRisk.level !== "low" ||
+          progression.trajectory === "Worsening" ||
+          progression.trajectory === "Stalled" ||
+          progression.trajectory === "Slow Improvement"
+        ) {
+          items.push({
+            patient_id: latest.patient_id,
+            patient_name: patientName,
+            visit_id: latest.visit_id,
+            wound_label: latest.wound_label ?? "Unlabeled wound",
+            trajectory: progression.trajectory,
+            confidence: progression.confidence,
+            risk_level: topRisk.level,
+            alert_title: topRisk.title,
+            alert_message: topRisk.message,
+            suggested_action: progression.suggested_action,
+          });
+        }
+      }
+
+      items.sort((a, b) => {
+        const rank = (v: string) => (v === "high" ? 0 : v === "moderate" ? 1 : 2);
+        return rank(a.risk_level) - rank(b.risk_level);
+      });
+
+      setAttentionItems(items.slice(0, 12));
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to load command center.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      try {
+        await loadBase();
+      } catch (e: any) {
+        setErr(e?.message ?? "Failed to load base data.");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    loadMain();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveLocationId, isAdmin, user?.id]);
+
+  const refresh = async () => {
+    await loadMain();
+  };
+
+  const setStatus = async (id: string, status: string) => {
+    const { error } = await supabase.from("appointments").update({ status }).eq("id", id);
+    if (error) return alert(error.message);
+    await refresh();
+  };
+
+  const messagePatient = async (appt: ApptRow) => {
+    setErr(null);
+    try {
+      const { data: existing, error: findErr } = await supabase
         .from("chat_threads")
+        .select("id")
+        .eq("appointment_id", appt.id)
+        .maybeSingle();
+
+      if (findErr) throw findErr;
+
+      let threadId = existing?.id;
+
+      if (!threadId) {
+        const { data: created, error: createErr } = await supabase
+          .from("chat_threads")
+          .insert([
+            {
+              location_id: appt.location_id,
+              patient_id: appt.patient_id,
+              appointment_id: appt.id,
+              status: "open",
+              subject: "Appointment message",
+            },
+          ])
+          .select("id")
+          .maybeSingle();
+
+        if (createErr) throw createErr;
+        threadId = created?.id ?? "";
+      }
+
+      if (!threadId) throw new Error("Could not create message thread.");
+      nav(`/provider/chat?threadId=${threadId}`);
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to open chat thread.");
+    }
+  };
+
+  const goToVisit = (visitId: string) => {
+    nav(`/provider/visits/${visitId}`);
+  };
+
+  const approveAndOpenVisit = async (appt: ApptRow) => {
+    setErr(null);
+    setBusyApptId(appt.id);
+
+    try {
+      const visitPatientId = await resolvePatientRecordId(appt.patient_id);
+
+      // 1) If a visit already exists for this appointment, just open it.
+      const { data: existingVisit, error: findErr } = await supabase
+        .from("patient_visits")
+        .select("id")
+        .eq("appointment_id", appt.id)
+        .maybeSingle();
+
+      if (findErr) throw findErr;
+
+      if (existingVisit?.id) {
+        await auditWrite({
+          event_type: "appointment_opened_existing_visit",
+          location_id: appt.location_id,
+          patient_id: visitPatientId,
+          visit_id: existingVisit.id,
+          appointment_id: appt.id,
+          entity_type: "patient_visits",
+          entity_id: existingVisit.id,
+          metadata: { source: "ProviderCommandCenter" },
+        });
+        goToVisit(existingVisit.id);
+        return;
+      }
+
+      // 2) Mark appointment approved (if your workflow uses "approved")
+      const { error: updErr } = await supabase
+        .from("appointments")
+        .update({ status: "approved" })
+        .eq("id", appt.id);
+
+      if (updErr) throw updErr;
+
+      // 3) Create visit (minimal columns; adjust if your schema requires more)
+      const { data: createdVisit, error: insErr } = await supabase
+        .from("patient_visits")
         .insert([
           {
+            patient_id: visitPatientId,
             location_id: appt.location_id,
-            patient_id: appt.patient_id,
             appointment_id: appt.id,
-            subject,
+            visit_date: appt.start_time, // or new Date().toISOString()
             status: "open",
+            summary: "Visit created from approved appointment",
           },
         ])
         .select("id")
         .maybeSingle();
 
-      if (crErr) throw crErr;
-      threadId = created?.id as string | undefined;
+      if (insErr) throw insErr;
+
+      const visitId = createdVisit?.id;
+      if (!visitId) throw new Error("Visit was not created (missing id).");
+
+      await auditWrite({
+        event_type: "appointment_approved_visit_created",
+        location_id: appt.location_id,
+        patient_id: visitPatientId,
+        visit_id: visitId,
+        appointment_id: appt.id,
+        entity_type: "patient_visits",
+        entity_id: visitId,
+        metadata: { appointment_status_set: "approved", source: "ProviderCommandCenter" },
+      });
+
+      // Optional: refresh list so status updates immediately
+      await refresh();
+
+      // 4) Open chart
+      goToVisit(visitId);
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to approve and create visit.");
+    } finally {
+      setBusyApptId(null);
     }
-
-    if (!threadId) throw new Error("Could not open or create chat thread.");
-    return threadId;
-  }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      if (!user?.id) return;
-
-      setErr(null);
-      setLoading(true);
-
-      try {
-        // 1) Load locations (for labels)
-        const { data: locs, error: locErr } = await supabase
-          .from("locations")
-          .select("id,name,city,state")
-          .order("name");
-
-        if (locErr) throw locErr;
-        if (cancelled) return;
-        setLocations((locs as LocationRow[]) ?? []);
-
-        // 2) Determine provider allowed locations
-        // We support either user_locations or user_location_roles.
-        // If both exist, we use the union.
-        const ids = new Set<string>();
-
-        const ul = await supabase
-          .from("user_locations")
-          .select("location_id")
-          .eq("user_id", user.id);
-
-        if (!ul.error) {
-          (ul.data as any[] | null)?.forEach((r) => r?.location_id && ids.add(r.location_id));
-        }
-
-        const ulr = await supabase
-          .from("user_location_roles")
-          .select("location_id")
-          .eq("user_id", user.id);
-
-        if (!ulr.error) {
-          (ulr.data as any[] | null)?.forEach((r) => r?.location_id && ids.add(r.location_id));
-        }
-
-        const allowed = Array.from(ids);
-
-        // Fallback: if nothing returned, allow all (dev mode)
-        const finalAllowed = allowed.length ? allowed : (locs ?? []).map((l: any) => l.id);
-
-        if (cancelled) return;
-        setAllowedLocationIds(finalAllowed);
-
-        // 3) Load today’s appointments (for allowed locations)
-        const { startIso, endIso } = sameDayLocalIsoRange(new Date());
-
-        const apptRes = await supabase
-          .from("appointments")
-          .select("id,location_id,patient_id,start_time,status,service_id,notes")
-          .in("location_id", finalAllowed)
-          .gte("start_time", startIso)
-          .lte("start_time", endIso)
-          .order("start_time", { ascending: true });
-
-        if (apptRes.error) throw apptRes.error;
-        if (cancelled) return;
-
-        const apptRows = (apptRes.data as ApptRow[]) ?? [];
-        setAppts(apptRows);
-
-        // 4) Load latest wound intakes (queue)
-        const intakeRes = await supabase
-          .from("patient_intakes")
-          .select("id,patient_id,location_id,service_type,status,created_at,locked_at")
-          .in("location_id", finalAllowed)
-          .eq("service_type", "wound_care")
-          .order("created_at", { ascending: false })
-          .limit(25);
-
-        if (intakeRes.error) throw intakeRes.error;
-        if (cancelled) return;
-
-        const intakeRows = (intakeRes.data as IntakeRow[]) ?? [];
-        setIntakes(intakeRows);
-
-        // 5) Hydrate patient labels (patients table)
-        const patientIds = new Set<string>();
-        apptRows.forEach((a) => a.patient_id && patientIds.add(a.patient_id));
-        intakeRows.forEach((i) => i.patient_id && patientIds.add(i.patient_id));
-
-        const uniquePatientIds = Array.from(patientIds);
-
-        if (uniquePatientIds.length) {
-          const pRes = await supabase
-            .from("patients")
-            .select("id,first_name,last_name,dob,phone,email")
-            .in("id", uniquePatientIds);
-
-          // If RLS blocks this for providers, the page still works with “Unknown patient”
-          if (!pRes.error && pRes.data) {
-            const map: Record<string, PatientRow> = {};
-            (pRes.data as PatientRow[]).forEach((p) => (map[p.id] = p));
-            if (!cancelled) setPatientsById(map);
-          }
-        }
-      } catch (e: any) {
-        if (!cancelled) setErr(e?.message ?? "Failed to load Provider Command Center.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
-
-  const quickBtnProps = {
-    onMouseDown: (e: React.MouseEvent) => e.preventDefault(),
-    type: "button" as const,
   };
+
+  const Card = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div className="card card-pad">
+      <div
+        className="row"
+        style={{ justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}
+      >
+        <div className="h2">{title}</div>
+        <button className="btn btn-ghost" type="button" onClick={refresh}>
+          Refresh
+        </button>
+      </div>
+      <div className="space" />
+      {children}
+    </div>
+  );
 
   return (
     <div className="app-bg">
       <div className="shell">
         <VitalityHero
-          title="Provider Command Center"
-          subtitle="Today’s schedule • Intake queue • Messaging"
+          title="Command Center"
+          subtitle="One screen for today’s schedule + pending wound intakes"
+          primaryCta={{ label: "Queue", to: "/provider/queue" }}
+          secondaryCta={{ label: "Back to Dashboard", onClick: () => nav("/provider") }}
+          showKpis={false}
           rightActions={
-            <>
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => nav("/provider/intake")}>
-                Intake Review
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/referrals")}>
+                Referrals
               </button>
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => nav("/provider/chat")}>
-                Messages
+              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/patients")}>
+                Patient Center
               </button>
-              <button className="btn btn-ghost" onClick={signOut} type="button">
-                Sign out
-              </button>
-            </>
+            </div>
           }
-          activityItems={[
-            { t: "Today", m: "Review appointments + prep visits", s: "Schedule" },
-            { t: "Queue", m: "Process wound intakes fast", s: "Intake" },
-            { t: "Secure", m: "Message patients by appointment", s: "Messaging" },
-          ]}
         />
+
+        <SystemStatusBar />
 
         <div className="space" />
 
-        <div className="card card-pad">
-          <div className="h1">Provider Portal</div>
-          <div className="muted">Role: {role}</div>
-          <div className="muted">Signed in: {user?.email}</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-            Allowed locations: {allowedLocationIds.length ? allowedLocationIds.map(locationName).join(", ") : "—"}
+        {isAdmin ? (
+          <div className="card card-pad">
+            <div
+              className="row"
+              style={{
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <div className="h2">Location Scope</div>
+                <div className="muted" style={{ marginTop: 4 }}>
+                  {effectiveLocationId ? `Viewing: ${locName(effectiveLocationId)}` : "Viewing: All Locations"}
+                </div>
+              </div>
+
+              <div style={{ minWidth: 320 }}>
+                <select
+                  className="input"
+                  value={localLocationId}
+                  onChange={(e) => setLocalLocationId(e.target.value)}
+                  disabled={!!activeLocationId}
+                  title={activeLocationId ? "Active Location is set in the status bar." : "Filter by location (admin only)"}
+                >
+                  <option value="">All Locations</option>
+                  {locations.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+                {activeLocationId ? (
+                  <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+                    Note: Active Location currently overrides this filter.
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
-        </div>
+        ) : effectiveLocationId ? (
+          <div className="card card-pad">
+            <div className="muted">
+              Viewing: <strong>{locName(effectiveLocationId)}</strong>
+            </div>
+          </div>
+        ) : null}
 
         <div className="space" />
 
         {loading ? <div className="muted">Loading…</div> : null}
         {err ? <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div> : null}
 
-        {!loading && (
+        {attentionItems.length > 0 ? (
           <>
-            <div className="card card-pad">
-              <div className="h2">Today’s Appointments</div>
-              <div className="muted" style={{ marginTop: 4 }}>
-                Tap “Open Chat” to message the patient for that appointment.
+            <Card title="Wounds Needing Attention">
+              <div style={{ display: "grid", gap: 10 }}>
+                {attentionItems.map((item, idx) => (
+                  <div key={`${item.patient_id}-${item.wound_label}-${idx}`} className="card card-pad" style={{ background: "rgba(0,0,0,.18)" }}>
+                    <div
+                      className="row"
+                      style={{
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div style={{ minWidth: 260 }}>
+                        <div className="h2" style={{ margin: 0 }}>
+                          {item.patient_name} - {item.wound_label}
+                        </div>
+
+                        <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                          Risk: <strong>{item.risk_level}</strong> - Trajectory: <strong>{item.trajectory}</strong> - Confidence:{" "}
+                          <strong>{item.confidence}</strong>
+                        </div>
+
+                        <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                          <strong>{item.alert_title}</strong>: {item.alert_message}
+                        </div>
+
+                        <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                          Suggested action: {item.suggested_action}
+                        </div>
+                      </div>
+
+                      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          onClick={() => nav(`/provider/visits/${item.visit_id}`)}
+                        >
+                          Open Visit
+                        </button>
+
+                        <button
+                          className="btn btn-ghost"
+                          type="button"
+                          onClick={() => nav(`/provider/patients/${item.patient_id}`)}
+                        >
+                          Open Patient
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
+            </Card>
 
-              <div className="space" />
+            <div className="space" />
+          </>
+        ) : null}
 
-              {appts.length === 0 ? (
-                <div className="muted">No appointments for today.</div>
-              ) : (
-                appts.map((a) => {
-                  const p = patientsById[a.patient_id] ?? null;
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 12 }}>
+          {/* Left: Today */}
+          <Card title="Today’s Appointments">
+            {apptsToday.length === 0 ? (
+              <div className="muted">No appointments today.</div>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {apptsToday.map((a) => {
+                  const canApprove = a.status === "requested";
+                  const isBusy = busyApptId === a.id;
+                  const canUseActions = !!a.location_id;
+
                   return (
-                    <div key={a.id} className="card card-pad" style={{ marginBottom: 12 }}>
-                      <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-                        <div style={{ flex: 1 }}>
-                          <div className="h2">{new Date(a.start_time).toLocaleString()}</div>
-                          <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                            Location: {locationName(a.location_id)}
+                    <div key={a.id} className="card card-pad" style={{ background: "rgba(0,0,0,.18)" }}>
+                      <div
+                        className="row"
+                        style={{
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: 12,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div style={{ minWidth: 240 }}>
+                          <div className="h2" style={{ margin: 0 }}>
+                            {fmtTime(a.start_time)} • {svcName(a.service_id)}
                           </div>
-                          <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                            Patient: <strong>{patientLabel(p)}</strong>
-                          </div>
-                          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                            Status: <strong>{a.status}</strong>
+                          <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                            Status: <strong>{a.status}</strong> • Patient: {a.patient_id}
                           </div>
                           {a.notes ? (
-                            <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+                            <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
                               Notes: {a.notes}
                             </div>
                           ) : null}
-                          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-                            Appointment ID: {a.id}
-                          </div>
                         </div>
 
-                        <div style={{ textAlign: "right" }}>
+                        <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                           <button
-                            className="btn btn-ghost"
+                            className="btn btn-primary"
                             type="button"
-                            onClick={async () => {
-                              try {
-                                const threadId = await ensureChatThreadForAppointment(a);
-                                nav(`/provider/chat?threadId=${threadId}`);
-                              } catch (e: any) {
-                                alert(e?.message ?? "Failed to open chat.");
-                              }
-                            }}
+                            onClick={() => nav(`/provider/visit-builder?appointmentId=${a.id}`)}
                           >
-                            Open Chat
+                            Start Visit
+                          </button>
+
+                          <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/patients/${a.patient_id}`)}>
+                            Open Patient
+                          </button>
+
+                          <button className="btn btn-ghost" type="button" onClick={() => messagePatient(a)}>
+                            Message
+                          </button>
+
+                          {canApprove ? (
+                            <button
+                              className="btn btn-primary"
+                              type="button"
+                              disabled={isBusy || !canUseActions}
+                              onClick={() => approveAndOpenVisit(a)}
+                              title="Approve appointment, create visit, and open chart"
+                            >
+                              {isBusy ? "Working…" : "Approve & Open Chart"}
+                            </button>
+                          ) : null}
+
+                          <button className="btn btn-ghost" type="button" onClick={() => setStatus(a.id, "confirmed")} disabled={isBusy}>
+                            Confirm
+                          </button>
+                          <button className="btn btn-ghost" type="button" onClick={() => setStatus(a.id, "completed")} disabled={isBusy}>
+                            Complete
                           </button>
                         </div>
                       </div>
                     </div>
                   );
-                })
-              )}
-            </div>
-
-            <div className="space" />
-
-            <div className="card card-pad">
-              <div className="h2">Wound Intake Queue</div>
-              <div className="muted" style={{ marginTop: 4 }}>
-                Latest 25 wound care intakes for your locations.
+                })}
               </div>
+            )}
+          </Card>
 
-              <div className="space" />
-
-              {intakes.length === 0 ? (
-                <div className="muted">No intakes found.</div>
-              ) : (
-                intakes.map((i) => {
-                  const p = patientsById[i.patient_id] ?? null;
-                  return (
-                    <div key={i.id} className="card card-pad" style={{ marginBottom: 12 }}>
-                      <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-                        <div style={{ flex: 1 }}>
-                          <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                            <div className="h2">{patientLabel(p)}</div>
-                            <span style={badgeStyle(i.status)}>{(i.status || "").toUpperCase()}</span>
-                          </div>
-
-                          <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                            Location: {locationName(i.location_id)}
-                          </div>
-
-                          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                            Submitted: {new Date(i.created_at).toLocaleString()}
-                          </div>
-
-                          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                            Intake ID: {i.id}
-                          </div>
-                        </div>
-
-                        <div style={{ textAlign: "right" }}>
-                          <button
-                            className="btn btn-ghost"
-                            type="button"
-                            onClick={() => nav(`/provider/intake?intakeId=${i.id}`)}
-                          >
-                            Review Intake
-                          </button>
-                        </div>
-                      </div>
+          {/* Right: Intake queue */}
+          <Card title="Pending Wound Intakes">
+            {intakesPending.length === 0 ? (
+              <div className="muted">No pending wound intakes.</div>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {intakesPending.map((i) => (
+                  <div key={i.id} className="card card-pad" style={{ background: "rgba(0,0,0,.18)" }}>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      Status: <strong>{i.status ?? "—"}</strong>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </>
-        )}
+                    <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                      Created: {new Date(i.created_at).toLocaleString()}
+                    </div>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                      Intake ID: {i.id}
+                    </div>
+                    <div className="space" />
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                      <button className="btn btn-primary" type="button" onClick={() => nav(`/provider/intake?intakeId=${i.id}`)}>
+                        Open Intake
+                      </button>
+                      {i.patient_id ? (
+                        <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/patients/${i.patient_id}`)}>
+                          Open Patient
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        <div className="space" />
       </div>
     </div>
   );

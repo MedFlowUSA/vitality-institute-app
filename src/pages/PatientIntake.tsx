@@ -1,3 +1,4 @@
+﻿// src/pages/PatientIntake.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
@@ -14,10 +15,10 @@ type FormTemplate = {
 type LocationRow = { id: string; name: string };
 
 type PatientRow = {
-  id: string;
-  profile_id: string;
-  first_name: string;
-  last_name: string;
+  id: string; // patients.id (uuid)
+  profile_id: string; // auth.users.id (uuid)
+  first_name: string | null;
+  last_name: string | null;
 };
 
 type AppointmentRow = {
@@ -50,16 +51,17 @@ export default function PatientIntake() {
   const [appointmentId, setAppointmentId] = useState(prefillApptId);
 
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
-
   const [answers, setAnswers] = useState<Record<string, any>>({});
+
+  const [consentAccepted, setConsentAccepted] = useState(false);
+  const [consentSignedName, setConsentSignedName] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // resolved patient record (patients table)
   const [patient, setPatient] = useState<PatientRow | null>(null);
 
-  // keep appointmentId in sync if URL param changes
   useEffect(() => {
     if (prefillApptId) setAppointmentId(prefillApptId);
   }, [prefillApptId]);
@@ -79,18 +81,27 @@ export default function PatientIntake() {
     return Array.isArray(s) ? (s as Section[]) : [];
   }, [templateForTherapy]);
 
-  // Load all needed data (patient row -> appointments, locations, templates)
+  useEffect(() => {
+    setSelectedTemplate(templateForTherapy);
+    setAnswers({});
+    setConsentAccepted(false);
+    setConsentSignedName("");
+  }, [templateForTherapy]);
+
+  const setValue = (key: string, value: any) => {
+    setAnswers((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Load patient + locations + appointments + templates
   useEffect(() => {
     const load = async () => {
       setErr(null);
       setLoading(true);
 
       try {
-        if (!user?.id) {
-          throw new Error("Not signed in.");
-        }
+        if (!user?.id) throw new Error("Not signed in.");
 
-        // 1) Resolve patient record (patients.profile_id = auth user id)
+        // 1) Resolve patient (patients.profile_id = auth user id)
         const { data: p, error: pErr } = await supabase
           .from("patients")
           .select("id,profile_id,first_name,last_name")
@@ -98,26 +109,19 @@ export default function PatientIntake() {
           .maybeSingle();
 
         if (pErr) throw pErr;
-
         const patientRow = (p as PatientRow) ?? null;
         setPatient(patientRow);
 
         if (!patientRow?.id) {
-          throw new Error(
-            "No patient record is linked to your login yet. Ask front desk to create your patient profile."
-          );
+          throw new Error("No patient record linked to this login yet. Ask front desk to create your patient profile.");
         }
 
         // 2) Locations
-        const { data: locs, error: locErr } = await supabase
-          .from("locations")
-          .select("id,name")
-          .order("name");
-
+        const { data: locs, error: locErr } = await supabase.from("locations").select("id,name").order("name");
         if (locErr) throw locErr;
         setLocations((locs as LocationRow[]) ?? []);
 
-        // 3) Patient appointments (latest first) using patients.id
+        // 3) Appointments for this patient (patients.id)
         const { data: appts, error: apptErr } = await supabase
           .from("appointments")
           .select("id,location_id,start_time,status")
@@ -126,15 +130,15 @@ export default function PatientIntake() {
           .limit(25);
 
         if (apptErr) throw apptErr;
-        setAppointments((appts as AppointmentRow[]) ?? []);
+        const apptRows = (appts as AppointmentRow[]) ?? [];
+        setAppointments(apptRows);
 
-        // If prefilled appointmentId is not in list, clear it (prevents submit failures)
         if (prefillApptId) {
-          const ok = (appts as AppointmentRow[] | null)?.some((a) => a.id === prefillApptId);
+          const ok = apptRows.some((a) => a.id === prefillApptId);
           if (!ok) setAppointmentId("");
         }
 
-        // 4) Templates (active)
+        // 4) Intake templates
         const { data: forms, error: formErr } = await supabase
           .from("intake_forms")
           .select("id,name,therapy_type,schema")
@@ -153,25 +157,17 @@ export default function PatientIntake() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  useEffect(() => {
-    setSelectedTemplate(templateForTherapy);
-    setAnswers({});
-  }, [templateForTherapy]);
-
-  const setValue = (key: string, value: any) => {
-    setAnswers((prev) => ({ ...prev, [key]: value }));
-  };
-
   const validate = () => {
-    if (!user) return "Not signed in.";
+    if (!user?.id) return "Not signed in.";
     if (!patient?.id) return "No patient record linked to this login.";
-    if (!appointmentId) return "Please select the appointment this intake is for.";
     if (!selectedTemplate) return "No intake form template found for this therapy type.";
+    if (!appointmentId) return "Please select the appointment this intake is for.";
+    if (!consentAccepted) return "Please accept the consent.";
+    if (!consentSignedName.trim()) return "Please type your name to sign consent.";
 
     for (const sec of sections) {
       for (const f of sec.fields) {
         if (!f.required) continue;
-
         const v = answers[f.key];
 
         if (f.type === "checkbox") {
@@ -189,41 +185,52 @@ export default function PatientIntake() {
     setErr(null);
 
     const v = validate();
-    if (v) {
-      setErr(v);
-      return;
-    }
-    if (!user || !selectedTemplate || !patient?.id) return;
+    if (v) return setErr(v);
+    if (!patient?.id || !selectedTemplate) return;
 
     const appt = appointments.find((a) => a.id === appointmentId);
-    if (!appt) {
-      setErr("Appointment not found. Try selecting it again.");
-      return;
-    }
+    if (!appt) return setErr("Appointment not found. Try selecting it again.");
 
     setSaving(true);
 
-    const { error } = await supabase.from("intake_submissions").insert([
+    // Store dynamic answers + useful pointers in wound_data (jsonb)
+    const payload = {
+      therapy_type: therapyType,
+      form_id: selectedTemplate.id,
+      appointment_id: appointmentId,
+      answers,
+      template_name: selectedTemplate.name,
+      submitted_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("patient_intakes").insert([
       {
-        appointment_id: appointmentId,
-        patient_id: patient.id, // IMPORTANT: patients.id
+        patient_id: patient.id,
         location_id: appt.location_id,
-        form_id: selectedTemplate.id,
-        answers,
+        service_type: therapyType, // reuse this column for wellness types
         status: "submitted",
+        wound_data: payload, // jsonb
+        medications: null,
+        consent_accepted: true,
+        consent_signed_name: consentSignedName.trim(),
+        consent_signed_at: new Date().toISOString(),
       },
     ]);
 
     setSaving(false);
 
-    if (error) {
-      setErr(error.message);
-      return;
-    }
+    if (error) return setErr(error.message);
 
     alert("Intake submitted ✅");
-    nav("/patient", { replace: true });
+    nav(`/patient/assessment?appointmentId=${appointmentId}`, { replace: true });
   };
+
+  const patientLabel = useMemo(() => {
+    const fn = patient?.first_name ?? "";
+    const ln = patient?.last_name ?? "";
+    const n = `${fn} ${ln}`.trim();
+    return n || "Patient";
+  }, [patient?.first_name, patient?.last_name]);
 
   return (
     <div className="app-bg">
@@ -251,7 +258,7 @@ export default function PatientIntake() {
               </div>
               {patient?.id ? (
                 <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                  Patient: <strong>{patient.first_name} {patient.last_name}</strong>
+                  Patient: <strong>{patientLabel}</strong>
                 </div>
               ) : null}
             </div>
@@ -269,12 +276,7 @@ export default function PatientIntake() {
           {!loading && (
             <>
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                <select
-                  className="input"
-                  style={{ flex: "1 1 220px" }}
-                  value={therapyType}
-                  onChange={(e) => setTherapyType(e.target.value)}
-                >
+                <select className="input" style={{ flex: "1 1 220px" }} value={therapyType} onChange={(e) => setTherapyType(e.target.value)}>
                   <option value="peptides">Peptides</option>
                   <option value="glp1">GLP-1</option>
                   <option value="trt">TRT</option>
@@ -282,12 +284,7 @@ export default function PatientIntake() {
                   <option value="botox">Botox</option>
                 </select>
 
-                <select
-                  className="input"
-                  style={{ flex: "2 1 320px" }}
-                  value={appointmentId}
-                  onChange={(e) => setAppointmentId(e.target.value)}
-                >
+                <select className="input" style={{ flex: "2 1 320px" }} value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)}>
                   <option value="">Select Appointment</option>
                   {appointments.map((a) => (
                     <option key={a.id} value={a.id}>
@@ -322,11 +319,7 @@ export default function PatientIntake() {
                               <div className="muted" style={{ marginBottom: 6 }}>
                                 {f.label} {f.required ? " *" : ""}
                               </div>
-                              <input
-                                className="input"
-                                value={v ?? ""}
-                                onChange={(e) => setValue(f.key, e.target.value)}
-                              />
+                              <input className="input" value={v ?? ""} onChange={(e) => setValue(f.key, e.target.value)} />
                             </div>
                           );
                         }
@@ -353,11 +346,7 @@ export default function PatientIntake() {
                               <div className="muted" style={{ marginBottom: 6 }}>
                                 {f.label} {f.required ? " *" : ""}
                               </div>
-                              <select
-                                className="input"
-                                value={v ?? ""}
-                                onChange={(e) => setValue(f.key, e.target.value)}
-                              >
+                              <select className="input" value={v ?? ""} onChange={(e) => setValue(f.key, e.target.value)}>
                                 <option value="">Select…</option>
                                 {f.options.map((opt) => (
                                   <option key={opt} value={opt}>
@@ -373,11 +362,7 @@ export default function PatientIntake() {
                         return (
                           <div key={f.key} style={{ marginBottom: 10 }}>
                             <label className="muted" style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                              <input
-                                type="checkbox"
-                                checked={v === true}
-                                onChange={(e) => setValue(f.key, e.target.checked)}
-                              />
+                              <input type="checkbox" checked={v === true} onChange={(e) => setValue(f.key, e.target.checked)} />
                               {f.label} {f.required ? " *" : ""}
                             </label>
                           </div>
@@ -386,6 +371,24 @@ export default function PatientIntake() {
                     </div>
                   ))}
 
+                  <div className="space" />
+                  <div className="card card-pad" style={{ background: "rgba(0,0,0,.06)" }}>
+                    <div className="h2">Consent</div>
+                    <div className="space" />
+
+                    <label className="muted" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                      <input type="checkbox" checked={consentAccepted} onChange={(e) => setConsentAccepted(e.target.checked)} />
+                      I agree to the consent terms for this intake. *
+                    </label>
+
+                    <div className="space" />
+                    <div className="muted" style={{ marginBottom: 6 }}>
+                      Type your full name to sign *
+                    </div>
+                    <input className="input" value={consentSignedName} onChange={(e) => setConsentSignedName(e.target.value)} placeholder="Full name" />
+                  </div>
+
+                  <div className="space" />
                   <button className="btn btn-primary" onClick={submit} disabled={saving} type="button">
                     {saving ? "Submitting…" : "Submit Intake"}
                   </button>

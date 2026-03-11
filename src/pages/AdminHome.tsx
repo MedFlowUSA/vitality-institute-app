@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import logo from "../assets/vitality-logo.png";
+import SystemStatusBar from "../components/SystemStatusBar";
+import LocationPicker from "../components/LocationPicker";
 
 type LocationRow = {
   id: string;
@@ -252,6 +254,9 @@ export default function AdminHome() {
               <button className="btn btn-ghost" type="button" onClick={() => navigate("/")}>
                 Home
               </button>
+              <button className="btn btn-ghost" type="button" onClick={() => navigate("/admin/staff")}>
+                Staff Management
+              </button>
               <button
                 className="btn btn-primary"
                 type="button"
@@ -314,6 +319,9 @@ export default function AdminHome() {
             ))}
           </div>
         </div>
+        <SystemStatusBar />
+        <div className="space" />
+        <LocationPicker />
 
         <div className="space" />
 

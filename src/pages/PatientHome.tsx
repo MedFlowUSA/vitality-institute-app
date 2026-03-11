@@ -1,8 +1,9 @@
-// src/pages/PatientHome.tsx
+﻿// src/pages/PatientHome.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
+import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
 import VitalityHero from "../components/VitalityHero";
 
 type LocationRow = { id: string; name: string; city: string | null; state: string | null };
@@ -12,6 +13,9 @@ type ServiceRow = {
   location_id: string;
   category: string | null;
   visit_type: string | null;
+  description?: string | null;
+  price_marketing_cents?: number | null;
+  price_regular_cents?: number | null;
 };
 
 type LocationHoursRow = {
@@ -37,6 +41,90 @@ type LatestWoundIntake = {
   status: "submitted" | "needs_info" | "approved" | "locked" | string;
   created_at: string;
   locked_at: string | null;
+};
+
+type AppointmentIntakeStatusRow = {
+  id: string;
+  status: string | null;
+  service_type: string | null;
+  created_at: string;
+  locked_at: string | null;
+};
+
+type AppointmentVisitRow = {
+  id: string;
+  appointment_id: string | null;
+  visit_date: string | null;
+  created_at: string;
+  status: string | null;
+};
+
+type LatestTreatmentPlanRow = {
+  id: string;
+  visit_id: string;
+  created_at: string;
+  status: string | null;
+  summary: string | null;
+  patient_instructions: string | null;
+};
+
+type PatientSafeTreatmentPlan = {
+  id: string;
+  visit_id: string;
+  created_at: string;
+  updated_at?: string | null;
+  signed_at?: string | null;
+  status: string | null;
+  summary: string | null;
+  patient_instructions: string | null;
+  plan: any;
+};
+
+type PatientLabRow = {
+  id: string;
+  created_at: string;
+  patient_id: string;
+  lab_name: string | null;
+  result_summary: string | null;
+  status: string | null;
+  collected_at: string | null;
+};
+
+type PatientAlertItem = {
+  id: string;
+  tone: "info" | "warning" | "success";
+  title: string;
+  message: string;
+  ctaLabel?: string;
+  ctaAction?: () => void;
+};
+
+type TimelineItem = {
+  id: string;
+  date: string;
+  title: string;
+  detail: string;
+  tone: "info" | "warning" | "success";
+};
+
+type NextStepItem = {
+  title: string;
+  message: string;
+  ctaLabel: string;
+  ctaAction: () => void;
+  tone: "info" | "warning" | "success";
+};
+
+type AppointmentFileRow = {
+  id: string;
+  created_at: string;
+  appointment_id: string | null;
+  filename: string;
+  category: string | null;
+  bucket: string;
+  path: string;
+  content_type: string | null;
+  size_bytes: number | null;
 };
 
 function toLocalTimeLabel(iso: string) {
@@ -66,11 +154,308 @@ function statusBadge(status: string) {
   return base;
 }
 
+function appointmentStatusBadge(status: string) {
+  const s = (status || "").toLowerCase();
+
+  const base = {
+    display: "inline-block",
+    padding: "4px 10px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 800,
+    border: "1px solid rgba(255,255,255,.18)",
+    background: "rgba(255,255,255,.06)",
+  } as const;
+
+  if (s === "requested") {
+    return {
+      ...base,
+      background: "rgba(148,163,184,.18)",
+      border: "1px solid rgba(148,163,184,.35)",
+    };
+  }
+
+  if (s === "approved" || s === "confirmed") {
+    return {
+      ...base,
+      background: "rgba(59,130,246,.18)",
+      border: "1px solid rgba(59,130,246,.35)",
+    };
+  }
+
+  if (s === "in_progress") {
+    return {
+      ...base,
+      background: "rgba(168,85,247,.18)",
+      border: "1px solid rgba(168,85,247,.35)",
+    };
+  }
+
+  if (s === "completed") {
+    return {
+      ...base,
+      background: "rgba(34,197,94,.18)",
+      border: "1px solid rgba(34,197,94,.35)",
+    };
+  }
+
+  if (s === "cancelled") {
+    return {
+      ...base,
+      background: "rgba(239,68,68,.18)",
+      border: "1px solid rgba(239,68,68,.35)",
+    };
+  }
+
+  return base;
+}
+
+function intakeStatusBadge(status: string | null) {
+  const s = (status || "").toLowerCase();
+
+  const base = {
+    display: "inline-block",
+    padding: "4px 10px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 800,
+    border: "1px solid rgba(255,255,255,.18)",
+    background: "rgba(255,255,255,.06)",
+  } as const;
+
+  if (s === "submitted") {
+    return {
+      ...base,
+      background: "rgba(148,163,184,.18)",
+      border: "1px solid rgba(148,163,184,.35)",
+    };
+  }
+
+  if (s === "needs_info") {
+    return {
+      ...base,
+      background: "rgba(245,158,11,.18)",
+      border: "1px solid rgba(245,158,11,.35)",
+    };
+  }
+
+  if (s === "approved") {
+    return {
+      ...base,
+      background: "rgba(59,130,246,.18)",
+      border: "1px solid rgba(59,130,246,.35)",
+    };
+  }
+
+  if (s === "locked") {
+    return {
+      ...base,
+      background: "rgba(34,197,94,.18)",
+      border: "1px solid rgba(34,197,94,.35)",
+    };
+  }
+
+  return base;
+}
+
+function visitStatusBadge(status: string | null) {
+  const s = (status || "").toLowerCase();
+
+  const base = {
+    padding: "4px 10px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 800,
+    border: "1px solid rgba(255,255,255,.18)",
+    background: "rgba(255,255,255,.06)",
+  };
+
+  if (s === "open")
+    return {
+      ...base,
+      background: "rgba(59,130,246,.18)",
+      border: "1px solid rgba(59,130,246,.35)",
+    };
+
+  if (s === "completed")
+    return {
+      ...base,
+      background: "rgba(34,197,94,.18)",
+      border: "1px solid rgba(34,197,94,.35)",
+    };
+
+  return base;
+}
+
+function fmtMoneyFromCentsString(v: string) {
+  if (!v) return null;
+  const n = Number(v);
+  if (Number.isNaN(n)) return null;
+  return `$${(n / 100).toFixed(2)}`;
+}
+
+function fmtMoney(cents: number | null | undefined) {
+  if (cents === null || cents === undefined) return null;
+  const n = Number(cents);
+  if (Number.isNaN(n)) return null;
+  return `$${(n / 100).toFixed(2)}`;
+}
+
+function prettyCategory(v: string | null) {
+  if (!v) return "Service";
+  return v.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function readableStatus(v: string | null | undefined) {
+  return (v || "unknown").replaceAll("_", " ");
+}
+
+function getFollowUpDaysFromPlan(plan: any): number | null {
+  const v = plan?.follow_up_days;
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function getFollowUpDate(plan: any, referenceDate: string) {
+  const days = Number(plan?.follow_up_days);
+
+  if (!Number.isFinite(days)) return null;
+
+  const base = new Date(referenceDate);
+  const next = new Date(base);
+
+  next.setDate(base.getDate() + days);
+
+  return next;
+}
+
+function documentDisplayTitle(file: any) {
+  const dateLabel = file.created_at
+    ? new Date(file.created_at).toLocaleDateString()
+    : "";
+
+  if (file.category === "visit_packet_patient_copy") {
+    return dateLabel ? `Visit Summary - ${dateLabel}` : "Visit Summary";
+  }
+
+  if (file.category === "wound_photo") {
+    return dateLabel ? `Wound Photo - ${dateLabel}` : "Wound Photo";
+  }
+
+  if (file.category === "appointment_attachment") {
+    return dateLabel ? `Appointment Attachment - ${dateLabel}` : "Appointment Attachment";
+  }
+
+  return file.filename || "Document";
+}
+
+function documentDisplaySubtitle(file: any) {
+  if (file.category === "visit_packet_patient_copy") {
+    return "Patient-safe PDF summary from your provider visit.";
+  }
+
+  if (file.category === "wound_photo") {
+    return "Uploaded image for clinical review.";
+  }
+
+  if (file.category === "appointment_attachment") {
+    return "Attachment linked to an appointment.";
+  }
+
+  return file.category ? file.category.replaceAll("_", " ") : "Document";
+}
+
+function serviceTypeKey(name: string | null, category: string | null) {
+  const n = (name ?? "").toLowerCase();
+  const c = (category ?? "").toLowerCase();
+
+  if (c.includes("wound") || n.includes("wound")) return "wound_care";
+  if (c.includes("glp") || n.includes("glp")) return "glp1";
+  if (c.includes("hrt") || n.includes("hormone")) return "hrt";
+  if (c.includes("trt") || n.includes("testosterone")) return "trt";
+  if (c.includes("peptide") || n.includes("peptide")) return "peptides";
+  if (c.includes("botox") || c.includes("inject") || n.includes("botox")) return "injectables";
+  if (c.includes("iv") || n.includes("iv drip") || n.includes("nad+")) return "iv_therapy";
+
+  return "general";
+}
+
+function intakeServiceTypeFromService(name: string | null, category: string | null) {
+  const key = serviceTypeKey(name, category);
+
+  if (key === "wound_care") return "wound_care";
+  if (key === "glp1") return "glp1";
+  if (key === "hrt") return "hrt";
+  if (key === "trt") return "trt";
+  if (key === "peptides") return "peptides";
+
+  return "general";
+}
+
+function isImageFileName(name: string, contentType?: string | null) {
+  return (contentType ?? "").startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(name);
+}
+
+function alertCardStyle(tone: "info" | "warning" | "success") {
+  if (tone === "warning") {
+    return {
+      background: "rgba(245,158,11,.12)",
+      border: "1px solid rgba(245,158,11,.28)",
+    };
+  }
+
+  if (tone === "success") {
+    return {
+      background: "rgba(34,197,94,.12)",
+      border: "1px solid rgba(34,197,94,.28)",
+    };
+  }
+
+  return {
+    background: "rgba(59,130,246,.12)",
+    border: "1px solid rgba(59,130,246,.28)",
+  };
+}
+
+function timelineDotStyle(tone: "info" | "warning" | "success") {
+  if (tone === "warning") return { background: "rgba(245,158,11,1)" };
+  if (tone === "success") return { background: "rgba(34,197,94,1)" };
+  return { background: "rgba(59,130,246,1)" };
+}
+
+function nextStepCardStyle(tone: "info" | "warning" | "success") {
+  if (tone === "warning") {
+    return {
+      background: "linear-gradient(135deg, rgba(245,158,11,.16), rgba(245,158,11,.08))",
+      border: "1px solid rgba(245,158,11,.28)",
+    };
+  }
+
+  if (tone === "success") {
+    return {
+      background: "linear-gradient(135deg, rgba(34,197,94,.16), rgba(34,197,94,.08))",
+      border: "1px solid rgba(34,197,94,.28)",
+    };
+  }
+
+  return {
+    background: "linear-gradient(135deg, rgba(59,130,246,.16), rgba(59,130,246,.08))",
+    border: "1px solid rgba(59,130,246,.28)",
+  };
+}
+
 export default function PatientHome() {
   const { user, role, signOut } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const prefillServiceId = searchParams.get("serviceId") ?? "";
+  const prefillServiceName = searchParams.get("serviceName") ?? "";
+  const prefillCategory = searchParams.get("category") ?? "";
+  const prefillConsult = searchParams.get("consult") ?? "";
+  const prefillPrice = searchParams.get("price") ?? "";
 
-  // ✅ ONBOARDING GATE
+  // ONBOARDING GATE
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
@@ -82,6 +467,8 @@ export default function PatientHome() {
   const [serviceId, setServiceId] = useState<string>("");
   const [date, setDate] = useState<string>(""); // YYYY-MM-DD
   const [notes, setNotes] = useState<string>("");
+  const [woundPhotos, setWoundPhotos] = useState<File[]>([]);
+  const [uploadingApptFiles, setUploadingApptFiles] = useState(false);
 
   const [hours, setHours] = useState<LocationHoursRow | null>(null);
   const [taken, setTaken] = useState<Set<string>>(new Set()); // ISO strings
@@ -90,10 +477,34 @@ export default function PatientHome() {
   // patient appointment list
   const [myAppointments, setMyAppointments] = useState<ApptRow[]>([]);
   const [loadingMine, setLoadingMine] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<ApptRow | null>(null);
+  const [appointmentDrawerFiles, setAppointmentDrawerFiles] = useState<File[]>([]);
+  const [uploadingDrawerFiles, setUploadingDrawerFiles] = useState(false);
+  const [appointmentFiles, setAppointmentFiles] = useState<AppointmentFileRow[]>([]);
+  const [appointmentFileUrls, setAppointmentFileUrls] = useState<Record<string, string>>({});
+  const [loadingAppointmentFiles, setLoadingAppointmentFiles] = useState(false);
+  const [appointmentIntakeStatus, setAppointmentIntakeStatus] = useState<AppointmentIntakeStatusRow | null>(null);
+  const [loadingAppointmentIntakeStatus, setLoadingAppointmentIntakeStatus] = useState(false);
+  const [appointmentVisit, setAppointmentVisit] = useState<AppointmentVisitRow | null>(null);
+  const [loadingAppointmentVisit, setLoadingAppointmentVisit] = useState(false);
+  const [nextAppointment, setNextAppointment] = useState<ApptRow | null>(null);
+  const [unreadThreads, setUnreadThreads] = useState<number>(0);
+  const [latestTreatmentPlan, setLatestTreatmentPlan] = useState<LatestTreatmentPlanRow | null>(null);
+  const [patientSafePlan, setPatientSafePlan] = useState<PatientSafeTreatmentPlan | null>(null);
+  const [loadingPatientSafePlan, setLoadingPatientSafePlan] = useState(false);
+  const [recentLabs, setRecentLabs] = useState<PatientLabRow[]>([]);
+  const [loadingLabsPreview, setLoadingLabsPreview] = useState(false);
+  const [patientFiles, setPatientFiles] = useState<any[]>([]);
 
   // latest wound intake status
   const [latestWoundIntake, setLatestWoundIntake] = useState<LatestWoundIntake | null>(null);
   const [loadingWound, setLoadingWound] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState<{
+    appointmentId: string;
+    locationName: string;
+    serviceName: string;
+    slotIso: string;
+  } | null>(null);
 
   const selectedLocation = useMemo(
     () => locations.find((l) => l.id === locationId) ?? null,
@@ -112,8 +523,28 @@ export default function PatientHome() {
 
   const svcName = useMemo(() => {
     const m = new Map(services.map((s) => [s.id, s.name]));
-    return (id: string | null) => (id ? m.get(id) ?? "—" : "—");
+    return (id: string | null) => (id ? m.get(id) ?? "-" : "-");
   }, [services]);
+
+  const serviceById = useMemo(() => {
+    const m = new Map(services.map((s) => [s.id, s]));
+    return (id: string | null) => (id ? m.get(id) ?? null : null);
+  }, [services]);
+
+  const featuredServices = useMemo(() => {
+    return services.slice(0, 6);
+  }, [services]);
+
+  const nextFollowUpDate = useMemo(() => {
+    if (!patientSafePlan) return null;
+
+    const ref =
+      patientSafePlan.signed_at ??
+      patientSafePlan.updated_at ??
+      patientSafePlan.created_at;
+
+    return getFollowUpDate(patientSafePlan.plan, ref);
+  }, [patientSafePlan]);
 
   const dayOfWeek = useMemo(() => {
     if (!date) return null;
@@ -122,10 +553,410 @@ export default function PatientHome() {
     return local.getDay(); // 0..6
   }, [date]);
 
+  const selectedServiceSummary = useMemo(() => {
+    if (!prefillServiceId) return null;
+
+    const matched = services.find((s) => s.id === prefillServiceId);
+
+    return {
+      id: prefillServiceId,
+      name: prefillServiceName || matched?.name || "Selected Service",
+      category: prettyCategory(prefillCategory || matched?.category || ""),
+      consult: prefillConsult === "1",
+      price: fmtMoneyFromCentsString(prefillPrice),
+    };
+  }, [prefillServiceId, prefillServiceName, prefillCategory, prefillConsult, prefillPrice, services]);
+
+  const patientAlerts = useMemo<PatientAlertItem[]>(() => {
+    const items: PatientAlertItem[] = [];
+
+    if (latestWoundIntake?.status === "needs_info") {
+      items.push({
+        id: "intake-needs-info",
+        tone: "warning",
+        title: "Your intake needs an update",
+        message: "The clinic requested additional information before moving forward.",
+        ctaLabel: "Update Intake",
+        ctaAction: () => navigate("/patient/intake/wound"),
+      });
+    }
+
+    if (nextAppointment) {
+      items.push({
+        id: "next-appointment",
+        tone: "info",
+        title: "Upcoming appointment",
+        message: `${new Date(nextAppointment.start_time).toLocaleString()} • ${svcName(nextAppointment.service_id)}`,
+        ctaLabel: "View Appointments",
+        ctaAction: () => {
+          const el = document.getElementById("my-appointments");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        },
+      });
+    } else {
+      items.push({
+        id: "no-upcoming-appointment",
+        tone: "info",
+        title: "No upcoming appointment",
+        message: "You can book your next visit directly from the portal.",
+        ctaLabel: "Book Now",
+        ctaAction: () => {
+          const el = document.getElementById("book-appointment");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        },
+      });
+    }
+
+    if (latestTreatmentPlan) {
+      items.push({
+        id: "care-plan-available",
+        tone: "success",
+        title: "Care plan available",
+        message: latestTreatmentPlan.summary || "Your provider has added a treatment plan.",
+        ctaLabel: "View Treatments",
+        ctaAction: () => navigate("/patient/treatments"),
+      });
+    }
+
+    if (recentLabs.length > 0) {
+      items.push({
+        id: "labs-available",
+        tone: "success",
+        title: "Recent lab activity",
+        message: recentLabs[0]?.lab_name
+          ? `${recentLabs[0].lab_name} is available in your labs section.`
+          : "New lab information is available.",
+        ctaLabel: "Open Labs",
+        ctaAction: () => navigate("/patient/labs"),
+      });
+    }
+
+    return items.slice(0, 4);
+  }, [
+    latestWoundIntake,
+    nextAppointment,
+    latestTreatmentPlan,
+    recentLabs,
+    navigate,
+    svcName,
+  ]);
+
+  const patientTimeline = useMemo<TimelineItem[]>(() => {
+    const items: TimelineItem[] = [];
+
+    if (latestWoundIntake?.created_at) {
+      items.push({
+        id: `intake-${latestWoundIntake.id}`,
+        date: latestWoundIntake.created_at,
+        title: "Wound Intake Submitted",
+        detail: `Status: ${(latestWoundIntake.status || "unknown").replaceAll("_", " ")}`,
+        tone:
+          latestWoundIntake.status === "needs_info"
+            ? "warning"
+            : latestWoundIntake.status === "locked" || latestWoundIntake.status === "approved"
+            ? "success"
+            : "info",
+      });
+    }
+
+    myAppointments.slice(0, 3).forEach((a) => {
+      items.push({
+        id: `appt-${a.id}`,
+        date: a.start_time,
+        title: "Appointment Activity",
+        detail: `${svcName(a.service_id)} • ${(a.status || "unknown").replaceAll("_", " ")}`,
+        tone:
+          a.status === "completed"
+            ? "success"
+            : a.status === "cancelled"
+            ? "warning"
+            : "info",
+      });
+    });
+
+    if (latestTreatmentPlan?.created_at) {
+      items.push({
+        id: `plan-${latestTreatmentPlan.id}`,
+        date: latestTreatmentPlan.created_at,
+        title: "Treatment Plan Updated",
+        detail: latestTreatmentPlan.summary || "A care plan was added to your chart.",
+        tone: "success",
+      });
+    }
+
+    recentLabs.forEach((lab) => {
+      items.push({
+        id: `lab-${lab.id}`,
+        date: lab.collected_at ?? lab.created_at,
+        title: "Lab Result Available",
+        detail: lab.lab_name || "Lab result posted",
+        tone: "info",
+      });
+    });
+
+    return items
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 6);
+  }, [latestWoundIntake, myAppointments, latestTreatmentPlan, recentLabs, svcName]);
+
+  const recommendedNextStep = useMemo<NextStepItem | null>(() => {
+    if (latestWoundIntake?.status === "needs_info") {
+      return {
+        title: "Update Your Intake",
+        message: "The clinic requested additional information before continuing your care review.",
+        ctaLabel: "Update Intake",
+        ctaAction: () => navigate("/patient/intake/wound"),
+        tone: "warning",
+      };
+    }
+
+    if (nextAppointment) {
+      return {
+        title: "Prepare for Your Upcoming Appointment",
+        message: `${new Date(nextAppointment.start_time).toLocaleString()} • ${svcName(nextAppointment.service_id)}`,
+        ctaLabel: "View Appointments",
+        ctaAction: () => {
+          const el = document.getElementById("my-appointments");
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        },
+        tone: "info",
+      };
+    }
+
+    if (latestTreatmentPlan) {
+      return {
+        title: "Review Your Care Plan",
+        message: latestTreatmentPlan.summary || "Your provider has added a treatment plan to your chart.",
+        ctaLabel: "View Treatments",
+        ctaAction: () => navigate("/patient/treatments"),
+        tone: "success",
+      };
+    }
+
+    if (recentLabs.length > 0) {
+      return {
+        title: "Review Recent Lab Results",
+        message: recentLabs[0]?.lab_name || "New lab information is available in your chart.",
+        ctaLabel: "Open Labs",
+        ctaAction: () => navigate("/patient/labs"),
+        tone: "success",
+      };
+    }
+
+    return {
+      title: "Book Your Next Appointment",
+      message: "You do not have an upcoming appointment scheduled right now.",
+      ctaLabel: "Book Now",
+      ctaAction: () => {
+        const el = document.getElementById("book-appointment");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      },
+      tone: "info",
+    };
+  }, [latestWoundIntake, nextAppointment, latestTreatmentPlan, recentLabs, navigate, svcName]);
+
+  const todayAtAGlance = useMemo(() => {
+    return {
+      nextAppointmentText: nextAppointment
+        ? `${new Date(nextAppointment.start_time).toLocaleString()} • ${svcName(nextAppointment.service_id)}`
+        : "No upcoming appointment scheduled",
+      intakeText: latestWoundIntake
+        ? readableStatus(latestWoundIntake.status)
+        : "No intake on file",
+      carePlanText: latestTreatmentPlan?.status
+        ? readableStatus(latestTreatmentPlan.status)
+        : latestTreatmentPlan
+        ? "available"
+        : "No care plan yet",
+      messagesText:
+        unreadThreads > 0
+          ? `${unreadThreads} active conversation${unreadThreads === 1 ? "" : "s"}`
+          : "No active conversations",
+    };
+  }, [
+    nextAppointment,
+    latestWoundIntake,
+    latestTreatmentPlan,
+    unreadThreads,
+    svcName,
+  ]);
+
   const scrollToBooking = () => {
     const el = document.getElementById("book-appointment");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  useEffect(() => {
+    if (!prefillServiceId) return;
+    setServiceId(prefillServiceId);
+  }, [prefillServiceId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAppointmentFiles = async () => {
+      if (!selectedAppointment?.id) {
+        setAppointmentFiles([]);
+        setAppointmentFileUrls({});
+        return;
+      }
+
+      setLoadingAppointmentFiles(true);
+
+      try {
+        const { data, error } = await supabase
+          .from("patient_files")
+          .select("id,created_at,appointment_id,filename,category,bucket,path,content_type,size_bytes")
+          .eq("appointment_id", selectedAppointment.id)
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        const rows = (data as AppointmentFileRow[]) ?? [];
+        if (cancelled) return;
+
+        setAppointmentFiles(rows);
+
+        const out: Record<string, string> = {};
+        for (const f of rows) {
+          try {
+            const url = await getSignedUrl(f.bucket, f.path);
+            out[f.id] = url;
+          } catch {
+            // ignore URL failures
+          }
+        }
+
+        if (!cancelled) setAppointmentFileUrls(out);
+      } catch (e: any) {
+        if (!cancelled) setErr(e?.message ?? "Failed to load appointment files.");
+      } finally {
+        if (!cancelled) setLoadingAppointmentFiles(false);
+      }
+    };
+
+    loadAppointmentFiles();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAppointment?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAppointmentIntakeStatus = async () => {
+      if (!selectedAppointment?.id || !user?.id) {
+        setAppointmentIntakeStatus(null);
+        return;
+      }
+
+      setLoadingAppointmentIntakeStatus(true);
+
+      try {
+        const { data: p, error: pErr } = await supabase
+          .from("patients")
+          .select("id")
+          .eq("profile_id", user.id)
+          .maybeSingle();
+
+        if (pErr) throw pErr;
+
+        const patientId = (p as any)?.id as string | undefined;
+        if (!patientId) {
+          setAppointmentIntakeStatus(null);
+          return;
+        }
+
+        const svc = serviceById(selectedAppointment.service_id);
+        const serviceType = intakeServiceTypeFromService(svc?.name ?? null, svc?.category ?? null);
+
+        const { data, error } = await supabase
+          .from("patient_intakes")
+          .select("id,status,service_type,created_at,locked_at")
+          .eq("patient_id", patientId)
+          .eq("service_type", serviceType)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (error) throw error;
+
+        if (!cancelled) {
+          setAppointmentIntakeStatus((data?.[0] as AppointmentIntakeStatusRow) ?? null);
+        }
+      } catch (e: any) {
+        if (!cancelled) setErr(e?.message ?? "Failed to load intake status.");
+      } finally {
+        if (!cancelled) setLoadingAppointmentIntakeStatus(false);
+      }
+    };
+
+    loadAppointmentIntakeStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAppointment?.id, user?.id, serviceById]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAppointmentVisit = async () => {
+      if (!selectedAppointment?.id) {
+        setAppointmentVisit(null);
+        return;
+      }
+
+      setLoadingAppointmentVisit(true);
+
+      try {
+        const { data, error } = await supabase
+          .from("patient_visits")
+          .select("id,appointment_id,visit_date,created_at,status")
+          .eq("appointment_id", selectedAppointment.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (!cancelled) {
+          setAppointmentVisit((data as AppointmentVisitRow) ?? null);
+        }
+      } catch (e: any) {
+        if (!cancelled) setErr(e?.message ?? "Failed to load visit info.");
+      } finally {
+        if (!cancelled) setLoadingAppointmentVisit(false);
+      }
+    };
+
+    loadAppointmentVisit();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAppointment?.id]);
+
+  useEffect(() => {
+    if (!prefillServiceId || !services.length) return;
+    if (locationId) return;
+
+    const matched = services.find((s) => s.id === prefillServiceId);
+    if (matched?.location_id) {
+      setLocationId(matched.location_id);
+    } else if (!locationId && locations.length === 1) {
+      setLocationId(locations[0].id);
+    }
+  }, [prefillServiceId, services, locationId, locations]);
+
+  useEffect(() => {
+    if (!prefillServiceId) return;
+
+    const el = document.getElementById("book-appointment");
+    if (el) {
+      setTimeout(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
+  }, [prefillServiceId]);
 
   const loadMyAppointments = async () => {
     if (!user) return;
@@ -146,6 +977,192 @@ export default function PatientHome() {
     }
 
     setMyAppointments((data as ApptRow[]) ?? []);
+  };
+
+  const loadDashboard = async () => {
+    if (!user?.id) return;
+
+    try {
+      // NEXT APPOINTMENT
+      const { data: nextAppt } = await supabase
+        .from("appointments")
+        .select("id,start_time,location_id,status,service_id,notes")
+        .eq("patient_id", user.id)
+        .gte("start_time", new Date().toISOString())
+        .order("start_time", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      setNextAppointment((nextAppt as ApptRow) ?? null);
+
+      // UNREAD MESSAGES
+      const { data: threads } = await supabase
+        .from("chat_threads")
+        .select("id,status")
+        .eq("patient_id", user.id)
+        .eq("status", "open");
+
+      setUnreadThreads(threads?.length ?? 0);
+
+    } catch (e) {
+      console.error("Dashboard load error", e);
+    }
+  };
+
+  const loadLatestTreatmentPlan = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data: visits, error: vErr } = await supabase
+        .from("patient_visits")
+        .select("id")
+        .eq("patient_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (vErr) throw vErr;
+
+      const visitIds = (visits ?? []).map((v: any) => v.id);
+      if (visitIds.length === 0) {
+        setLatestTreatmentPlan(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("patient_treatment_plans")
+        .select("id,visit_id,created_at,status,summary,patient_instructions")
+        .in("visit_id", visitIds)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      setLatestTreatmentPlan((data?.[0] as LatestTreatmentPlanRow) ?? null);
+    } catch (e) {
+      console.error("Treatment plan load failed:", e);
+      setLatestTreatmentPlan(null);
+    }
+  };
+
+  const loadPatientSafePlan = async () => {
+    if (!user?.id) return;
+    setLoadingPatientSafePlan(true);
+
+    try {
+      const { data: visits, error: vErr } = await supabase
+        .from("patient_visits")
+        .select("id")
+        .eq("patient_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(15);
+
+      if (vErr) throw vErr;
+
+      const visitIds = (visits ?? []).map((v: any) => v.id);
+      if (visitIds.length === 0) {
+        setPatientSafePlan(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("patient_treatment_plans")
+        .select("id,visit_id,created_at,updated_at,signed_at,status,summary,patient_instructions,plan")
+        .in("visit_id", visitIds)
+        .in("status", ["active", "signed", "completed"])
+        .order("signed_at", { ascending: false, nullsFirst: false })
+        .order("updated_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      setPatientSafePlan((data?.[0] as PatientSafeTreatmentPlan) ?? null);
+    } catch (e) {
+      console.error("Patient-safe treatment plan load failed:", e);
+      setPatientSafePlan(null);
+    } finally {
+      setLoadingPatientSafePlan(false);
+    }
+  };
+
+  const loadRecentLabsPreview = async () => {
+    if (!user?.id) return;
+    setLoadingLabsPreview(true);
+
+    try {
+      const { data: p, error: pErr } = await supabase
+        .from("patients")
+        .select("id")
+        .eq("profile_id", user.id)
+        .maybeSingle();
+
+      if (pErr) throw pErr;
+
+      const patientId = (p as any)?.id as string | undefined;
+      if (!patientId) {
+        setRecentLabs([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("patient_labs")
+        .select("id,created_at,patient_id,lab_name,result_summary,status,collected_at")
+        .eq("patient_id", patientId)
+        .order("colected_at", { ascending: false })
+        .limit(3);
+
+      if (error) {
+        const fallback = await supabase
+          .from("patient_labs")
+          .select("id,created_at,patient_id,lab_name,result_summary,status,collected_at")
+          .eq("patient_id", patientId)
+          .order("created_at", { ascending: false })
+          .limit(3);
+
+        if (fallback.error) throw fallback.error;
+        setRecentLabs((fallback.data as PatientLabRow[]) ?? []);
+        return;
+      }
+
+      setRecentLabs((data as PatientLabRow[]) ?? []);
+    } catch (e) {
+      console.error("Labs preview load failed:", e);
+      setRecentLabs([]);
+    } finally {
+      setLoadingLabsPreview(false);
+    }
+  };
+
+  const loadPatientFiles = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data: p, error: pErr } = await supabase
+        .from("patients")
+        .select("id")
+        .eq("profile_id", user.id)
+        .maybeSingle();
+
+      if (pErr) throw pErr;
+
+      const patientId = (p as any)?.id as string | undefined;
+      if (!patientId) {
+        setPatientFiles([]);
+        return;
+      }
+
+      const { data: files } = await supabase
+        .from("patient_files")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (files) setPatientFiles(files);
+    } catch (e) {
+      console.error("Patient files load failed:", e);
+      setPatientFiles([]);
+    }
   };
 
   const loadLatestWoundIntake = async () => {
@@ -187,7 +1204,7 @@ export default function PatientHome() {
     }
   };
 
-  // ✅ ONBOARDING GATE EFFECT (runs first)
+  // ONBOARDING GATE EFFECT (runs first)
   useEffect(() => {
     let cancelled = false;
 
@@ -224,7 +1241,7 @@ export default function PatientHome() {
     };
   }, [user?.id, navigate]);
 
-  // ✅ Prevent running the heavy portal loaders until onboarding is confirmed
+  // Prevent running the heavy portal loaders until onboarding is confirmed
   useEffect(() => {
     let cancelled = false;
 
@@ -241,8 +1258,9 @@ export default function PatientHome() {
 
         const { data: svcs, error: svcErr } = await supabase
           .from("services")
-          .select("id,name,location_id,category,visit_type")
+          .select("id,name,location_id,category,visit_type,description,price_marketing_cents,price_regular_cents")
           .eq("is_active", true)
+          .order("sort_order", { ascending: true })
           .order("name");
         if (svcErr) throw svcErr;
 
@@ -253,6 +1271,11 @@ export default function PatientHome() {
 
         await loadMyAppointments();
         await loadLatestWoundIntake();
+        await loadDashboard();
+        await loadLatestTreatmentPlan();
+        await loadPatientSafePlan();
+        await loadRecentLabsPreview();
+        await loadPatientFiles();
       } catch (e: any) {
         if (!cancelled) setErr(e?.message ?? "Failed to load patient portal.");
       } finally {
@@ -361,31 +1384,87 @@ export default function PatientHome() {
     if (!date) return setErr("Please select a date.");
     if (!selectedSlotIso) return setErr("Please choose an available time slot.");
 
-    const { error } = await supabase.from("appointments").insert([
-      {
-        patient_id: user.id,
-        location_id: locationId,
-        service_id: serviceId || null,
-        start_time: selectedSlotIso,
-        status: "requested",
-        notes: notes || null,
-      },
-    ]);
+    try {
+      const { data: created, error: apptErr } = await supabase
+        .from("appointments")
+        .insert([
+          {
+            patient_id: user.id,
+            location_id: locationId,
+            service_id: serviceId || null,
+            start_time: selectedSlotIso,
+            status: "requested",
+            notes: notes || null,
+          },
+        ])
+        .select("id")
+        .maybeSingle();
 
-    if (error) {
-      if ((error as any).code === "23505") {
-        setErr("That time just got booked — please choose a different slot.");
+      if (apptErr) {
+        if ((apptErr as any).code === "23505") {
+          setErr("That time just got booked — please choose a different slot.");
+          return;
+        }
+        setErr(apptErr.message);
         return;
       }
-      setErr(error.message);
-      return;
+
+      const appointmentId = created?.id as string | undefined;
+      if (!appointmentId) {
+        setErr("Appointment created but no ID returned.");
+        return;
+      }
+
+      if (woundPhotos.length > 0) {
+        setUploadingApptFiles(true);
+
+        const { data: p, error: pErr } = await supabase
+          .from("patients")
+          .select("id")
+          .eq("profile_id", user.id)
+          .maybeSingle();
+
+        if (pErr) throw pErr;
+
+        const patientId = (p as any)?.id as string | undefined;
+        if (!patientId) throw new Error("Patient record not found for file uploads.");
+
+        for (const f of woundPhotos) {
+          await uploadPatientFile({
+            patientId,
+            locationId,
+            visitId: null,
+            appointmentId,
+            category: "wound_photo",
+            file: f,
+          });
+        }
+      }
+
+      const chosenSlot = selectedSlotIso;
+
+      setBookingSuccess({
+        appointmentId,
+        locationName: selectedLocation?.name ?? "Selected location",
+        serviceName: serviceId ? svcName(serviceId) : "Requested service",
+        slotIso: chosenSlot,
+      });
+
+      await loadMyAppointments();
+
+      // refresh availability grid
+      setTaken((prev) => new Set(prev).add(chosenSlot));
+
+      setNotes("");
+      setWoundPhotos([]);
+      setSelectedSlotIso("");
+    } catch (e: any) {
+      console.error(e);
+      setErr(e?.message || "Failed to submit appointment request.");
+    } finally {
+      setUploadingApptFiles(false);
     }
-
-    setNotes("");
-    alert("Appointment request submitted ✅");
-    await loadMyAppointments();
   };
-
   const messageFromAppointment = async (appt: ApptRow) => {
     if (!user) return;
 
@@ -399,7 +1478,7 @@ export default function PatientHome() {
     let threadId = existing?.id;
 
     if (!threadId) {
-      const subject = `Appointment • ${new Date(appt.start_time).toLocaleString()}`;
+      const subject = `Appointment - ${new Date(appt.start_time).toLocaleString()}`;
       const { data: created, error: crErr } = await supabase
         .from("chat_threads")
         .insert([
@@ -421,18 +1500,103 @@ export default function PatientHome() {
     if (threadId) navigate(`/patient/chat?threadId=${threadId}`);
   };
 
+  const uploadFilesToAppointment = async (appt: ApptRow) => {
+    if (!user?.id) return;
+    if (appointmentDrawerFiles.length === 0) {
+      setErr("Please choose one or more files first.");
+      return;
+    }
+
+    setErr(null);
+    setUploadingDrawerFiles(true);
+
+    try {
+      const { data: p, error: pErr } = await supabase
+        .from("patients")
+        .select("id")
+        .eq("profile_id", user.id)
+        .maybeSingle();
+
+      if (pErr) throw pErr;
+
+      const patientId = (p as any)?.id as string | undefined;
+      if (!patientId) throw new Error("Patient record not found for file uploads.");
+
+      for (const file of appointmentDrawerFiles) {
+        await uploadPatientFile({
+          patientId,
+          locationId: appt.location_id,
+          visitId: null,
+          appointmentId: appt.id,
+          category: "appointment_attachment",
+          file,
+        });
+      }
+
+      setAppointmentDrawerFiles([]);
+      const { data, error } = await supabase
+        .from("patient_files")
+        .select("id,created_at,appointment_id,filename,category,bucket,path,content_type,size_bytes")
+        .eq("appointment_id", appt.id)
+        .order("created_at", { ascending: false });
+
+      if (!error) {
+        const rows = (data as AppointmentFileRow[]) ?? [];
+        setAppointmentFiles(rows);
+
+        const out: Record<string, string> = {};
+        for (const f of rows) {
+          try {
+            const url = await getSignedUrl(f.bucket, f.path);
+            out[f.id] = url;
+          } catch {
+            // ignore URL failures
+          }
+        }
+        setAppointmentFileUrls(out);
+      }
+      alert("Files uploaded to appointment successfully.");
+    } catch (e: any) {
+      setErr(e?.message || "Failed to upload files to appointment.");
+    } finally {
+      setUploadingDrawerFiles(false);
+    }
+  };
+
+  const startIntakeFromAppointment = (appt: ApptRow) => {
+    const svc = serviceById(appt.service_id);
+    const typeKey = serviceTypeKey(svc?.name ?? null, svc?.category ?? null);
+
+    if (typeKey === "wound_care") {
+      navigate(`/patient/intake/wound?appointmentId=${appt.id}`);
+      return;
+    }
+
+    navigate(`/patient/intake?appointmentId=${appt.id}&type=${typeKey}`);
+  };
+
+  async function openPatientFile(file: any) {
+    const { data } = await supabase.storage
+      .from(file.bucket || "patient-files")
+      .createSignedUrl(file.path, 60);
+
+    if (data?.signedUrl) {
+      window.open(data.signedUrl, "_blank");
+    }
+  }
+
   const quickBtnProps = {
     onMouseDown: (e: React.MouseEvent) => e.preventDefault(),
     type: "button" as const,
   };
 
-  // ✅ Gate loading UI (keeps your full page intact, but prevents rendering before gate check)
+  // Gate loading UI (keeps your full page intact, but prevents rendering before gate check)
   if (checkingOnboarding) {
     return (
       <div className="app-bg">
         <div className="shell">
           <div className="card card-pad">
-            <div className="muted">Loading patient profile…</div>
+            <div className="muted">Loading patient profile...</div>
           </div>
         </div>
       </div>
@@ -444,7 +1608,7 @@ export default function PatientHome() {
       <div className="shell">
         <VitalityHero
           title="Vitality Institute"
-          subtitle="Patient Portal • Scheduling • Treatments • Messaging • Labs • Intake"
+          subtitle="Patient Portal - Scheduling - Treatments - Messaging - Labs - Intake"
           primaryCta={{ label: "Book Appointment", onClick: scrollToBooking }}
           secondaryCta={{ label: "Wound Intake", to: "/patient/intake/wound" }}
           rightActions={
@@ -473,7 +1637,127 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad">
+        {patientAlerts.length > 0 && (
+          <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+            {patientAlerts.map((alert) => (
+              <div
+                key={alert.id}
+                className="card card-pad"
+                style={{
+                  flex: "1 1 260px",
+                  ...alertCardStyle(alert.tone),
+                }}
+              >
+                <div style={{ fontWeight: 800 }}>{alert.title}</div>
+
+                <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                  {alert.message}
+                </div>
+
+                {alert.ctaLabel && alert.ctaAction ? (
+                  <>
+                    <div className="space" />
+                    <button className="btn btn-ghost" type="button" onClick={alert.ctaAction}>
+                      {alert.ctaLabel}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space" />
+
+        {recommendedNextStep ? (
+          <div
+            className="card card-pad"
+            style={nextStepCardStyle(recommendedNextStep.tone)}
+          >
+            <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ flex: 1, minWidth: 260 }}>
+                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                  Recommended Next Step
+                </div>
+                <div className="h2">{recommendedNextStep.title}</div>
+                <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                  {recommendedNextStep.message}
+                </div>
+              </div>
+
+              <div>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={recommendedNextStep.ctaAction}
+                >
+                  {recommendedNextStep.ctaLabel}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="space" />
+
+        <div
+          className="card card-pad"
+          style={{
+            background: "linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.03))",
+            border: "1px solid rgba(255,255,255,.10)",
+          }}
+        >
+          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="h2">Today at a Glance</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                A quick summary of your current care activity.
+              </div>
+            </div>
+
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => navigate("/patient/treatments")}
+            >
+              Open My Chart
+            </button>
+          </div>
+
+          <div className="space" />
+
+          <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+            <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+              <div className="muted">Next Appointment</div>
+              <div style={{ fontWeight: 800, marginTop: 8, lineHeight: 1.6 }}>
+                {todayAtAGlance.nextAppointmentText}
+              </div>
+            </div>
+
+            <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+              <div className="muted">Intake Status</div>
+              <div style={{ fontWeight: 800, marginTop: 8, lineHeight: 1.6 }}>
+                {todayAtAGlance.intakeText}
+              </div>
+            </div>
+
+            <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+              <div className="muted">Care Plan</div>
+              <div style={{ fontWeight: 800, marginTop: 8, lineHeight: 1.6 }}>
+                {todayAtAGlance.carePlanText}
+              </div>
+            </div>
+
+            <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+              <div className="muted">Messages</div>
+              <div style={{ fontWeight: 800, marginTop: 8, lineHeight: 1.6 }}>
+                {todayAtAGlance.messagesText}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="my-appointments" className="card card-pad">
           <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
               <div className="h1">Patient Portal</div>
@@ -485,7 +1769,7 @@ export default function PatientHome() {
               <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 <div className="muted">Wound intake status:</div>
                 {loadingWound ? (
-                  <span className="muted">Loading…</span>
+                  <span className="muted">Loading...</span>
                 ) : latestWoundIntake ? (
                   <span style={statusBadge(latestWoundIntake.status)}>{latestWoundIntake.status.toUpperCase()}</span>
                 ) : (
@@ -501,14 +1785,6 @@ export default function PatientHome() {
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", minHeight: 44 }}>
-              <button className="btn btn-primary" {...quickBtnProps} onClick={scrollToBooking}>
-                Book Appointment
-              </button>
-
-              <button className="btn btn-primary" {...quickBtnProps} onClick={() => navigate("/patient/intake/wound")}>
-                Wound Care Intake
-              </button>
-
               <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/treatments")}>
                 Treatments
               </button>
@@ -517,11 +1793,118 @@ export default function PatientHome() {
                 Labs
               </button>
 
+              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/services")}>
+                Browse Services
+              </button>
+
+              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/visits")}>
+                Visit Chart
+              </button>
+
               <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/chat")}>
                 Messages
               </button>
             </div>
           </div>
+        </div>
+
+        <div className="space" />
+
+        <div className="card card-pad">
+          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <div>
+              <div className="h2">Featured Services</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                Explore some of our most requested treatments and consultations.
+              </div>
+            </div>
+
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => navigate("/patient/services")}
+            >
+              View All Services
+            </button>
+          </div>
+
+          <div className="space" />
+
+          {featuredServices.length === 0 ? (
+            <div className="muted">No services available yet.</div>
+          ) : (
+            <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+              {featuredServices.map((service) => {
+                const price =
+                  fmtMoney(service.price_marketing_cents) ??
+                  fmtMoney(service.price_regular_cents);
+
+                return (
+                  <div
+                    key={service.id}
+                    className="card card-pad"
+                    style={{
+                      flex: "1 1 300px",
+                      minWidth: 280,
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      {prettyCategory(service.category)}
+                    </div>
+
+                    <div className="h2" style={{ marginTop: 8 }}>
+                      {service.name}
+                    </div>
+
+                    {service.description ? (
+                      <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                        {service.description}
+                      </div>
+                    ) : null}
+
+                    <div className="space" />
+
+                    {price ? (
+                      <div style={{ fontSize: 24, fontWeight: 900 }}>
+                        {price}
+                      </div>
+                    ) : (
+                      <div className="muted">Consultation based pricing</div>
+                    )}
+
+                    <div className="space" />
+
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        className="btn btn-primary"
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/patient?serviceId=${service.id}` +
+                              `&serviceName=${encodeURIComponent(service.name)}` +
+                              `&category=${encodeURIComponent(service.category ?? "")}` +
+                              `&price=${service.price_marketing_cents ?? service.price_regular_cents ?? ""}`
+                          )
+                        }
+                      >
+                        Book Now
+                      </button>
+
+                      <button
+                        className="btn btn-ghost"
+                        type="button"
+                        onClick={() => navigate("/patient/services")}
+                      >
+                        Learn More
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="space" />
@@ -534,7 +1917,59 @@ export default function PatientHome() {
 
           <div className="space" />
 
-          {loading && <div className="muted">Loading…</div>}
+          {selectedServiceSummary ? (
+            <div
+              className="card card-pad"
+              style={{
+                background: "linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.03))",
+                border: "1px solid rgba(255,255,255,0.10)",
+                marginBottom: 16,
+              }}
+            >
+              <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+                Selected Service
+              </div>
+
+              <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 240 }}>
+                  <div className="h2">{selectedServiceSummary.name}</div>
+                  <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                    Complete the appointment request below to reserve your consultation or treatment slot.
+                  </div>
+                </div>
+
+                <div style={{ minWidth: 180 }}>
+                  {selectedServiceSummary.price ? (
+                    <>
+                      <div className="muted" style={{ fontSize: 12 }}>Starting Price</div>
+                      <div style={{ fontSize: 24, fontWeight: 900, marginTop: 4 }}>
+                        {selectedServiceSummary.price}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="muted" style={{ fontSize: 12 }}>Pricing</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>
+                        Consultation Based
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                {selectedServiceSummary.category ? (
+                  <div className="v-chip">{selectedServiceSummary.category}</div>
+                ) : null}
+
+                <div className="v-chip">
+                  {selectedServiceSummary.consult ? "Provider Review Required" : "Bookable Online"}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading && (
@@ -545,16 +1980,26 @@ export default function PatientHome() {
                   style={{ flex: "1 1 260px" }}
                   value={locationId}
                   onChange={(e) => {
-                    setLocationId(e.target.value);
-                    setServiceId("");
+                    const nextLocationId = e.target.value;
+                    setLocationId(nextLocationId);
                     setSelectedSlotIso("");
+
+                    if (serviceId) {
+                      const stillValid = services.some(
+                        (s) => s.id === serviceId && s.location_id === nextLocationId
+                      );
+
+                      if (!stillValid) {
+                        setServiceId("");
+                      }
+                    }
                   }}
                 >
                   <option value="">Select Location</option>
                   {locations.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name}
-                      {l.city ? ` — ${l.city}` : ""}
+                      {l.city ? ` - ${l.city}` : ""}
                     </option>
                   ))}
                 </select>
@@ -566,7 +2011,7 @@ export default function PatientHome() {
                   onChange={(e) => setServiceId(e.target.value)}
                   disabled={!locationId}
                 >
-                  <option value="">Select Service (optional)</option>
+                  <option value="">Select Service</option>
                   {filteredServices.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
@@ -593,7 +2038,7 @@ export default function PatientHome() {
 
                 {hours && !hours.is_closed && (
                   <div className="muted" style={{ fontSize: 12 }}>
-                    Slots every {hours.slot_minutes} min • Hours {hours.open_time.slice(0, 5)}–{hours.close_time.slice(0, 5)}
+                    Slots every {hours.slot_minutes} min - Hours {hours.open_time.slice(0, 5)}-{hours.close_time.slice(0, 5)}
                   </div>
                 )}
               </div>
@@ -651,23 +2096,78 @@ export default function PatientHome() {
               <textarea
                 className="input"
                 style={{ width: "100%", minHeight: 90 }}
-                placeholder="Notes (optional) — what are you coming in for?"
+                placeholder="Notes (optional) - what are you coming in for?"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
 
               <div className="space" />
 
-              <button className="btn btn-primary" onClick={submit} type="button">
-                Request Appointment
-              </button>
-
-              {selectedLocation && (
-                <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>
-                  Selected: {selectedLocation.name}
-                  {selectedLocation.city ? ` (${selectedLocation.city}, ${selectedLocation.state ?? ""})` : ""}
+              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.06)" }}>
+                <div className="h2">Optional: Upload Wound Photos</div>
+                <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+                  These will be attached to your appointment request so the clinical team can review before your visit.
                 </div>
-              )}
+
+                <div className="space" />
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setWoundPhotos(files);
+                  }}
+                />
+
+                {woundPhotos.length > 0 && (
+                  <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+                    Selected: {woundPhotos.length} photo{woundPhotos.length === 1 ? "" : "s"}
+                  </div>
+                )}
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.04)" }}>
+                <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 800 }}>Ready to request your appointment?</div>
+                    <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+                      Review your selected location, service, date, and time before submitting.
+                    </div>
+
+                    {selectedLocation && (
+                      <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+                        Location: {selectedLocation.name}
+                        {selectedLocation.city ? ` (${selectedLocation.city}, ${selectedLocation.state ?? ""})` : ""}
+                      </div>
+                    )}
+
+                    {serviceId ? (
+                      <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                        Service: {svcName(serviceId)}
+                      </div>
+                    ) : null}
+
+                    {selectedSlotIso ? (
+                      <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                        Time: {toLocalTimeLabel(selectedSlotIso)}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <button
+                    className="btn btn-primary"
+                    onClick={submit}
+                    type="button"
+                    disabled={uploadingApptFiles}
+                  >
+                    {uploadingApptFiles ? "Uploading photos..." : "Request Appointment"}
+                  </button>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -677,25 +2177,43 @@ export default function PatientHome() {
         <div className="card card-pad">
           <div className="h2">My Appointments</div>
           <div className="muted" style={{ marginTop: 4 }}>
-            Tap “Message Clinic” to start a thread tied to that appointment.
+            Review your appointment history, track status updates, and message the clinic for follow-up.
           </div>
 
           <div className="space" />
 
-          {loadingMine && <div className="muted">Loading…</div>}
+          {loadingMine && <div className="muted">Loading...</div>}
           {!loadingMine && myAppointments.length === 0 && <div className="muted">No appointments yet.</div>}
 
           {!loadingMine &&
             myAppointments.map((a) => (
-              <div key={a.id} className="card card-pad" style={{ marginBottom: 12 }}>
+              <div
+                key={a.id}
+                className="card card-pad"
+                style={{
+                  marginBottom: 12,
+                  background: "linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03))",
+                  border: "1px solid rgba(255,255,255,.10)",
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  setAppointmentDrawerFiles([]);
+                  setSelectedAppointment(a);
+                }}
+              >
                 <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
                   <div style={{ flex: 1 }}>
                     <div className="h2">{new Date(a.start_time).toLocaleString()}</div>
-                    <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                      Location: {locName(a.location_id)} {" • "} Service: {svcName(a.service_id)}
-                    </div>
-                    <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                      Status: <strong>{a.status}</strong>
+                      <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                        Location: {locName(a.location_id)} {" - "} Service: {svcName(a.service_id)}
+                      </div>
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        Status:
+                      </div>
+                      <span style={appointmentStatusBadge(a.status)}>
+                        {(a.status || "unknown").replaceAll("_", " ").toUpperCase()}
+                      </span>
                     </div>
                     {a.notes && (
                       <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
@@ -707,15 +2225,802 @@ export default function PatientHome() {
                     </div>
                   </div>
 
-                  <div style={{ textAlign: "right" }}>
-                    <button className="btn btn-ghost" type="button" onClick={() => messageFromAppointment(a)}>
+                  <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <button
+                      className="btn btn-primary"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        messageFromAppointment(a);
+                      }}
+                    >
                       Message Clinic
+                    </button>
+
+                    <button
+                      className="btn btn-ghost"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/patient/treatments");
+                      }}
+                    >
+                      View Treatments
+                    </button>
+
+                    <button
+                      className="btn btn-ghost"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/patient/services");
+                      }}
+                    >
+                      Book Another Service
                     </button>
                   </div>
                 </div>
               </div>
             ))}
         </div>
+
+        <div className="space" />
+
+        <div className="card card-pad">
+          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="h2">Your Current Care Instructions</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                Your latest provider-approved guidance and next steps.
+              </div>
+            </div>
+
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => navigate("/patient/treatments")}
+            >
+              Open Treatments
+            </button>
+          </div>
+
+          <div className="space" />
+
+          {loadingPatientSafePlan ? (
+            <div className="muted">Loading care instructions...</div>
+          ) : !patientSafePlan ? (
+            <div className="muted">
+              No current patient instructions are available yet.
+            </div>
+          ) : (
+            <>
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                <div className="v-chip">{readableStatus(patientSafePlan.status)}</div>
+                <div className="v-chip">
+                  Updated{" "}
+                  {new Date(
+                    patientSafePlan.signed_at ??
+                    patientSafePlan.updated_at ??
+                    patientSafePlan.created_at
+                  ).toLocaleDateString()}
+                </div>
+                {getFollowUpDaysFromPlan(patientSafePlan.plan) != null ? (
+                  <div className="v-chip">
+                    Follow-up in {getFollowUpDaysFromPlan(patientSafePlan.plan)} days
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="card card-pad" style={{ background: "rgba(255,255,255,.04)" }}>
+                <div className="muted">Summary</div>
+                <div style={{ marginTop: 8, lineHeight: 1.7 }}>
+                  {patientSafePlan.summary || "Your provider has created a care plan for you."}
+                </div>
+
+                <div className="space" />
+
+                <div className="muted">Instructions</div>
+                <div style={{ marginTop: 8, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                  {patientSafePlan.patient_instructions ||
+                    "Your provider has not added patient instructions yet."}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="space" />
+
+        <div className="card card-pad">
+          <div className="h2">
+            Recommended Follow-Up
+          </div>
+
+          <div className="space" />
+
+          {!nextFollowUpDate ? (
+            <div className="muted">
+              Your provider has not specified a follow-up schedule yet.
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 16, lineHeight: 1.6 }}>
+                Your provider recommends a follow-up visit around:
+              </div>
+
+              <div
+                style={{
+                  fontWeight: 800,
+                  fontSize: 22,
+                  marginTop: 10,
+                }}
+              >
+                {nextFollowUpDate.toLocaleDateString()}
+              </div>
+
+              <div className="space" />
+
+              <button
+                className="btn btn-primary"
+                type="button"
+                onClick={() => navigate("/patient/book")}
+              >
+                Schedule Appointment
+              </button>
+            </>
+          )}
+        </div>
+
+        <div className="space" />
+
+        <div className="card card-pad">
+          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="h2">Recent Labs</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                A quick look at your most recent lab activity and results.
+              </div>
+            </div>
+
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => navigate("/patient/labs")}
+            >
+              Open Labs
+            </button>
+          </div>
+
+          <div className="space" />
+
+          {loadingLabsPreview ? (
+            <div className="muted">Loading labs...</div>
+          ) : recentLabs.length === 0 ? (
+            <div className="muted">
+              No lab results are available yet.
+            </div>
+          ) : (
+            <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+              <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                <div className="muted">Recent Results</div>
+                <div style={{ fontWeight: 900, fontSize: 28, marginTop: 6 }}>
+                  {recentLabs.length}
+                </div>
+              </div>
+
+              <div className="card card-pad" style={{ flex: "2 1 420px" }}>
+                <div className="muted">Latest Result</div>
+                <div style={{ fontWeight: 800, marginTop: 8 }}>
+                  {recentLabs[0]?.lab_name ?? "Lab Result"}
+                </div>
+                <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+                  {new Date(recentLabs[0]?.collected_at ?? recentLabs[0]?.created_at).toLocaleString()}
+                </div>
+                <div style={{ marginTop: 10, lineHeight: 1.7 }}>
+                  {recentLabs[0]?.result_summary ?? "Result summary available in the Labs section."}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="space" />
+
+        <div className="card card-pad">
+          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="h2">Your Timeline</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                A quick look at your most recent care activity across appointments, treatments, and labs.
+              </div>
+            </div>
+
+            <button
+              className="btn btn-ghost"
+              type="button"
+              onClick={() => navigate("/patient/treatments")}
+            >
+              View Treatments
+            </button>
+          </div>
+
+          <div className="space" />
+
+          {patientTimeline.length === 0 ? (
+            <div className="muted">No recent activity yet.</div>
+          ) : (
+            <div style={{ display: "grid", gap: 14 }}>
+              {patientTimeline.map((item, index) => (
+                <div key={item.id} className="row" style={{ gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 20 }}>
+                    <div
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: 999,
+                        marginTop: 4,
+                        ...timelineDotStyle(item.tone),
+                      }}
+                    />
+                    {index < patientTimeline.length - 1 ? (
+                      <div
+                        style={{
+                          width: 2,
+                          flex: 1,
+                          minHeight: 42,
+                          background: "rgba(255,255,255,.10)",
+                          marginTop: 6,
+                        }}
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className="card card-pad" style={{ flex: 1, background: "rgba(255,255,255,.04)" }}>
+                    <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                      <div style={{ fontWeight: 800 }}>{item.title}</div>
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {new Date(item.date).toLocaleString()}
+                      </div>
+                    </div>
+
+                    <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                      {item.detail}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="space" />
+
+        <div className="card card-pad">
+          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div className="h2">Documents</div>
+              <div className="muted">
+                Files shared with you by your provider.
+              </div>
+            </div>
+          </div>
+
+          <div className="space" />
+
+          {patientFiles.length === 0 ? (
+            <div className="muted">No documents available yet.</div>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {patientFiles.map((file) => (
+                <div
+                  key={file.id}
+                  className="card card-pad"
+                  style={{ background: "rgba(255,255,255,.04)" }}
+                >
+                    <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>
+                          {documentDisplayTitle(file)}
+                        </div>
+
+                        <div className="muted" style={{ fontSize: 12 }}>
+                          {documentDisplaySubtitle(file)}
+                        </div>
+                      </div>
+
+                    <button
+                      className="btn btn-ghost"
+                      type="button"
+                      onClick={() => openPatientFile(file)}
+                    >
+                      Open
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {selectedAppointment ? (
+          <>
+            <div
+              onClick={() => {
+                setAppointmentDrawerFiles([]);
+                setSelectedAppointment(null);
+              }}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.45)",
+                backdropFilter: "blur(4px)",
+                zIndex: 80,
+              }}
+            />
+
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                right: 0,
+                width: "min(520px, 92vw)",
+                height: "100vh",
+                background: "rgba(20,20,28,0.97)",
+                borderLeft: "1px solid rgba(255,255,255,.10)",
+                boxShadow: "-20px 0 50px rgba(0,0,0,0.35)",
+                zIndex: 81,
+                overflowY: "auto",
+                padding: 24,
+              }}
+            >
+              <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                <div>
+                  <div className="h2">Appointment Details</div>
+                  <div className="muted" style={{ marginTop: 6 }}>
+                    Review your scheduled request and available next actions.
+                  </div>
+                </div>
+
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => {
+                    setAppointmentDrawerFiles([]);
+                    setSelectedAppointment(null);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="space" />
+
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <span style={appointmentStatusBadge(selectedAppointment.status)}>
+                  {(selectedAppointment.status || "unknown").replaceAll("_", " ").toUpperCase()}
+                </span>
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad">
+                <div className="muted">Service</div>
+                <div style={{ fontWeight: 800, marginTop: 6 }}>
+                  {svcName(selectedAppointment.service_id)}
+                </div>
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad">
+                <div className="muted">Location</div>
+                <div style={{ fontWeight: 800, marginTop: 6 }}>
+                  {locName(selectedAppointment.location_id)}
+                </div>
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad">
+                <div className="muted">Date & Time</div>
+                <div style={{ fontWeight: 800, marginTop: 6 }}>
+                  {new Date(selectedAppointment.start_time).toLocaleString()}
+                </div>
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.04)" }}>
+                <div className="muted">Intake Guidance</div>
+                <div style={{ marginTop: 8, lineHeight: 1.7 }}>
+                  {(() => {
+                    const svc = serviceById(selectedAppointment.service_id);
+                    const key = serviceTypeKey(svc?.name ?? null, svc?.category ?? null);
+
+                    if (key === "wound_care") {
+                      return "This appointment supports wound care. You can complete or update your wound intake directly from this drawer.";
+                    }
+
+                    return "You can start a related intake or message the clinic if additional information is needed before your visit.";
+                  })()}
+                </div>
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad">
+                <div className="muted">Notes</div>
+                <div style={{ marginTop: 8, lineHeight: 1.7 }}>
+                  {selectedAppointment.notes || "No appointment notes were added."}
+                </div>
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad">
+                <div className="h2">Intake Status</div>
+                <div className="space" />
+
+                {loadingAppointmentIntakeStatus ? (
+                  <div className="muted">Loading intake status...</div>
+                ) : appointmentIntakeStatus ? (
+                  <>
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={intakeStatusBadge(appointmentIntakeStatus.status)}>
+                        {(appointmentIntakeStatus.status || "unknown").replaceAll("_", " ").toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="muted" style={{ marginTop: 10, fontSize: 13 }}>
+                      Last updated: {new Date(appointmentIntakeStatus.created_at).toLocaleString()}
+                    </div>
+
+                    {appointmentIntakeStatus.locked_at ? (
+                      <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+                        Locked: {new Date(appointmentIntakeStatus.locked_at).toLocaleString()}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="muted">No intake has been started yet for this appointment type.</div>
+                )}
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad">
+                <div className="h2">Visit Record</div>
+                <div className="space" />
+
+                {loadingAppointmentVisit ? (
+                  <div className="muted">Loading visit record...</div>
+                ) : appointmentVisit ? (
+                  <>
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      <span style={visitStatusBadge(appointmentVisit.status)}>
+                        {(appointmentVisit.status || "unknown").replaceAll("_", " ").toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="muted" style={{ marginTop: 10 }}>
+                      Visit Date:{" "}
+                      <strong>
+                        {new Date(
+                          appointmentVisit.visit_date ?? appointmentVisit.created_at
+                        ).toLocaleString()}
+                      </strong>
+                    </div>
+
+                    <div className="space" />
+
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => navigate(`/patient/treatments?visitId=${appointmentVisit.id}`)}
+                      type="button"
+                    >
+                      View Treatment Record
+                    </button>
+                  </>
+                ) : (
+                  <div className="muted">
+                    A treatment visit will appear here after your appointment is completed by the clinic.
+                  </div>
+                )}
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad">
+                <div style={{ fontWeight: 800 }}>What can you do next?</div>
+                <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                  You can message the clinic about this appointment, review your treatments, or continue browsing services.
+                </div>
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad">
+                <div className="h2">Upload Additional Files</div>
+                <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
+                  Add wound photos or supporting images to this appointment so the clinic can review them before or after follow-up.
+                </div>
+
+                <div className="space" />
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setAppointmentDrawerFiles(files);
+                  }}
+                />
+
+                {appointmentDrawerFiles.length > 0 ? (
+                  <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+                    Selected: {appointmentDrawerFiles.length} file{appointmentDrawerFiles.length === 1 ? "" : "s"}
+                  </div>
+                ) : null}
+
+                <div className="space" />
+
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  disabled={uploadingDrawerFiles || appointmentDrawerFiles.length === 0}
+                  onClick={() => uploadFilesToAppointment(selectedAppointment)}
+                >
+                  {uploadingDrawerFiles ? "Uploading..." : "Upload Files"}
+                </button>
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad">
+                <div className="h2">Attached Files</div>
+                <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
+                  Review images and files already attached to this appointment.
+                </div>
+
+                <div className="space" />
+
+                {loadingAppointmentFiles ? (
+                  <div className="muted">Loading files...</div>
+                ) : appointmentFiles.length === 0 ? (
+                  <div className="muted">No files attached yet.</div>
+                ) : (
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {appointmentFiles.map((file) => {
+                      const url = appointmentFileUrls[file.id];
+                      const isImage = isImageFileName(file.filename, file.content_type);
+
+                      return (
+                        <div
+                          key={file.id}
+                          className="card card-pad"
+                          style={{ background: "rgba(255,255,255,0.04)" }}
+                        >
+                          {isImage && url ? (
+                            <img
+                              src={url}
+                              alt={file.filename}
+                              style={{
+                                width: "100%",
+                                height: 200,
+                                objectFit: "cover",
+                                borderRadius: 12,
+                                marginBottom: 12,
+                                border: "1px solid rgba(255,255,255,.10)",
+                              }}
+                            />
+                          ) : null}
+
+                          <div style={{ fontWeight: 800 }}>{file.filename}</div>
+
+                          <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                            {file.category ?? "file"} • {new Date(file.created_at).toLocaleString()}
+                          </div>
+
+                          <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                            {file.content_type ?? "unknown type"}
+                            {file.size_bytes ? ` • ${Math.round(file.size_bytes / 1024)} KB` : ""}
+                          </div>
+
+                          <div className="space" />
+
+                          {url ? (
+                            <a className="btn btn-ghost" href={url} target="_blank" rel="noreferrer">
+                              Open File
+                            </a>
+                          ) : (
+                            <div className="muted" style={{ fontSize: 12 }}>
+                              Preview unavailable
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="space" />
+
+              <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={() => messageFromAppointment(selectedAppointment)}
+                >
+                  Message Clinic
+                </button>
+
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => startIntakeFromAppointment(selectedAppointment)}
+                >
+                  {!appointmentIntakeStatus
+                    ? "Start Intake"
+                    : appointmentIntakeStatus.status === "needs_info"
+                    ? "Update Intake"
+                    : appointmentIntakeStatus.status === "submitted"
+                    ? "Continue Intake"
+                    : appointmentIntakeStatus.status === "approved" || appointmentIntakeStatus.status === "locked"
+                    ? "View Intake"
+                    : "Open Intake"}
+                </button>
+
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => navigate("/patient/treatments")}
+                >
+                  View Treatments
+                </button>
+
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => navigate("/patient/services")}
+                >
+                  Browse Services
+                </button>
+              </div>
+
+              <div className="space" />
+
+              <div className="muted" style={{ fontSize: 12 }}>
+                Appointment ID: {selectedAppointment.id}
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        {bookingSuccess ? (
+          <>
+            <div
+              onClick={() => setBookingSuccess(null)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.45)",
+                backdropFilter: "blur(4px)",
+                zIndex: 80,
+              }}
+            />
+
+            <div
+              style={{
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                width: "min(560px, 92vw)",
+                background: "rgba(20,20,28,0.97)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.40)",
+                borderRadius: 20,
+                zIndex: 81,
+                padding: 24,
+              }}
+            >
+              <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontSize: 28, lineHeight: 1 }}>✅</div>
+                  <div className="h2" style={{ marginTop: 10 }}>
+                    Appointment Request Submitted
+                  </div>
+                  <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                    Your request has been sent to the clinic. The care team can now review your appointment details and follow up if needed.
+                  </div>
+                </div>
+
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => setBookingSuccess(null)}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="space" />
+
+              <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+                <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                  <div className="muted">Service</div>
+                  <div style={{ fontWeight: 800, marginTop: 6 }}>{bookingSuccess.serviceName}</div>
+                </div>
+
+                <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                  <div className="muted">Location</div>
+                  <div style={{ fontWeight: 800, marginTop: 6 }}>{bookingSuccess.locationName}</div>
+                </div>
+
+                <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                  <div className="muted">Requested Time</div>
+                  <div style={{ fontWeight: 800, marginTop: 6 }}>
+                    {new Date(bookingSuccess.slotIso).toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                  <div className="muted">Appointment ID</div>
+                  <div style={{ fontWeight: 800, marginTop: 6 }}>{bookingSuccess.appointmentId}</div>
+                </div>
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.05)" }}>
+                <div style={{ fontWeight: 800 }}>What happens next?</div>
+                <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                  Your request is now in the clinic queue. You can message the clinic through the portal, review your appointments below, or continue browsing services.
+                </div>
+              </div>
+
+              <div className="space" />
+
+              <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={() => {
+                    setBookingSuccess(null);
+                    navigate("/patient/chat");
+                  }}
+                >
+                  Message Clinic
+                </button>
+
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => {
+                    setBookingSuccess(null);
+                    const el = document.getElementById("my-appointments");
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                >
+                  View My Appointments
+                </button>
+
+                <button
+                  className="btn btn-ghost"
+                  type="button"
+                  onClick={() => {
+                    setBookingSuccess(null);
+                    navigate("/patient/services");
+                  }}
+                >
+                  Browse More Services
+                </button>
+              </div>
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   );
