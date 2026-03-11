@@ -143,16 +143,16 @@ export default function Login() {
                     letterSpacing: "-0.03em",
                   }}
                 >
-                  MedFlow USA
+                  Vitality Institute
                 </div>
                 <div style={{ marginTop: 6, fontSize: 14, color: "rgba(226,232,240,0.72)", lineHeight: 1.6 }}>
-                  Secure access for reps, directors, physicians, and approved MedFlow partners.
+                  Secure access for patients, providers, staff, and approved Vitality users.
                 </div>
               </div>
             </div>
 
             <div style={{ marginTop: 16, fontSize: 13, color: "rgba(226,232,240,0.64)", lineHeight: 1.6 }}>
-              Your dashboard will open automatically based on your approved access.
+              Your portal will open automatically based on your approved access and account type.
             </div>
           </div>
 
@@ -184,7 +184,7 @@ export default function Login() {
                 <StatusPanel
                   tone="warning"
                   title="Access pending approval"
-                  body="Your account is signed in, but your MedFlow access is still pending review. Your dashboard will open automatically once approval is complete."
+                  body="Your account is signed in, but your Vitality access is still pending review. Your portal will open automatically once approval is complete."
                   email={user.email ?? undefined}
                   badge="Pending"
                   secondaryAction={{
@@ -196,7 +196,7 @@ export default function Login() {
                 <StatusPanel
                   tone="danger"
                   title="Access inactive"
-                  body="Your account is signed in, but access is currently inactive. Contact the MedFlow team if you believe this is incorrect."
+                  body="Your account is signed in, but access is currently inactive. Contact the Vitality team if you believe this is incorrect."
                   email={user.email ?? undefined}
                   badge="Inactive"
                   secondaryAction={{
@@ -208,7 +208,7 @@ export default function Login() {
                 <StatusPanel
                   tone="danger"
                   title="Restricted access"
-                  body={roleError || "This account does not currently have approved MedFlow access."}
+                  body={roleError || "This account does not currently have approved Vitality access."}
                   email={user.email ?? undefined}
                   badge="Restricted"
                   secondaryAction={{
@@ -295,7 +295,7 @@ export default function Login() {
                       }}
                     >
                       <div style={{ fontSize: 12, color: "rgba(226,232,240,0.58)" }}>
-                        Secure sign-in for all approved MedFlow users.
+                        Secure sign-in for approved Vitality users.
                       </div>
 
                       <button type="button" onClick={onResetPassword} disabled={resetting} style={linkButtonStyle}>
@@ -318,7 +318,7 @@ export default function Login() {
                   </form>
                 ) : (
                   <div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#F8FAFC" }}>Create your MedFlow account</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#F8FAFC" }}>Create your Vitality account</div>
 
                     <div
                       style={{
@@ -328,7 +328,7 @@ export default function Login() {
                         lineHeight: 1.7,
                       }}
                     >
-                      Create an account to request access. Your MedFlow dashboard and permissions will be assigned after review and approval.
+                      Create an account to request access. Your Vitality portal and permissions will be assigned after review and approval.
                     </div>
 
                     <button
