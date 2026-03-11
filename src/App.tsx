@@ -231,10 +231,11 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<Gate />} />
+            <Route path="/" element={<Login />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/login/reset-password" element={<ResetPassword />} />
+            <Route path="/app" element={<Gate />} />
 
             {/* admin */}
             <Route

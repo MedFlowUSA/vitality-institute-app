@@ -31,6 +31,20 @@ export default function Login() {
   const resolvedAccountStatus: "approved" | "pending" | "inactive" | "restricted" =
     accountStatus ?? (role ? "approved" : roleError ? "restricted" : "pending");
 
+  function openApprovedHome() {
+    if (role === "super_admin" || role === "location_admin") {
+      navigate("/admin", { replace: true });
+      return;
+    }
+
+    if (role === "patient") {
+      navigate("/patient", { replace: true });
+      return;
+    }
+
+    navigate("/provider", { replace: true });
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -173,7 +187,7 @@ export default function Login() {
                   badge={normalizeRoleLabel(role)}
                   primaryAction={{
                     label: "Open Dashboard",
-                    onClick: () => navigate("/", { replace: true }),
+                    onClick: openApprovedHome,
                   }}
                   secondaryAction={{
                     label: "Sign Out",
