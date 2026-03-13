@@ -1567,8 +1567,8 @@ export default function PatientHome() {
     const svc = serviceById(appt.service_id);
     const typeKey = serviceTypeKey(svc?.name ?? null, svc?.category ?? null);
 
-    if (typeKey === "wound_care") {
-      navigate(`/patient/intake/wound?appointmentId=${appt.id}`);
+    if (typeKey === "wound_care" || typeKey === "general") {
+      navigate(`/intake?appointmentId=${appt.id}`);
       return;
     }
 
@@ -1697,6 +1697,34 @@ export default function PatientHome() {
             </div>
           </div>
         ) : null}
+
+        <div className="space" />
+
+        <div
+          className="card card-pad"
+          style={{
+            background: "linear-gradient(135deg, rgba(200,182,255,.14), rgba(139,124,255,.08))",
+            border: "1px solid rgba(184,164,255,.22)",
+          }}
+        >
+          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ flex: 1, minWidth: 260 }}>
+              <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                New Intake Experience
+              </div>
+              <div className="h2">Vital AI Intake</div>
+              <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                Start or resume your general consultation or wound care intake.
+              </div>
+            </div>
+
+            <div>
+              <button className="btn btn-primary" type="button" onClick={() => navigate("/intake")}>
+                Start Intake
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div className="space" />
 

@@ -27,6 +27,10 @@ import PatientBookAppointment from "./pages/PatientBookAppointment";
 import PatientAssessment from "./pages/PatientAssessment";
 import PatientVisitChart from "./pages/PatientVisitChart";
 import ResetPassword from "./pages/ResetPassword";
+import VitalAiIntakeHome from "./pages/VitalAiIntakeHome";
+import VitalAiSession from "./pages/VitalAiSession";
+import VitalAiSessionReview from "./pages/VitalAiSessionReview";
+import VitalAiSessionComplete from "./pages/VitalAiSessionComplete";
 
 import ProviderHome from "./pages/ProviderHome";
 import ProviderPatients from "./pages/ProviderPatients";
@@ -43,9 +47,13 @@ import ProviderReferralDetail from "./pages/ProviderReferralDetail";
 import ProviderVisitQueue from "./pages/ProviderVisitQueue";
 import ProviderVisitChart from "./pages/ProviderVisitChart";
 import ProviderVisitBuilder from "./pages/ProviderVisitBuilder";
+import ProviderVitalAiQueue from "./pages/ProviderVitalAiQueue";
+import ProviderVitalAiProfileDetail from "./pages/ProviderVitalAiProfileDetail";
 
 import ProviderCommandCenter from "./pages/ProviderCommandCenter";
 import ServicesPanel from "./pages/ServicesPanel";
+import AdminVitalAiQueue from "./pages/AdminVitalAiQueue";
+import AdminVitalAiLeadDetail from "./pages/AdminVitalAiLeadDetail";
 
 function FullscreenLoader({
   text = "Loading...",
@@ -113,6 +121,16 @@ function roleTroubleshootMessage(roleError?: string | null) {
 function getErrorMessage(e: unknown, fallback: string) {
   if (e instanceof Error && e.message) return e.message;
   return fallback;
+}
+
+function classifyVitalAiService(name?: string | null, category?: string | null) {
+  const n = (name ?? "").toLowerCase();
+  const c = (category ?? "").toLowerCase();
+
+  if (c.includes("wound") || n.includes("wound")) return "wound_care";
+  if (n.includes("general consult") || n.includes("general consultation") || n.includes("consultation")) return "general";
+  if (c.includes("general") || c.includes("consult")) return "general";
+  return "other";
 }
 
 function Gate() {
@@ -218,6 +236,130 @@ function PatientGate() {
 
   if (!hasProfile) return <Navigate to="/patient/onboarding" replace />;
 
+  return <PatientEntryRouter />;
+}
+
+function PatientEntryRouter() {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [destination, setDestination] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+
+      try {
+        const redirectKey = `vital_ai_entry_seen_${user.id}`;
+        const redirectSeen = sessionStorage.getItem(redirectKey) === "1";
+
+        const { data: patientRow, error: patientError } = await supabase
+          .from("patients")
+          .select("id")
+          .eq("profile_id", user.id)
+          .maybeSingle();
+
+        if (patientError) throw patientError;
+        const patientId = (patientRow as { id?: string } | null)?.id ?? null;
+
+        const { data: draftSession, error: draftError } = await supabase
+          .from("vital_ai_sessions")
+          .select("id")
+          .eq("profile_id", user.id)
+          .eq("status", "draft")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (draftError) throw draftError;
+
+        if (draftSession?.id) {
+          if (!cancelled) setDestination(`/intake/session/${draftSession.id}`);
+          return;
+        }
+
+        if (redirectSeen || !patientId) {
+          if (!cancelled) setDestination(null);
+          return;
+        }
+
+        const [sessionCountRes, visitCountRes, appointmentRes] = await Promise.all([
+          supabase
+            .from("vital_ai_sessions")
+            .select("id", { count: "exact", head: true })
+            .eq("profile_id", user.id),
+          supabase
+            .from("patient_visits")
+            .select("id", { count: "exact", head: true })
+            .eq("patient_id", patientId),
+          supabase
+            .from("appointments")
+            .select("id,service_id,start_time")
+            .eq("patient_id", patientId)
+            .gte("start_time", new Date().toISOString())
+            .order("start_time", { ascending: true })
+            .limit(5),
+        ]);
+
+        if (sessionCountRes.error) throw sessionCountRes.error;
+        if (visitCountRes.error) throw visitCountRes.error;
+        if (appointmentRes.error) throw appointmentRes.error;
+
+        const sessionCount = sessionCountRes.count ?? 0;
+        const visitCount = visitCountRes.count ?? 0;
+        const appointments = (appointmentRes.data as { id: string; service_id: string | null; start_time: string }[]) ?? [];
+
+        const serviceIds = Array.from(new Set(appointments.map((appt) => appt.service_id).filter(Boolean))) as string[];
+        let supportedAppointment = false;
+
+        if (serviceIds.length > 0) {
+          const { data: serviceRows, error: serviceError } = await supabase
+            .from("services")
+            .select("id,name,category")
+            .in("id", serviceIds);
+
+          if (serviceError) throw serviceError;
+
+          const serviceMap = new Map<string, { name: string | null; category: string | null }>();
+          for (const row of (serviceRows as { id: string; name: string | null; category: string | null }[]) ?? []) {
+            serviceMap.set(row.id, { name: row.name, category: row.category });
+          }
+
+          supportedAppointment = appointments.some((appt) => {
+            const svc = appt.service_id ? serviceMap.get(appt.service_id) : null;
+            const type = classifyVitalAiService(svc?.name ?? null, svc?.category ?? null);
+            return type === "general" || type === "wound_care";
+          });
+        }
+
+        const isBrandNew = sessionCount === 0 && visitCount === 0 && appointments.length === 0;
+
+        if ((isBrandNew || supportedAppointment) && !cancelled) {
+          sessionStorage.setItem(redirectKey, "1");
+          setDestination("/intake");
+          return;
+        }
+
+        if (!cancelled) setDestination(null);
+      } catch {
+        if (!cancelled) setDestination(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  if (loading) return <FullscreenLoader text="Preparing your portal..." />;
+
+  if (destination) return <Navigate to={destination} replace />;
+
   return <PatientHome />;
 }
 
@@ -259,6 +401,22 @@ export default function App() {
               element={
                 <RequireRole allow={["super_admin", "location_admin"]}>
                   <AdminStaffManagement />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/admin/vital-ai"
+              element={
+                <RequireRole allow={[...PROVIDER_ROLES]}>
+                  <AdminVitalAiQueue />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/admin/vital-ai/leads/:leadId"
+              element={
+                <RequireRole allow={[...PROVIDER_ROLES]}>
+                  <AdminVitalAiLeadDetail />
                 </RequireRole>
               }
             />
@@ -385,6 +543,22 @@ export default function App() {
               }
             />
             <Route
+              path="/provider/vital-ai"
+              element={
+                <RequireRole allow={[...PROVIDER_ROLES]}>
+                  <ProviderVitalAiQueue />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/provider/vital-ai/profile/:profileId"
+              element={
+                <RequireRole allow={[...PROVIDER_ROLES]}>
+                  <ProviderVitalAiProfileDetail />
+                </RequireRole>
+              }
+            />
+            <Route
               path="/provider/referrals"
               element={
                 <RequireRole allow={[...PROVIDER_ROLES]}>
@@ -470,6 +644,38 @@ export default function App() {
               element={
                 <RequireRole allow={["patient"]}>
                   <PatientTreatmentDetail />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/intake"
+              element={
+                <RequireRole allow={["patient"]}>
+                  <VitalAiIntakeHome />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/intake/session/:sessionId"
+              element={
+                <RequireRole allow={["patient"]}>
+                  <VitalAiSession />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/intake/session/:sessionId/review"
+              element={
+                <RequireRole allow={["patient"]}>
+                  <VitalAiSessionReview />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/intake/session/:sessionId/complete"
+              element={
+                <RequireRole allow={["patient"]}>
+                  <VitalAiSessionComplete />
                 </RequireRole>
               }
             />

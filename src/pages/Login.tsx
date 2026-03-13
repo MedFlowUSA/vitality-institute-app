@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { getAuthRedirectUrl, supabase } from "../lib/supabase";
@@ -92,7 +92,7 @@ export default function Login() {
       style={{
         minHeight: "100vh",
         background:
-          "radial-gradient(circle at top left, rgba(16,185,129,0.12) 0%, rgba(14,165,233,0.10) 22%, rgba(15,23,42,1) 58%, #06111f 100%)",
+          "radial-gradient(circle at top left, rgba(184,164,255,0.18) 0%, rgba(139,124,255,0.14) 24%, rgba(63,58,99,0.20) 42%, rgba(15,23,42,1) 62%, #06111f 100%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -119,7 +119,7 @@ export default function Login() {
               padding: "32px 28px 20px 28px",
               borderBottom: "1px solid rgba(255,255,255,0.08)",
               background:
-                "radial-gradient(circle at top left, rgba(16,185,129,0.14), transparent 38%), radial-gradient(circle at top right, rgba(14,165,233,0.12), transparent 34%)",
+                "radial-gradient(circle at top left, rgba(184,164,255,0.22), transparent 38%), radial-gradient(circle at top right, rgba(139,124,255,0.18), transparent 34%)",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -141,8 +141,8 @@ export default function Login() {
                     width: 22,
                     height: 22,
                     borderRadius: 999,
-                    background: "linear-gradient(135deg, #10B981, #38BDF8)",
-                    boxShadow: "0 8px 24px rgba(56,189,248,0.24)",
+                    background: "linear-gradient(135deg, #C8B6FF, #8B7CFF)",
+                    boxShadow: "0 8px 24px rgba(139,124,255,0.28)",
                   }}
                 />
               </div>
@@ -531,8 +531,8 @@ const tabStyle: React.CSSProperties = {
 
 const activeTabStyle: React.CSSProperties = {
   ...tabStyle,
-  background: "linear-gradient(135deg, rgba(16,185,129,0.22), rgba(14,165,233,0.20))",
-  border: "1px solid rgba(56,189,248,0.24)",
+  background: "linear-gradient(135deg, rgba(200,182,255,0.24), rgba(139,124,255,0.22))",
+  border: "1px solid rgba(184,164,255,0.30)",
   color: "#F8FAFC",
 };
 
@@ -577,11 +577,11 @@ const primaryButtonStyle: React.CSSProperties = {
   padding: "14px 16px",
   fontSize: 15,
   fontWeight: 900,
-  border: "1px solid rgba(56,189,248,0.24)",
-  background: "linear-gradient(135deg, #10B981, #38BDF8)",
-  color: "#04121F",
+  border: "1px solid rgba(184,164,255,0.34)",
+  background: "linear-gradient(135deg, #C8B6FF, #8B7CFF)",
+  color: "#140F24",
   cursor: "pointer",
-  boxShadow: "0 16px 36px rgba(16,185,129,0.18)",
+  boxShadow: "0 16px 36px rgba(139,124,255,0.24)",
 };
 
 const secondaryButtonStyle: React.CSSProperties = {
@@ -599,7 +599,7 @@ const secondaryButtonStyle: React.CSSProperties = {
 const linkButtonStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 800,
-  color: "#67E8F9",
+  color: "#C8B6FF",
   background: "transparent",
   border: "none",
   cursor: "pointer",
@@ -609,7 +609,7 @@ const linkButtonStyle: React.CSSProperties = {
 const inlineLinkStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 800,
-  color: "#67E8F9",
+  color: "#C8B6FF",
   background: "transparent",
   border: "none",
   cursor: "pointer",

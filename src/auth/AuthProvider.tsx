@@ -164,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isActive: profile.isActive,
           })
         );
-        setRoleError("Profile exists but no MedFlow role is assigned yet.");
+        setRoleError("Profile exists but no Vitality role is assigned yet.");
         setActiveLocationIdState(locationId);
         return;
       }

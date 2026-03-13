@@ -101,7 +101,7 @@ export default function PatientAuth() {
       style={{
         minHeight: "100vh",
         background:
-          "radial-gradient(circle at top left, rgba(16,185,129,0.10) 0%, rgba(14,165,233,0.08) 20%, rgba(15,23,42,1) 58%, #06111f 100%)",
+          "radial-gradient(circle at top left, rgba(184,164,255,0.18) 0%, rgba(139,124,255,0.14) 24%, rgba(63,58,99,0.20) 42%, rgba(15,23,42,1) 62%, #06111f 100%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -123,7 +123,7 @@ export default function PatientAuth() {
               padding: "32px 28px 20px 28px",
               borderBottom: "1px solid rgba(255,255,255,0.08)",
               background:
-                "radial-gradient(circle at top left, rgba(16,185,129,0.14), transparent 38%), radial-gradient(circle at top right, rgba(14,165,233,0.12), transparent 34%)",
+                "radial-gradient(circle at top left, rgba(184,164,255,0.22), transparent 38%), radial-gradient(circle at top right, rgba(139,124,255,0.18), transparent 34%)",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -145,8 +145,8 @@ export default function PatientAuth() {
                     width: 22,
                     height: 22,
                     borderRadius: 999,
-                    background: "linear-gradient(135deg, #10B981, #38BDF8)",
-                    boxShadow: "0 8px 24px rgba(56,189,248,0.24)",
+                    background: "linear-gradient(135deg, #C8B6FF, #8B7CFF)",
+                    boxShadow: "0 8px 24px rgba(139,124,255,0.28)",
                   }}
                 />
               </div>
@@ -161,10 +161,10 @@ export default function PatientAuth() {
                     letterSpacing: "-0.03em",
                   }}
                 >
-                  MedFlow USA
+                  Vitality Institute
                 </div>
                 <div style={{ marginTop: 6, fontSize: 14, color: "rgba(226,232,240,0.72)", lineHeight: 1.6 }}>
-                  Secure account access for approved MedFlow users and invited partners.
+                  Secure account access for patients, providers, staff, and approved Vitality users.
                 </div>
               </div>
             </div>
@@ -260,7 +260,7 @@ export default function PatientAuth() {
               style={{
                 background: "transparent",
                 border: "none",
-                color: "#67E8F9",
+                color: "#C8B6FF",
                 cursor: "pointer",
                 padding: 0,
                 fontSize: 13,
@@ -296,8 +296,8 @@ const tabStyle: React.CSSProperties = {
 
 const activeTabStyle: React.CSSProperties = {
   ...tabStyle,
-  background: "linear-gradient(135deg, rgba(16,185,129,0.22), rgba(14,165,233,0.20))",
-  border: "1px solid rgba(56,189,248,0.24)",
+  background: "linear-gradient(135deg, rgba(200,182,255,0.24), rgba(139,124,255,0.22))",
+  border: "1px solid rgba(184,164,255,0.30)",
   color: "#F8FAFC",
 };
 
