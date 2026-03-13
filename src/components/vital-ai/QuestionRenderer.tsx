@@ -1,24 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import type { IntakeQuestion } from "../../lib/vitalAi/types";
-
-type SpeechRecognitionCtor = new () => {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-  onerror: ((event: { error?: string }) => void) | null;
-  onend: (() => void) | null;
-};
-
-function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
-  if (typeof window === "undefined") return null;
-  const ctor = (window as Window & { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor })
-    .SpeechRecognition
-    ?? (window as Window & { webkitSpeechRecognition?: SpeechRecognitionCtor }).webkitSpeechRecognition;
-  return ctor ?? null;
-}
+import DictationTextarea from "../DictationTextarea";
 
 export default function QuestionRenderer({
   question,
@@ -29,17 +10,6 @@ export default function QuestionRenderer({
   value: unknown;
   onChange: (value: unknown) => void;
 }) {
-  const speechCtor = getSpeechRecognitionCtor();
-  const recognitionRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null);
-  const [isListening, setIsListening] = useState(false);
-  const [dictationError, setDictationError] = useState<string | null>(null);
-
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.stop();
-    };
-  }, []);
-
   const label = (
     <div style={{ marginBottom: 6, color: "#F8FAFC", fontSize: 13, fontWeight: 800 }}>
       {question.label}
@@ -68,82 +38,17 @@ export default function QuestionRenderer({
     fontWeight: 700,
   };
 
-  const startDictation = () => {
-    if (!speechCtor || question.type !== "textarea") return;
-
-    setDictationError(null);
-
-    const recognition = new speechCtor();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map((result) => result[0]?.transcript ?? "")
-        .join(" ")
-        .trim();
-
-      if (!transcript) return;
-
-      const base = typeof value === "string" && value.trim() ? `${value.toString().trim()} ` : "";
-      onChange(`${base}${transcript}`.trim());
-    };
-
-    recognition.onerror = (event) => {
-      setDictationError(event.error ? `Dictation error: ${event.error}` : "Dictation is unavailable on this device.");
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-    setIsListening(true);
-    recognition.start();
-  };
-
-  const stopDictation = () => {
-    recognitionRef.current?.stop();
-    setIsListening(false);
-  };
-
   if (question.type === "textarea") {
     return (
       <div style={{ marginBottom: 16 }}>
         {label}
-        <div style={{ position: "relative" }}>
-          <textarea
-            className="input"
-            style={{ ...sharedInputStyle, minHeight: 110, paddingRight: speechCtor ? 120 : 14 }}
-            value={typeof value === "string" ? value : ""}
-            onChange={(e) => onChange(e.target.value)}
-          />
-          {speechCtor ? (
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={isListening ? stopDictation : startDictation}
-              style={{
-                position: "absolute",
-                right: 10,
-                top: 10,
-                background: isListening ? "rgba(239,68,68,0.18)" : "rgba(255,255,255,0.10)",
-                border: isListening ? "1px solid rgba(239,68,68,0.34)" : "1px solid rgba(255,255,255,0.16)",
-                color: "#F8FAFC",
-                minWidth: 96,
-              }}
-            >
-              {isListening ? "Stop Mic" : "Use Mic"}
-            </button>
-          ) : null}
-        </div>
-        <div className="muted" style={{ marginTop: 6, fontSize: 12, color: "rgba(226,232,240,0.78)" }}>
-          {speechCtor ? "You can type or use your microphone for longer answers." : "Type your answer."}
-        </div>
-        {dictationError ? (
-          <div style={{ marginTop: 6, fontSize: 12, color: "#FCA5A5" }}>{dictationError}</div>
-        ) : null}
+        <DictationTextarea
+          value={typeof value === "string" ? value : ""}
+          onChange={(nextValue) => onChange(nextValue)}
+          style={sharedInputStyle}
+          helpText="You can type or use your microphone for longer answers."
+          unsupportedText="Microphone dictation is not available in this browser. You can keep typing."
+        />
       </div>
     );
   }

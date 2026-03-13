@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import DictationTextarea from "../components/DictationTextarea";
 import { supabase } from "../lib/supabase";
 
 type LocationRow = { id: string; name: string };
@@ -416,12 +417,13 @@ export default function ProviderAI() {
                   <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
                     Summary
                   </div>
-                  <textarea
-                    className="input"
-                    style={{ width: "100%", minHeight: 180 }}
+                  <DictationTextarea
                     value={summary}
-                    onChange={(e) => setSummary(e.target.value)}
+                    onChange={setSummary}
                     placeholder="Draft summary..."
+                    style={{ minHeight: 180 }}
+                    helpText="You can type or dictate the provider summary."
+                    unsupportedText="Microphone dictation is not available in this browser. You can keep typing the summary."
                   />
 
                   <div className="space" />
@@ -431,12 +433,13 @@ export default function ProviderAI() {
                       <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
                         Risks (one per line)
                       </div>
-                      <textarea
-                        className="input"
-                        style={{ width: "100%", minHeight: 120 }}
+                      <DictationTextarea
                         value={risksText}
-                        onChange={(e) => setRisksText(e.target.value)}
+                        onChange={setRisksText}
                         placeholder="Risk items..."
+                        style={{ minHeight: 120 }}
+                        helpText="You can type or dictate risk items."
+                        unsupportedText="Microphone dictation is not available in this browser. You can keep typing risk items."
                       />
                     </div>
 
@@ -444,12 +447,13 @@ export default function ProviderAI() {
                       <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
                         Recommended next steps (one per line)
                       </div>
-                      <textarea
-                        className="input"
-                        style={{ width: "100%", minHeight: 120 }}
+                      <DictationTextarea
                         value={nextStepsText}
-                        onChange={(e) => setNextStepsText(e.target.value)}
+                        onChange={setNextStepsText}
                         placeholder="Next steps..."
+                        style={{ minHeight: 120 }}
+                        helpText="You can type or dictate recommended next steps."
+                        unsupportedText="Microphone dictation is not available in this browser. You can keep typing next steps."
                       />
                     </div>
                   </div>

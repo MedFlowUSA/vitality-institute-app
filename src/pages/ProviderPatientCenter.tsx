@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
+import DictationTextarea from "../components/DictationTextarea";
 import VitalityHero from "../components/VitalityHero";
 import SystemStatusBar from "../components/SystemStatusBar";
 import InsightRibbon from "../components/InsightRibbon";
@@ -1595,13 +1596,14 @@ export default function ProviderPatientCenter() {
 
                         <div className="space" />
 
-                        <textarea
-                          className="input"
-                          style={{ width: "100%", minHeight: 90 }}
-                          placeholder="Type note…"
+                        <DictationTextarea
                           value={noteBody}
-                          onChange={(e) => setNoteBody(e.target.value)}
+                          onChange={setNoteBody}
+                          placeholder="Type note..."
                           disabled={!activeVisitId}
+                          style={{ minHeight: 90 }}
+                          helpText="You can type or dictate clinical, admin, or billing notes."
+                          unsupportedText="Microphone dictation is not available in this browser. You can keep typing notes."
                         />
 
                         <div className="space" />

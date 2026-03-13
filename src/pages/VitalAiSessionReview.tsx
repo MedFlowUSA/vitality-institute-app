@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import ReviewSummary from "../components/vital-ai/ReviewSummary";
 import { useAuth } from "../auth/AuthProvider";
 import { loadVitalAiPathwayById } from "../lib/vitalAi/pathways";
-import { loadVitalAiFiles, loadVitalAiResponses, loadVitalAiSession, resolveCurrentPatient, responsesToMap, submitVitalAiSession } from "../lib/vitalAi/submission";
+import { loadVitalAiFiles, loadVitalAiResponses, loadVitalAiSession, loadVitalAiSubmitArtifacts, resolveCurrentPatient, responsesToMap, submitVitalAiSession } from "../lib/vitalAi/submission";
 import type { PatientRecord, VitalAiFileRow, VitalAiPathwayRow, VitalAiSessionRow } from "../lib/vitalAi/types";
 
 export default function VitalAiSessionReview() {
@@ -21,6 +21,7 @@ export default function VitalAiSessionReview() {
   const [patient, setPatient] = useState<PatientRecord | null>(null);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [files, setFiles] = useState<VitalAiFileRow[]>([]);
+  const submitLockRef = useRef(false);
 
   useEffect(() => {
     const load = async () => {
@@ -40,6 +41,14 @@ export default function VitalAiSessionReview() {
         ]);
 
         if (!nextPathway) throw new Error("Pathway not found.");
+        const submitArtifacts = await loadVitalAiSubmitArtifacts(nextSession.id);
+        if (nextSession.status === "submitted" && submitArtifacts.profile && submitArtifacts.lead && submitArtifacts.tasks.length >= 2) {
+          navigate(`/intake/session/${nextSession.id}/complete`, { replace: true });
+          return;
+        }
+        if (nextSession.status === "submitted" && (!submitArtifacts.profile || !submitArtifacts.lead || submitArtifacts.tasks.length < 2)) {
+          setErr("Your intake was marked submitted, but provider routing is still incomplete. Submit once more to finish setup.");
+        }
 
         setSession(nextSession);
         setPathway(nextPathway);
@@ -57,16 +66,25 @@ export default function VitalAiSessionReview() {
   }, [sessionId, user?.id]);
 
   const handleSubmit = async () => {
-    if (!session || !pathway) return;
+    if (!session || !pathway || submitting || submitLockRef.current) return;
+    submitLockRef.current = true;
     setSubmitting(true);
     setErr(null);
     try {
-      await submitVitalAiSession({ session, pathway, patient, answers, files });
+      const result = await submitVitalAiSession({ session, pathway, patient, answers, files });
+      if (!result.profile?.id || !result.lead?.id) {
+        throw new Error("Your intake was saved, but provider review setup is still incomplete. Please try again.");
+      }
       navigate(`/intake/session/${session.id}/complete`, { replace: true });
     } catch (e: any) {
+      console.error("[VitalAI submit] review submit failed", {
+        sessionId: session.id,
+        error: e,
+      });
       setErr(e?.message ?? "Failed to submit intake.");
     } finally {
       setSubmitting(false);
+      submitLockRef.current = false;
     }
   };
 

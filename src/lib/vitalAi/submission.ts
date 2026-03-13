@@ -13,6 +13,126 @@ import type {
   VitalAiSessionRow,
 } from "./types";
 
+class VitalAiSubmitError extends Error {
+  partialFailure: boolean;
+
+  constructor(message: string, partialFailure = false) {
+    super(message);
+    this.name = "VitalAiSubmitError";
+    this.partialFailure = partialFailure;
+  }
+}
+
+function logVitalAiSubmitStage(stage: string, details?: unknown) {
+  console.error(`[VitalAI submit] ${stage}`, details);
+}
+
+async function persistVitalAiProfile(args: {
+  sessionId: string;
+  pathwayId: string;
+  patientId: string | null;
+  profileId: string;
+  summary: string;
+  profileJson: Record<string, unknown>;
+  riskFlags: string[];
+  triageLevel: string;
+  submittedAt: string;
+}) {
+  const insertPayload = {
+    session_id: args.sessionId,
+    pathway_id: args.pathwayId,
+    patient_id: args.patientId,
+    profile_id: args.profileId,
+    summary: args.summary,
+    profile_json: args.profileJson,
+    risk_flags_json: args.riskFlags,
+    triage_level: args.triageLevel,
+    status: "new",
+    updated_at: args.submittedAt,
+  };
+
+  const { data, error } = await supabase.from("vital_ai_profiles").insert(insertPayload).select("*").single();
+  if (!error) return data as VitalAiProfileRow;
+  if (error.code !== "23505") throw error;
+
+  const { data: updatedData, error: updateError } = await supabase
+    .from("vital_ai_profiles")
+    .update(insertPayload)
+    .eq("session_id", args.sessionId)
+    .select("*")
+    .single();
+  if (updateError) throw updateError;
+  return updatedData as VitalAiProfileRow;
+}
+
+async function persistVitalAiLead(args: {
+  sessionId: string;
+  pathwayId: string;
+  patientId: string | null;
+  profileId: string;
+  priority: string;
+  leadJson: Record<string, unknown>;
+  submittedAt: string;
+}) {
+  const insertPayload = {
+    session_id: args.sessionId,
+    pathway_id: args.pathwayId,
+    patient_id: args.patientId,
+    profile_id: args.profileId,
+    lead_status: "new",
+    priority: args.priority,
+    next_action_at: args.submittedAt,
+    lead_json: args.leadJson,
+    updated_at: args.submittedAt,
+  };
+
+  const { data, error } = await supabase.from("vital_ai_leads").insert(insertPayload).select("*").single();
+  if (!error) return data as VitalAiLeadRow;
+  if (error.code !== "23505") throw error;
+
+  const { data: updatedData, error: updateError } = await supabase
+    .from("vital_ai_leads")
+    .update(insertPayload)
+    .eq("session_id", args.sessionId)
+    .select("*")
+    .single();
+  if (updateError) throw updateError;
+  return updatedData as VitalAiLeadRow;
+}
+
+async function persistVitalAiReviewTasks(args: {
+  sessionId: string;
+  profileRecordId: string;
+  leadRecordId: string;
+  submittedAt: string;
+}) {
+  const desiredTasks = [
+    {
+      session_id: args.sessionId,
+      profile_id: args.profileRecordId,
+      lead_id: args.leadRecordId,
+      task_type: "staff_follow_up" as const,
+      assigned_role: "front_desk",
+      status: "open",
+      updated_at: args.submittedAt,
+    },
+    {
+      session_id: args.sessionId,
+      profile_id: args.profileRecordId,
+      lead_id: args.leadRecordId,
+      task_type: "provider_review" as const,
+      assigned_role: "provider",
+      status: "open",
+      updated_at: args.submittedAt,
+    },
+  ];
+
+  for (const task of desiredTasks) {
+    const { error: insertError } = await supabase.from("vital_ai_review_tasks").insert(task);
+    if (insertError && insertError.code !== "23505") throw insertError;
+  }
+}
+
 export async function resolveCurrentPatient(profileId: string) {
   const { data, error } = await supabase
     .from("patients")
@@ -72,6 +192,28 @@ export async function loadVitalAiFiles(sessionId: string) {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data as VitalAiFileRow[]) ?? [];
+}
+
+export async function loadVitalAiSubmitArtifacts(sessionId: string) {
+  const [
+    { data: profileData, error: profileError },
+    { data: leadData, error: leadError },
+    { data: taskData, error: taskError },
+  ] = await Promise.all([
+    supabase.from("vital_ai_profiles").select("*").eq("session_id", sessionId).maybeSingle(),
+    supabase.from("vital_ai_leads").select("*").eq("session_id", sessionId).maybeSingle(),
+    supabase.from("vital_ai_review_tasks").select("id,task_type").eq("session_id", sessionId),
+  ]);
+
+  if (profileError) throw profileError;
+  if (leadError) throw leadError;
+  if (taskError) throw taskError;
+
+  return {
+    profile: (profileData as VitalAiProfileRow | null) ?? null,
+    lead: (leadData as VitalAiLeadRow | null) ?? null,
+    tasks: ((taskData as Array<{ id: string; task_type: string }>) ?? []),
+  };
 }
 
 export function responsesToMap(rows: VitalAiResponseRow[]) {
@@ -346,99 +488,93 @@ export async function submitVitalAiSession(args: {
   const riskFlags = buildRiskFlags(args.pathway.slug, args.answers);
   const triageLevel = buildTriageLevel(args.pathway.slug, args.answers);
   const summary = buildProfileSummary(args.pathway.slug, args.patient, args.answers);
+  const effectiveProfileId = args.patient?.profile_id ?? args.session.profile_id;
+  if (!effectiveProfileId) {
+    throw new VitalAiSubmitError("We couldn't confirm your account for submission. Please refresh and try again.");
+  }
 
-  const { error: sessionError } = await supabase
-    .from("vital_ai_sessions")
-    .update({
-      status: "submitted",
-      completed_at: submittedAt,
-      last_saved_at: submittedAt,
-      updated_at: submittedAt,
-    })
-    .eq("id", args.session.id);
-  if (sessionError) throw sessionError;
+  if (args.session.status === "submitted") {
+    const existingArtifacts = await loadVitalAiSubmitArtifacts(args.session.id);
+    if (existingArtifacts.profile && existingArtifacts.lead && existingArtifacts.tasks.length >= 2) {
+      return {
+        profile: existingArtifacts.profile,
+        lead: existingArtifacts.lead,
+      };
+    }
+  }
 
-  const { data: profileData, error: profileError } = await supabase
-    .from("vital_ai_profiles")
-    .upsert(
-      {
-        session_id: args.session.id,
-        pathway_id: args.pathway.id,
-        patient_id: args.patient?.id ?? null,
-        profile_id: args.session.profile_id,
-        summary,
-        profile_json: buildProfileJson(args),
-        risk_flags_json: riskFlags,
-        triage_level: triageLevel,
-        status: "new",
+  let profileRecord: VitalAiProfileRow | null = null;
+  let leadRecord: VitalAiLeadRow | null = null;
+  let tasksCreated = false;
+
+  try {
+    console.log("Creating profile for session", args.session.id);
+    profileRecord = await persistVitalAiProfile({
+      sessionId: args.session.id,
+      pathwayId: args.pathway.id,
+      patientId: args.patient?.id ?? null,
+      profileId: effectiveProfileId,
+      summary,
+      profileJson: buildProfileJson(args),
+      riskFlags,
+      triageLevel,
+      submittedAt,
+    });
+
+    console.log("Creating lead for session", args.session.id);
+    leadRecord = await persistVitalAiLead({
+      sessionId: args.session.id,
+      pathwayId: args.pathway.id,
+      patientId: args.patient?.id ?? null,
+      profileId: effectiveProfileId,
+      priority: buildLeadPriority(args.pathway.slug, args.answers),
+      leadJson: buildLeadJson(args),
+      submittedAt,
+    });
+
+    console.log("Creating review tasks for session", args.session.id);
+    await persistVitalAiReviewTasks({
+      sessionId: args.session.id,
+      profileRecordId: profileRecord.id,
+      leadRecordId: leadRecord.id,
+      submittedAt,
+    });
+    tasksCreated = true;
+
+    const { error: sessionError } = await supabase
+      .from("vital_ai_sessions")
+      .update({
+        status: "submitted",
+        completed_at: submittedAt,
+        last_saved_at: submittedAt,
         updated_at: submittedAt,
-      },
-      { onConflict: "session_id" }
-    )
-    .select("*")
-    .single();
-  if (profileError) throw profileError;
-
-  const { data: leadData, error: leadError } = await supabase
-    .from("vital_ai_leads")
-    .upsert(
-      {
-        session_id: args.session.id,
-        pathway_id: args.pathway.id,
-        patient_id: args.patient?.id ?? null,
-        profile_id: args.session.profile_id,
-        lead_status: "new",
-        priority: buildLeadPriority(args.pathway.slug, args.answers),
-        next_action_at: submittedAt,
-        lead_json: buildLeadJson(args),
-        updated_at: submittedAt,
-      },
-      { onConflict: "session_id" }
-    )
-    .select("*")
-    .single();
-  if (leadError) throw leadError;
-
-  const tasks = [
-    {
-      session_id: args.session.id,
-      profile_id: (profileData as VitalAiProfileRow).id,
-      lead_id: (leadData as VitalAiLeadRow).id,
-      task_type: "staff_follow_up",
-      assigned_role: "front_desk",
-      status: "open",
-      updated_at: submittedAt,
-    },
-    {
-      session_id: args.session.id,
-      profile_id: (profileData as VitalAiProfileRow).id,
-      lead_id: (leadData as VitalAiLeadRow).id,
-      task_type: "provider_review",
-      assigned_role: "provider",
-      status: "open",
-      updated_at: submittedAt,
-    },
-  ];
-
-  const { error: taskError } = await supabase
-    .from("vital_ai_review_tasks")
-    .upsert(tasks, { onConflict: "session_id,task_type" });
-  if (taskError) {
-    const fallbackRows = tasks.map((task) => ({
-      session_id: task.session_id,
-      profile_id: task.profile_id,
-      lead_id: task.lead_id,
-      task_type: task.task_type,
-      assigned_role: task.assigned_role,
-      status: task.status,
-    }));
-    const { error: fallbackError } = await supabase.from("vital_ai_review_tasks").insert(fallbackRows);
-    if (fallbackError) throw fallbackError;
+      })
+      .eq("id", args.session.id)
+      .neq("status", "submitted");
+    if (sessionError) throw sessionError;
+  } catch (error: any) {
+    logVitalAiSubmitStage("downstream persistence failed", {
+      sessionId: args.session.id,
+      profileCreated: Boolean(profileRecord?.id),
+      leadCreated: Boolean(leadRecord?.id),
+      tasksCreated,
+      error,
+    });
+    if (profileRecord || leadRecord || tasksCreated) {
+      throw new VitalAiSubmitError(
+        "Your intake was saved, but we could not finish provider routing. Please try submitting again in a moment.",
+        true
+      );
+    }
+    throw new VitalAiSubmitError(
+      error?.message ?? "We couldn't complete your intake submission. Please try again.",
+      false
+    );
   }
 
   return {
-    profile: profileData as VitalAiProfileRow,
-    lead: leadData as VitalAiLeadRow,
+    profile: profileRecord,
+    lead: leadRecord,
   };
 }
 

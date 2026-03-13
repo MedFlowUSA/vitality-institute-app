@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import DictationTextarea from "../components/DictationTextarea";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 import { getSignedUrl } from "../lib/patientFiles";
@@ -556,13 +557,14 @@ function WoundIntakeDetail({
             Provider notes
           </div>
 
-          <textarea
-            className="input"
-            style={{ width: "100%", minHeight: 110 }}
+          <DictationTextarea
             value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={lock ? "Locked after approval." : "Add notes / what you need from patient / plan…"}
+            onChange={setNote}
+            placeholder={lock ? "Locked after approval." : "Add notes / what you need from patient / plan..."}
             disabled={lock}
+            style={{ minHeight: 110 }}
+            helpText="You can type or dictate provider review notes."
+            unsupportedText="Microphone dictation is not available in this browser. You can keep typing provider notes."
           />
 
           <div className="space" />
