@@ -92,7 +92,7 @@ export default function VitalAiSessionReview() {
           </div>
         ) : (
           <>
-            <VitalAiAvatarAssistant stepKey="consent" title="Review with Vital AI" />
+            <VitalAiAvatarAssistant stepKey="consent" title="Review with Vital AI" pathwaySlug={pathway.slug} answers={answers} />
 
             <div className="space" />
 

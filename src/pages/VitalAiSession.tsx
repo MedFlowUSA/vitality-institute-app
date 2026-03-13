@@ -245,7 +245,7 @@ export default function VitalAiSession() {
               saveStateLabel={saving ? "Saving draft..." : session.last_saved_at ? `Last saved ${new Date(session.last_saved_at).toLocaleString()}` : undefined}
               headerAside={
                 <div style={{ display: "grid", gap: 10 }}>
-                  <VitalAiAvatarAssistant stepKey={activeStep.key} />
+                  <VitalAiAvatarAssistant stepKey={activeStep.key} pathwaySlug={pathway.slug} answers={answers} />
                   <div
                     className="card card-pad"
                     style={{
