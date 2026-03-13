@@ -1,4 +1,5 @@
 import type { ResponseMap, VitalAiFileRow, VitalAiResponseRow, VitalAiSessionRow } from "../vitalAi/types";
+import { buildWoundMeasurementSummary } from "./woundMetrics";
 
 export type VitalAiVisitPreparation = {
   patientConcern: string;
@@ -290,12 +291,19 @@ export function generateVisitPreparation(
 ): VitalAiVisitPreparation {
   const answers = responsesToMap(responses);
   const pathway = inferPathway(session.current_step_key ?? null, answers);
+  const woundMeasurement = buildWoundMeasurementSummary(session, responses, files);
+  const keyIndicators = buildKeyIndicators(pathway, answers);
+  const suggestedFocus = buildSuggestedFocus(pathway, answers);
+
+  if (woundMeasurement?.areaCm2 != null) keyIndicators.push(`estimated wound area ${woundMeasurement.areaCm2} cm2`);
+  if (woundMeasurement?.depthCm != null) keyIndicators.push(`depth ${woundMeasurement.depthCm} cm`);
+  if (woundMeasurement?.areaCm2 != null && includesToken(pathway, "wound")) suggestedFocus.push("wound measurement review");
 
   return {
     patientConcern: buildPatientConcern(pathway, answers),
-    keyIndicators: buildKeyIndicators(pathway, answers),
+    keyIndicators: Array.from(new Set(keyIndicators)),
     fileSummary: buildFileSummary(files),
-    suggestedFocus: buildSuggestedFocus(pathway, answers),
+    suggestedFocus: Array.from(new Set(suggestedFocus)),
     treatmentConsiderations: buildTreatmentConsiderations(pathway, answers, files),
     suggestedVisitDuration: buildSuggestedVisitDuration(pathway, answers),
   };

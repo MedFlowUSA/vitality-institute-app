@@ -1,4 +1,5 @@
 import type { ResponseMap, VitalAiFileRow, VitalAiResponseRow, VitalAiSessionRow } from "../vitalAi/types";
+import { buildWoundMeasurementSummary } from "./woundMetrics";
 
 export type VitalAiClinicalInsights = {
   indicators: string[];
@@ -194,11 +195,14 @@ export function generateClinicalInsights(
   const answers = responsesToMap(responses);
   const pathway = inferPathway(session.current_step_key ?? null, answers);
   const indicators = buildIndicators(pathway, answers, files);
+  const woundMeasurement = buildWoundMeasurementSummary(session, responses, files);
+  if (woundMeasurement?.areaCm2 != null) indicators.push(`estimated wound area ${woundMeasurement.areaCm2} cm2`);
+  if (woundMeasurement?.depthCm != null) indicators.push(`wound depth ${woundMeasurement.depthCm} cm`);
   const suggestedPriority = buildSuggestedPriority(pathway, answers, files);
 
   return {
-    indicators,
+    indicators: Array.from(new Set(indicators)),
     suggestedPriority,
-    riskScore: buildRiskScore(indicators, suggestedPriority),
+    riskScore: buildRiskScore(Array.from(new Set(indicators)), suggestedPriority),
   };
 }

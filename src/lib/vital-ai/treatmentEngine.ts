@@ -1,4 +1,5 @@
 import type { ResponseMap, VitalAiFileRow, VitalAiResponseRow, VitalAiSessionRow } from "../vitalAi/types";
+import { detectTreatmentOpportunitySignals } from "./treatmentOpportunityEngine";
 
 export type VitalAiTreatmentPlan = {
   opportunities: string[];
@@ -41,6 +42,11 @@ function durationDays(durationText: string): number | null {
 }
 
 export function detectTreatmentOpportunities(_session: VitalAiSessionRow, responses: VitalAiResponseRow[], files: VitalAiFileRow[]): VitalAiTreatmentPlan {
+  const structured = detectTreatmentOpportunitySignals(_session, responses, files);
+  if (structured.opportunities.length > 0) {
+    return { opportunities: structured.opportunities.map((item) => item.label) };
+  }
+
   const answers = responsesToMap(responses);
   const opportunities: string[] = [];
   const duration = durationDays(asText(answers.wound_duration ?? answers.duration ?? answers.wound_duration_weeks) || "");

@@ -6,6 +6,16 @@ import { supabase } from "../lib/supabase";
 import VitalAI from "../lib/vital-ai/vitalAiService";
 import type { VitalAiFileRow, VitalAiPathwayRow, VitalAiProfileRow, VitalAiResponseRow, VitalAiSessionRow } from "../lib/vitalAi/types";
 
+type WoundMetricsSnapshot = Awaited<ReturnType<typeof VitalAI.generateWoundMetrics>>;
+
+function formatProgressInterpretation(snapshot: WoundMetricsSnapshot | null) {
+  if (!snapshot?.measurement) return null;
+  if (snapshot.comparison.interpretation === "insufficient_data") return "No prior wound measurements available yet";
+  if (snapshot.comparison.interpretation === "improving") return "Improving";
+  if (snapshot.comparison.interpretation === "worsening") return "Worsening";
+  return "Stable";
+}
+
 export default function ProviderVitalAiProfileDetail() {
   const { profileId = "" } = useParams();
   const [loading, setLoading] = useState(true);
@@ -14,11 +24,13 @@ export default function ProviderVitalAiProfileDetail() {
   const [session, setSession] = useState<VitalAiSessionRow | null>(null);
   const [files, setFiles] = useState<VitalAiFileRow[]>([]);
   const [insights, setInsights] = useState<ReturnType<typeof VitalAI.generateInsights> | null>(null);
+  const [woundMetrics, setWoundMetrics] = useState<WoundMetricsSnapshot | null>(null);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setErr(null);
+      setWoundMetrics(null);
       try {
         const { data: profileRow, error: profileError } = await supabase.from("vital_ai_profiles").select("*").eq("id", profileId).maybeSingle();
         if (profileError) throw profileError;
@@ -57,8 +69,10 @@ export default function ProviderVitalAiProfileDetail() {
             current_step_key: nextPathway?.slug ?? nextSession.current_step_key,
           };
           setInsights(VitalAI.generateInsights(sessionWithPathway, nextResponses, nextFiles));
+          setWoundMetrics(await VitalAI.generateWoundMetrics(sessionWithPathway, nextResponses, nextFiles));
         } else {
           setInsights(null);
+          setWoundMetrics(null);
         }
       } catch (e: any) {
         setErr(e?.message ?? "Failed to load provider profile.");
@@ -87,6 +101,76 @@ export default function ProviderVitalAiProfileDetail() {
           <>
             {insights ? (
               <>
+                <div className="card card-pad">
+                  <div className="h2">Provider Visit Summary</div>
+                  <div className="space" />
+
+                  <div style={{ display: "grid", gap: 12 }}>
+                    <div>
+                      <div className="muted" style={{ fontSize: 12 }}>Visit reason</div>
+                      <div style={{ marginTop: 4, fontWeight: 800 }}>{insights.providerVisitSummary.visitReason}</div>
+                    </div>
+
+                    <div>
+                      <div className="muted" style={{ fontSize: 12 }}>Concise narrative</div>
+                      <div style={{ marginTop: 6, lineHeight: 1.6 }}>{insights.providerVisitSummary.conciseNarrative}</div>
+                    </div>
+
+                    <div>
+                      <div className="muted" style={{ fontSize: 12 }}>Key findings</div>
+                      <div style={{ marginTop: 6 }}>
+                        {insights.providerVisitSummary.keyFindings.length === 0 ? (
+                          <div className="muted">No key findings were derived from the intake.</div>
+                        ) : (
+                          insights.providerVisitSummary.keyFindings.map((item) => (
+                            <div key={item} style={{ marginBottom: 4 }}>
+                              - {item}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="muted" style={{ fontSize: 12 }}>Risk flags</div>
+                      <div style={{ marginTop: 6 }}>
+                        {insights.providerVisitSummary.riskFlags.length === 0 ? (
+                          <div className="muted">No elevated risk flags were derived from this intake.</div>
+                        ) : (
+                          insights.providerVisitSummary.riskFlags.map((item) => (
+                            <div key={item} style={{ marginBottom: 4 }}>
+                              - {item}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="muted" style={{ fontSize: 12 }}>Suggested focus</div>
+                      <div style={{ marginTop: 6 }}>
+                        {insights.providerVisitSummary.suggestedFocus.map((item) => (
+                          <div key={item} style={{ marginBottom: 4 }}>
+                            - {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="muted" style={{ fontSize: 12 }}>Suggested next steps</div>
+                      <div style={{ marginTop: 6 }}>
+                        {insights.providerVisitSummary.suggestedNextSteps.map((item) => (
+                          <div key={item} style={{ marginBottom: 4 }}>
+                            - {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="space" />
+
                 <div className="card card-pad">
                   <div className="h2">Visit Preparation Summary</div>
                   <div className="space" />
@@ -241,6 +325,104 @@ export default function ProviderVitalAiProfileDetail() {
                   </div>
                 </div>
                 <div className="space" />
+
+                <div className="card card-pad">
+                  <div className="h2">Treatment Opportunities</div>
+                  <div className="space" />
+
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {insights.treatmentOpportunitySignals.opportunities.length === 0 ? (
+                      <div className="muted">No treatment opportunity signals were generated from the current intake.</div>
+                    ) : (
+                      insights.treatmentOpportunitySignals.opportunities.map((signal) => (
+                        <div key={signal.type} className="card card-pad" style={{ background: "rgba(255,255,255,0.02)" }}>
+                          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                            <div style={{ fontWeight: 800 }}>{signal.label}</div>
+                            <div className="muted" style={{ fontSize: 12, textTransform: "capitalize" }}>{signal.confidence} confidence</div>
+                          </div>
+                          <div style={{ marginTop: 8 }}>{signal.reason}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div className="space" />
+
+                {woundMetrics?.measurement ? (
+                  <>
+                    <div className="card card-pad">
+                      <div className="h2">Wound Measurement Summary</div>
+                      <div className="space" />
+
+                      <div style={{ display: "grid", gap: 12 }}>
+                        <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+                          <div style={{ minWidth: 180 }}>
+                            <div className="muted" style={{ fontSize: 12 }}>Wound location</div>
+                            <div style={{ marginTop: 4, fontWeight: 800 }}>{woundMetrics.measurement.woundLocation ?? "Not captured"}</div>
+                          </div>
+                          <div style={{ minWidth: 180 }}>
+                            <div className="muted" style={{ fontSize: 12 }}>Duration</div>
+                            <div style={{ marginTop: 4, fontWeight: 800 }}>{woundMetrics.measurement.duration ?? "Not captured"}</div>
+                          </div>
+                          <div style={{ minWidth: 180 }}>
+                            <div className="muted" style={{ fontSize: 12 }}>Uploaded images</div>
+                            <div style={{ marginTop: 4, fontWeight: 800 }}>
+                              {woundMetrics.measurement.woundImagesUploaded
+                                ? `${woundMetrics.measurement.uploadedImageCount} ${woundMetrics.measurement.uploadedImageCount === 1 ? "image" : "images"} uploaded`
+                                : "No wound images uploaded"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+                          <div style={{ minWidth: 140 }}>
+                            <div className="muted" style={{ fontSize: 12 }}>Length</div>
+                            <div style={{ marginTop: 4, fontWeight: 800 }}>
+                              {woundMetrics.measurement.lengthCm != null ? `${woundMetrics.measurement.lengthCm} cm` : "Not captured"}
+                            </div>
+                          </div>
+                          <div style={{ minWidth: 140 }}>
+                            <div className="muted" style={{ fontSize: 12 }}>Width</div>
+                            <div style={{ marginTop: 4, fontWeight: 800 }}>
+                              {woundMetrics.measurement.widthCm != null ? `${woundMetrics.measurement.widthCm} cm` : "Not captured"}
+                            </div>
+                          </div>
+                          {woundMetrics.measurement.depthCm != null ? (
+                            <div style={{ minWidth: 140 }}>
+                              <div className="muted" style={{ fontSize: 12 }}>Depth</div>
+                              <div style={{ marginTop: 4, fontWeight: 800 }}>{woundMetrics.measurement.depthCm} cm</div>
+                            </div>
+                          ) : null}
+                          <div style={{ minWidth: 160 }}>
+                            <div className="muted" style={{ fontSize: 12 }}>Estimated area</div>
+                            <div style={{ marginTop: 4, fontWeight: 800 }}>
+                              {woundMetrics.measurement.areaCm2 != null ? `${woundMetrics.measurement.areaCm2} cm2` : "Not available"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="muted" style={{ fontSize: 12 }}>Healing progression</div>
+                          <div style={{ marginTop: 6, display: "grid", gap: 6 }}>
+                            <div>
+                              Previous area: {woundMetrics.comparison.previousAreaCm2 != null ? `${woundMetrics.comparison.previousAreaCm2} cm2` : "No prior measurement"}
+                            </div>
+                            <div>
+                              Current area: {woundMetrics.comparison.currentAreaCm2 != null ? `${woundMetrics.comparison.currentAreaCm2} cm2` : "No current measurement"}
+                            </div>
+                            {woundMetrics.comparison.percentChange != null ? (
+                              <div>
+                                Area change: {woundMetrics.comparison.percentChange > 0 ? `${woundMetrics.comparison.percentChange}% reduction` : `${Math.abs(woundMetrics.comparison.percentChange)}% increase`}
+                              </div>
+                            ) : null}
+                            <div style={{ fontWeight: 800 }}>{formatProgressInterpretation(woundMetrics)}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space" />
+                  </>
+                ) : null}
 
                 <div className="card card-pad">
                   <div className="h2">Vital AI Clinical Insights</div>
