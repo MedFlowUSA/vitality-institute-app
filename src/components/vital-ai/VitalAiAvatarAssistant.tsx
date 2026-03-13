@@ -60,12 +60,12 @@ function guidanceForStep(
 
   if (!stepKey || stepKey === "contact") {
     if (tone === "consult") {
-      return "Hi, I'm Vital AI - I'll guide you through a few questions so our care team can prepare for your visit.";
+      return "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few steps so our team can prepare for your visit.";
     }
     if (tone === "wound") {
-      return "Hi, I'm Vital AI - I'll guide you through a few questions about your wound so we can prepare the right review path for your care team.";
+      return "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few steps so our team can prepare for your visit.";
     }
-    return "Hi, I'm Vital AI - I'll guide you through a few questions so our care team can prepare for your visit.";
+    return "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few steps so our team can prepare for your visit.";
   }
 
   if (stepKey.includes("upload")) {

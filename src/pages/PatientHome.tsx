@@ -814,9 +814,9 @@ export default function PatientHome() {
     if (latestVitalAiSession?.status === "draft") {
       return {
         eyebrow: "Resume Your Intake",
-        title: "Hi, I'm Vital AI - your intake assistant.",
+        title: "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few steps so our team can prepare for your visit.",
         guidance:
-          "I saved your progress so you can pick up where you left off. Resume your intake and help our team prepare for your visit.",
+          "Start or resume your intake so our care team can prepare for your visit with the right information ahead of time.",
         statusLabel: "Draft intake saved",
         statusTone: "rgba(59,130,246,.18)",
         primary: {
@@ -830,7 +830,7 @@ export default function PatientHome() {
     if (latestVitalAiSession?.status === "submitted") {
       return {
         eyebrow: "Intake Submitted",
-        title: "Hi, I'm Vital AI - your intake assistant.",
+        title: "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few steps so our team can prepare for your visit.",
         guidance:
           "Your intake has been submitted successfully. Our clinical team is reviewing your information now, and you can continue using the rest of your portal below.",
         statusLabel: "Under review",
@@ -850,8 +850,8 @@ export default function PatientHome() {
       const svc = serviceById(supportedVitalAiAppointment.service_id);
       return {
         eyebrow: "Start with Vital AI",
-        title: "Hi, I'm Vital AI - your intake assistant.",
-        guidance: `I can help guide your intake and prepare our team for your visit. Your upcoming ${svc?.name ?? "appointment"} supports the new guided intake experience.`,
+        title: "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few steps so our team can prepare for your visit.",
+        guidance: `Start or resume your intake so our care team can prepare for your ${svc?.name ?? "visit"} with the right information ahead of time.`,
         statusLabel: "Recommended before your visit",
         statusTone: "rgba(139,124,255,.20)",
         primary: {
@@ -864,9 +864,8 @@ export default function PatientHome() {
 
     return {
       eyebrow: "Start with Vital AI",
-      title: "Hi, I'm Vital AI - your intake assistant.",
-      guidance:
-        "I can help guide your intake and prepare our team for your visit. Start your general consultation or wound care intake here, then continue through the rest of your portal at any time.",
+      title: "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few steps so our team can prepare for your visit.",
+      guidance: "Start or resume your intake so our care team can prepare for your visit with the right information ahead of time.",
       statusLabel: "General consult and wound care",
       statusTone: "rgba(139,124,255,.20)",
       primary: {
@@ -1761,10 +1760,10 @@ export default function PatientHome() {
                 Vital AI
               </div>
               <div style={{ marginTop: 8, fontSize: 26, fontWeight: 900, color: "#FAF7FF", lineHeight: 1.08 }}>
-                Your guided intake experience
+                Your guided intake assistant.
               </div>
               <div style={{ marginTop: 8, maxWidth: 700, color: "rgba(233,226,255,.78)", lineHeight: 1.7 }}>
-                Vital AI is now the first step for general consultation and wound care. You can start, resume, or review your intake here and still use the rest of your portal normally below.
+                Start or resume your intake so our care team can prepare for your visit with the right information ahead of time.
               </div>
             </div>
 

@@ -500,11 +500,10 @@ export default function ProviderHome() {
                 Provider Dashboard
               </div>
               <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900, color: "#FAF7FF", lineHeight: 1.04 }}>
-                One workspace for today&apos;s clinical flow
+                Your clinical command center for the day.
               </div>
               <div style={{ marginTop: 10, maxWidth: 760, color: "rgba(233,226,255,.8)", lineHeight: 1.7 }}>
-                Review your active location, move through queue and intake review, then continue into patients, referrals, messages,
-                labs, and command tools without stacked duplicate controls.
+                Manage your location, queue, intake reviews, patients, referrals, messages, labs, and command tools from one unified workspace.
               </div>
             </div>
 

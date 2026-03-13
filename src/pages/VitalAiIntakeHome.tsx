@@ -74,8 +74,8 @@ export default function VitalAiIntakeHome() {
     <div className="app-bg">
       <div className="shell">
         <VitalityHero
-          title="Vital AI Intake"
-          subtitle="Choose the right pathway, save your progress, and submit everything your care team needs."
+          title="Vital AI"
+          subtitle="Start or resume your intake so our care team can prepare for your visit with the right information ahead of time."
           secondaryCta={{ label: "Back", to: "/patient" }}
           showKpis={false}
         />

@@ -17,6 +17,7 @@ import WoundAssessmentPanel from "../components/provider/WoundAssessmentPanel";
 import WoundHealingCurvePanel from "../components/provider/WoundHealingCurvePanel";
 import IVRPacketPanel from "../components/provider/IVRPacketPanel";
 import ChargeCapturePanel from "../components/provider/ChargeCapturePanel";
+import { calculateHealingTrend, getWoundHistory, type WoundObservation } from "../lib/vital-ai/woundTracking";
 
 type VisitRow = {
   id: string;
@@ -147,6 +148,8 @@ export default function ProviderPatientCenter() {
   const [demo, setDemo] = useState<DemoRow | null>(null);
   const [insurance, setInsurance] = useState<InsuranceRow | null>(null);
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
+  const [woundHistory, setWoundHistory] = useState<WoundObservation[]>([]);
+  const [woundImageUrls, setWoundImageUrls] = useState<Record<string, string>>({});
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -301,6 +304,8 @@ export default function ProviderPatientCenter() {
     };
   }, [activeVisitId, timeline, labsByVisit, notesByVisit, filesByVisit]);
 
+  const woundTrend = useMemo(() => calculateHealingTrend(woundHistory), [woundHistory]);
+
   const TabButton = ({ id, label }: { id: PatientTab; label: string }) => {
     const active = tab === id;
     return (
@@ -426,6 +431,9 @@ export default function ProviderPatientCenter() {
       const labRows = (l as LabRow[]) ?? [];
       setLabs(labRows);
 
+      const nextWoundHistory = await getWoundHistory(patientId);
+      setWoundHistory(nextWoundHistory);
+
       // seed drafts once
       const seeded: Record<string, string> = {};
       for (const r of labRows) {
@@ -496,6 +504,43 @@ export default function ProviderPatientCenter() {
     loadAll({ setDefaultActiveVisit: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadWoundImageUrls = async () => {
+      const imageFiles = woundHistory.flatMap((entry) => entry.images);
+      if (imageFiles.length === 0) {
+        setWoundImageUrls({});
+        return;
+      }
+
+      const entries = await Promise.all(
+        imageFiles.map(async (file) => {
+          try {
+            const url = await getSignedUrl(file.bucket, file.path, 120);
+            return [file.id, url] as const;
+          } catch {
+            return [file.id, ""] as const;
+          }
+        })
+      );
+
+      if (cancelled) return;
+      setWoundImageUrls(
+        entries.reduce<Record<string, string>>((acc, [id, url]) => {
+          if (url) acc[id] = url;
+          return acc;
+        }, {})
+      );
+    };
+
+    loadWoundImageUrls();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [woundHistory]);
 
   const createVisit = async () => {
     if (!patientId) return;
@@ -1153,6 +1198,155 @@ export default function ProviderPatientCenter() {
                           <div className="muted">Select a visit first.</div>
                         ) : (
                           <>
+                            <div
+                              className="card card-pad"
+                              style={{ marginBottom: 16, background: "rgba(124, 58, 237, 0.08)", border: "1px solid rgba(196, 181, 253, 0.26)" }}
+                            >
+                              <div className="h2">Wound Healing Progress</div>
+                              <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                                Derived from completed Vital AI wound intake sessions for this patient.
+                              </div>
+
+                              <div className="space" />
+
+                              {woundHistory.length === 0 ? (
+                                <div className="muted">No Vital AI wound observations are available yet.</div>
+                              ) : (
+                                <>
+                                  <div
+                                    className="row"
+                                    style={{
+                                      gap: 12,
+                                      flexWrap: "wrap",
+                                      alignItems: "stretch",
+                                      marginBottom: 14,
+                                    }}
+                                  >
+                                    <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                                      <div className="muted" style={{ fontSize: 12 }}>Healing Trend</div>
+                                      <div style={{ marginTop: 6, fontSize: 20, fontWeight: 800, textTransform: "capitalize" }}>
+                                        {woundTrend.direction}
+                                      </div>
+                                      <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                                        {woundTrend.percentChange == null
+                                          ? "Add wound length and width across multiple sessions to calculate a trend."
+                                          : woundTrend.direction === "improving"
+                                          ? `${Math.abs(woundTrend.percentChange)}% reduction`
+                                          : woundTrend.direction === "worsening"
+                                          ? `${Math.abs(woundTrend.percentChange)}% increase`
+                                          : `${Math.abs(woundTrend.percentChange)}% change`}
+                                      </div>
+                                    </div>
+
+                                    <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                                      <div className="muted" style={{ fontSize: 12 }}>Observation Count</div>
+                                      <div style={{ marginTop: 6, fontSize: 20, fontWeight: 800 }}>{woundHistory.length}</div>
+                                      <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                                        {woundHistory.reduce((sum, item) => sum + item.images.length, 0)} linked wound image
+                                        {woundHistory.reduce((sum, item) => sum + item.images.length, 0) === 1 ? "" : "s"}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div style={{ display: "grid", gap: 12 }}>
+                                    {woundHistory.map((entry) => (
+                                      <div
+                                        key={entry.sessionId}
+                                        className="card card-pad"
+                                        style={{ background: "rgba(255,255,255,0.02)" }}
+                                      >
+                                        <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                                          <div style={{ flex: "1 1 280px" }}>
+                                            <div style={{ fontWeight: 800 }}>{new Date(entry.timestamp).toLocaleDateString()}</div>
+                                            <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                                              {entry.woundLocation ?? "Wound location not captured"}
+                                            </div>
+                                          </div>
+
+                                          <div
+                                            className="row"
+                                            style={{ gap: 16, flexWrap: "wrap", alignItems: "flex-start", justifyContent: "flex-end" }}
+                                          >
+                                            <div>
+                                              <div className="muted" style={{ fontSize: 12 }}>Area</div>
+                                              <div style={{ marginTop: 4, fontWeight: 800 }}>
+                                                {entry.area == null ? "Not measured" : `${entry.area} cm2`}
+                                              </div>
+                                            </div>
+                                            <div>
+                                              <div className="muted" style={{ fontSize: 12 }}>Dimensions</div>
+                                              <div style={{ marginTop: 4, fontWeight: 800 }}>
+                                                {entry.length == null && entry.width == null
+                                                  ? "Not captured"
+                                                  : `${entry.length ?? "-"} x ${entry.width ?? "-"} cm`}
+                                              </div>
+                                            </div>
+                                            <div>
+                                              <div className="muted" style={{ fontSize: 12 }}>Images</div>
+                                              <div style={{ marginTop: 4, fontWeight: 800 }}>
+                                                {entry.images.length}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {entry.duration ? (
+                                          <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+                                            Reported duration: {entry.duration}
+                                          </div>
+                                        ) : null}
+
+                                        {entry.images.length > 0 ? (
+                                          <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                                            {entry.images.map((image) => {
+                                              const imageUrl = woundImageUrls[image.id];
+                                              return imageUrl ? (
+                                                <a
+                                                  key={image.id}
+                                                  href={imageUrl}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  style={{ display: "block" }}
+                                                >
+                                                  <img
+                                                    src={imageUrl}
+                                                    alt={image.filename}
+                                                    style={{
+                                                      width: 72,
+                                                      height: 72,
+                                                      borderRadius: 16,
+                                                      objectFit: "cover",
+                                                      border: "1px solid rgba(255,255,255,0.12)",
+                                                    }}
+                                                  />
+                                                </a>
+                                              ) : (
+                                                <div
+                                                  key={image.id}
+                                                  className="card"
+                                                  style={{
+                                                    width: 72,
+                                                    height: 72,
+                                                    borderRadius: 16,
+                                                    display: "grid",
+                                                    placeItems: "center",
+                                                    fontSize: 11,
+                                                    color: "var(--muted)",
+                                                  }}
+                                                >
+                                                  Image
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
                             <WoundHealingCurvePanel
                               patientId={activeVisit.patient_id}
                               locationId={activeVisit.location_id}
