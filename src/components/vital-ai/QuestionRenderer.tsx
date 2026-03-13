@@ -51,12 +51,21 @@ export default function QuestionRenderer({
     width: "100%",
     borderRadius: 14,
     padding: "13px 14px",
-    border: "1px solid rgba(255,255,255,0.18)",
-    background: "rgba(255,255,255,0.07)",
+    border: "1px solid rgba(200,182,255,0.38)",
+    background: "rgba(15,23,42,0.92)",
     outline: "none",
     fontSize: 14,
     color: "#F8FAFC",
-    boxShadow: "inset 0 1px 2px rgba(0,0,0,0.16)",
+    boxShadow: "inset 0 1px 2px rgba(0,0,0,0.22)",
+  };
+
+  const selectStyle: React.CSSProperties = {
+    ...sharedInputStyle,
+    background: "#FFFFFF",
+    color: "#1F1633",
+    border: "1px solid rgba(184,164,255,0.48)",
+    boxShadow: "0 0 0 1px rgba(184,164,255,0.10), inset 0 1px 2px rgba(15,23,42,0.08)",
+    fontWeight: 700,
   };
 
   const startDictation = () => {
@@ -141,17 +150,24 @@ export default function QuestionRenderer({
 
   if (question.type === "select") {
     return (
-      <div style={{ marginBottom: 16 }}>
-        {label}
-        <select className="input" style={sharedInputStyle} value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)}>
-          <option value="">Select...</option>
-          {(question.options ?? []).map((option) => (
-            <option key={option} value={option}>
-              {option}
+        <div style={{ marginBottom: 16 }}>
+          {label}
+          <select
+            className="input"
+            style={selectStyle}
+            value={typeof value === "string" ? value : ""}
+            onChange={(e) => onChange(e.target.value)}
+          >
+            <option value="" style={{ color: "#5B5670", background: "#FFFFFF" }}>
+              Select...
             </option>
-          ))}
-        </select>
-      </div>
+            {(question.options ?? []).map((option) => (
+              <option key={option} value={option} style={{ color: "#1F1633", background: "#FFFFFF" }}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
     );
   }
 

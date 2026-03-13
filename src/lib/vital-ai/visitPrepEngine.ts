@@ -88,6 +88,9 @@ function durationDays(durationText: string): number | null {
 function inferPathway(pathwaySlug: string | null | undefined, answers: ResponseMap) {
   if (pathwaySlug) return pathwaySlug;
   if (firstText(answers, ["wound_location", "wound_duration", "drainage_amount", "exudate"])) return "wound-care";
+  if (firstText(answers, ["current_weight", "goal_weight", "prior_glp1_use", "diabetes_status"])) return "glp1";
+  if (firstText(answers, ["peptide_primary_goal", "prior_peptide_use", "relevant_symptoms"])) return "peptides";
+  if (firstText(answers, ["energy_level", "sleep_quality", "stress_level", "health_goals"])) return "wellness";
   return "general-consult";
 }
 
@@ -96,6 +99,20 @@ function buildPatientConcern(pathway: string, answers: ResponseMap) {
     const location = firstText(answers, ["wound_location", "location_of_wound", "wound_site", "body_site"]) || "unspecified location";
     const duration = durationDays(firstText(answers, ["wound_duration", "duration", "wound_duration_weeks"]) || "");
     return `${duration != null && duration > 14 ? "Chronic wound" : "Wound concern"} - ${location}`;
+  }
+
+  if (includesToken(pathway, "glp1")) {
+    const diabetes = firstText(answers, ["diabetes_status"]);
+    if (diabetes && !includesToken(diabetes, "none")) return "GLP-1 consultation - metabolic weight management";
+    return "GLP-1 consultation - weight management";
+  }
+
+  if (includesToken(pathway, "wellness")) {
+    return `Wellness consultation - ${firstText(answers, ["health_goals", "interest_areas"]) || "health optimization"}`;
+  }
+
+  if (includesToken(pathway, "peptide")) {
+    return `Peptide consultation - ${firstText(answers, ["peptide_primary_goal"]) || "goal review"}`;
   }
 
   return firstText(answers, ["primary_concern", "reason_for_visit", "visit_reason", "chief_concern"]) || "General consultation request";
@@ -115,6 +132,41 @@ function buildKeyIndicators(pathway: string, answers: ResponseMap) {
     if (firstBool(answers, ["infection_concern", "signs_of_infection"])) items.push("infection indicators");
     if (drainage) items.push(`${drainage} drainage`);
     if (swelling) items.push("swelling reported");
+  }
+
+  if (includesToken(pathway, "glp1")) {
+    const diabetes = firstText(answers, ["diabetes_status"]);
+    const giSymptoms = firstText(answers, ["gi_symptoms"]);
+    const weight = firstNumber(answers, ["current_weight"]);
+    const goal = firstNumber(answers, ["goal_weight"]);
+    const height = firstNumber(answers, ["height_inches"]);
+    const bmi = weight != null && goal != null && height != null && height > 0 ? Number((((weight / (height * height)) * 703)).toFixed(1)) : null;
+
+    if (bmi != null && bmi >= 30) items.push(`BMI ${bmi}`);
+    if (diabetes && !includesToken(diabetes, "none")) items.push(`${diabetes} history`);
+    if (firstBool(answers, ["pancreatitis_history"])) items.push("pancreatitis history");
+    if (firstBool(answers, ["thyroid_history"])) items.push("thyroid history");
+    if (firstBool(answers, ["gallbladder_history"])) items.push("gallbladder history");
+    if (giSymptoms) items.push("GI symptoms reported");
+    if (weight != null && goal != null && goal < weight) items.push("active weight-loss goal");
+  }
+
+  if (includesToken(pathway, "wellness")) {
+    const energy = firstText(answers, ["energy_level"]);
+    const sleep = firstText(answers, ["sleep_quality"]);
+    const stress = firstText(answers, ["stress_level"]);
+    if (includesToken(energy, "low")) items.push("low energy");
+    if (includesToken(sleep, "poor")) items.push("poor sleep quality");
+    if (includesToken(stress, "high")) items.push("high stress");
+    if (firstText(answers, ["symptom_concerns"])) items.push("symptom concerns reported");
+  }
+
+  if (includesToken(pathway, "peptide")) {
+    const goal = firstText(answers, ["peptide_primary_goal"]);
+    if (goal) items.push(`${goal} goal`);
+    if (firstBool(answers, ["prior_peptide_use"])) items.push("prior peptide use");
+    if (firstText(answers, ["medication_allergies"])) items.push("medication allergies noted");
+    if (firstText(answers, ["relevant_symptoms"])) items.push("symptoms reported");
   }
 
   if (pain != null && pain >= 8) items.push("high pain severity");
@@ -146,8 +198,25 @@ function buildSuggestedFocus(pathway: string, answers: ResponseMap) {
     if (diabetes || duration != null && duration > 14) focus.push("vascular assessment");
     if (pain >= 5) focus.push("pain management review");
   } else {
-    focus.push("consult review");
-    if (pain >= 5) focus.push("symptom severity review");
+    if (includesToken(pathway, "glp1")) {
+      focus.push("metabolic assessment");
+      focus.push("medication safety review");
+      if (firstText(answers, ["weight_loss_history"])) focus.push("weight-loss history review");
+      if (firstText(answers, ["gi_symptoms"]) || firstBool(answers, ["pancreatitis_history", "gallbladder_history", "thyroid_history"])) {
+        focus.push("contraindication screening");
+      }
+    } else if (includesToken(pathway, "wellness")) {
+      focus.push("wellness baseline review");
+      focus.push("lifestyle assessment");
+      if (firstText(answers, ["prior_labs_available"]).includes("yes") || firstBool(answers, ["prior_labs_available"])) focus.push("lab review");
+    } else if (includesToken(pathway, "peptide")) {
+      focus.push("goal alignment review");
+      focus.push("medication and allergy review");
+      focus.push("peptide candidacy review");
+    } else {
+      focus.push("consult review");
+      if (pain >= 5) focus.push("symptom severity review");
+    }
   }
 
   return Array.from(new Set(focus));
@@ -168,6 +237,24 @@ function buildTreatmentConsiderations(pathway: string, answers: ResponseMap, fil
     if (hasImages) items.push("wound imaging comparison");
   }
 
+  if (includesToken(pathway, "glp1")) {
+    items.push("GLP-1 candidacy review");
+    if (firstText(answers, ["diabetes_status"]) && !includesToken(firstText(answers, ["diabetes_status"]), "none")) items.push("metabolic lab review");
+    if (firstText(answers, ["current_weight"]) && firstText(answers, ["goal_weight"])) items.push("nutrition and weight-loss planning");
+  }
+
+  if (includesToken(pathway, "wellness")) {
+    items.push("wellness optimization review");
+    if (firstText(answers, ["prior_labs_available"]).includes("yes") || firstBool(answers, ["prior_labs_available"])) items.push("lab review");
+    if (firstText(answers, ["interest_areas"])) items.push("targeted wellness planning");
+  }
+
+  if (includesToken(pathway, "peptide")) {
+    items.push("peptide candidacy review");
+    if (firstText(answers, ["peptide_primary_goal"])) items.push("goal-specific protocol review");
+    if (firstText(answers, ["supporting_records"]) || files.length > 0) items.push("supporting record review");
+  }
+
   return Array.from(new Set(items));
 }
 
@@ -180,6 +267,15 @@ function buildSuggestedVisitDuration(pathway: string, answers: ResponseMap) {
 
   if (includesToken(pathway, "wound") && (infection || diabetes || (duration != null && duration > 14) || pain >= 5)) {
     return "30 minutes";
+  }
+  if (includesToken(pathway, "glp1")) {
+    return firstBool(answers, ["pancreatitis_history", "thyroid_history", "gallbladder_history"]) ? "30 minutes" : "20 minutes";
+  }
+  if (includesToken(pathway, "wellness")) {
+    return firstText(answers, ["symptom_concerns"]) ? "20 minutes" : "15 minutes";
+  }
+  if (includesToken(pathway, "peptide")) {
+    return "20 minutes";
   }
   if (includesToken(visitType, "follow")) {
     return "15 minutes";

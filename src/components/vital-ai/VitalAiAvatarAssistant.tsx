@@ -17,6 +17,9 @@ function includesToken(value: string, token: string) {
 function pathwayTone(pathwaySlug: string | null | undefined) {
   if (!pathwaySlug) return "general";
   if (includesToken(pathwaySlug, "wound")) return "wound";
+  if (includesToken(pathwaySlug, "glp1")) return "glp1";
+  if (includesToken(pathwaySlug, "wellness")) return "wellness";
+  if (includesToken(pathwaySlug, "peptide")) return "peptides";
   if (includesToken(pathwaySlug, "consult")) return "consult";
   return "general";
 }
@@ -27,10 +30,26 @@ function detailFromAnswers(stepKey: string | null | undefined, answers?: Respons
   const painValue = asText(answers.pain_score ?? answers.wound_pain_score ?? answers.painLevel);
   const durationValue = asText(answers.wound_duration ?? answers.duration ?? answers.wound_duration_weeks);
   const visitReason = asText(answers.reason_for_visit ?? answers.visit_reason ?? answers.primary_concern);
+  const healthGoal = asText(answers.health_goals ?? answers.peptide_primary_goal ?? answers.goal_weight);
 
   if (stepKey?.includes("wound")) {
     if (painValue) return ` I will keep track of the pain level you reported${painValue ? ` (${painValue})` : ""} as we move through this.`;
     if (durationValue) return ` I will use the wound duration you share to help route your case appropriately.`;
+  }
+
+  if (stepKey?.includes("glp1")) {
+    if (healthGoal) return ` I will keep your weight-management goal noted as we move through the screening questions.`;
+    return " I will organize your weight, medication, and history details for provider review.";
+  }
+
+  if (stepKey?.includes("wellness")) {
+    if (healthGoal) return ` I have your wellness focus noted so the team can review your goals clearly.`;
+    return " I will keep track of your wellness baseline as you move through these questions.";
+  }
+
+  if (stepKey?.includes("peptide")) {
+    if (healthGoal) return ` I will keep your primary peptide goal noted for provider review.`;
+    return " I will organize your goals, symptoms, and medication history for review.";
   }
 
   if (stepKey?.includes("review") || stepKey === "consent") {
@@ -59,6 +78,15 @@ function guidanceForStep(
   }
 
   if (!stepKey || stepKey === "contact") {
+    if (tone === "glp1") {
+      return "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few weight-management questions so our care team can review GLP-1 candidacy before your visit.";
+    }
+    if (tone === "wellness") {
+      return "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few wellness questions so our care team can understand your goals, symptoms, and baseline habits.";
+    }
+    if (tone === "peptides") {
+      return "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few peptide screening questions so our care team can review your goals and history before the visit.";
+    }
     if (tone === "consult") {
       return "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few steps so our team can prepare for your visit.";
     }
@@ -72,6 +100,12 @@ function guidanceForStep(
     const base =
       tone === "wound"
         ? "If you have wound photos or records, upload them here so your provider can review them before the visit."
+        : tone === "glp1"
+        ? "If you have recent labs or medication records, upload them here so your provider can review them before the visit."
+        : tone === "wellness"
+        ? "If you have recent labs or prior wellness records, upload them here so your provider can review them before the visit."
+        : tone === "peptides"
+        ? "If you have prior labs or supporting records, upload them here so your provider can review them before the visit."
         : "If you have photos or records, upload them here so your provider can review them before the visit.";
     return `${base}${detailFromAnswers(stepKey, answers)}`;
   }
@@ -85,6 +119,12 @@ function guidanceForStep(
   }
 
   if (stepKey.includes("history") || stepKey.includes("medical")) {
+    if (tone === "glp1") {
+      return "I am collecting the medication and safety history your provider will need to review GLP-1 candidacy carefully.";
+    }
+    if (tone === "peptides") {
+      return "I am collecting the medication and allergy history your provider will need before reviewing peptide options.";
+    }
     return "I am collecting the clinical background your care team will need so they can review your intake efficiently.";
   }
 
@@ -93,6 +133,27 @@ function guidanceForStep(
       stepKey,
       answers
     )}`;
+  }
+
+  if (stepKey.includes("baseline") || stepKey.includes("goals")) {
+    if (tone === "wellness") {
+      return `Let's document your baseline wellness patterns and goals so the provider can see where you want to improve.${detailFromAnswers(
+        stepKey,
+        answers
+      )}`;
+    }
+    if (tone === "peptides") {
+      return `Let's clarify your primary goals and symptoms so the provider can review the right peptide options.${detailFromAnswers(
+        stepKey,
+        answers
+      )}`;
+    }
+    if (tone === "glp1") {
+      return `Let's document your baseline weight-management history so the provider can review the right next steps.${detailFromAnswers(
+        stepKey,
+        answers
+      )}`;
+    }
   }
 
   return `I will guide you step by step. Answer as much as you can, and I will keep your progress saved automatically.${detailFromAnswers(

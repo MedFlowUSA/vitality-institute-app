@@ -83,6 +83,9 @@ function durationDays(durationText: string): number | null {
 function inferPathway(pathwaySlug: string | null | undefined, answers: ResponseMap): string {
   if (pathwaySlug) return pathwaySlug;
   if (firstText(answers, ["wound_location", "wound_duration", "drainage_amount", "exudate"])) return "wound-care";
+  if (firstText(answers, ["current_weight", "goal_weight", "prior_glp1_use", "diabetes_status"])) return "glp1";
+  if (firstText(answers, ["peptide_primary_goal", "prior_peptide_use", "relevant_symptoms"])) return "peptides";
+  if (firstText(answers, ["energy_level", "sleep_quality", "stress_level", "health_goals"])) return "wellness";
   return "general-consult";
 }
 
@@ -106,6 +109,40 @@ function buildIndicators(pathway: string, answers: ResponseMap, files: VitalAiFi
     if (imageCount > 0) indicators.push("wound imaging available");
   }
 
+  if (includesToken(pathway, "glp1")) {
+    const weight = firstNumber(answers, ["current_weight"]);
+    const goalWeight = firstNumber(answers, ["goal_weight"]);
+    const heightInches = firstNumber(answers, ["height_inches"]);
+    const bmi = weight != null && heightInches != null && heightInches > 0
+      ? Number((((weight / (heightInches * heightInches)) * 703)).toFixed(1))
+      : null;
+
+    if (bmi != null && bmi >= 30) indicators.push(`BMI ${bmi}`);
+    const diabetes = firstText(answers, ["diabetes_status"]);
+    if (diabetes && !includesToken(diabetes, "none")) indicators.push(`${diabetes} history`);
+    if (firstBool(answers, ["pancreatitis_history"])) indicators.push("pancreatitis history");
+    if (firstBool(answers, ["thyroid_history"])) indicators.push("thyroid history");
+    if (firstBool(answers, ["gallbladder_history"])) indicators.push("gallbladder history");
+    if (firstText(answers, ["gi_symptoms"])) indicators.push("GI symptoms reported");
+    if (firstBool(answers, ["prior_glp1_use"])) indicators.push("prior GLP-1 use");
+    if (goalWeight != null && weight != null && goalWeight < weight) indicators.push("active weight-loss goal");
+  }
+
+  if (includesToken(pathway, "wellness")) {
+    if (includesToken(firstText(answers, ["energy_level"]), "low")) indicators.push("low energy reported");
+    if (includesToken(firstText(answers, ["sleep_quality"]), "poor")) indicators.push("poor sleep quality");
+    if (includesToken(firstText(answers, ["stress_level"]), "high")) indicators.push("high stress reported");
+    if (includesToken(firstText(answers, ["hydration_level"]), "dehydrated")) indicators.push("hydration concerns");
+    if (includesToken(firstText(answers, ["exercise_frequency"]), "rarely")) indicators.push("low exercise frequency");
+  }
+
+  if (includesToken(pathway, "peptide")) {
+    if (firstBool(answers, ["prior_peptide_use"])) indicators.push("prior peptide use");
+    if (firstText(answers, ["medication_allergies"])) indicators.push("medication allergies noted");
+    if (firstText(answers, ["relevant_symptoms"])) indicators.push("symptoms reported");
+    if (firstText(answers, ["peptide_primary_goal"])) indicators.push(`${firstText(answers, ["peptide_primary_goal"])} goal`);
+  }
+
   if (pain != null && pain >= 8) indicators.push("high pain reported");
   if (pain != null && pain >= 5 && pain < 8) indicators.push("moderate pain reported");
 
@@ -119,6 +156,25 @@ function buildSuggestedPriority(pathway: string, answers: ResponseMap, files: Vi
     if (indicators.some((item) => includesToken(item, "infection"))) return "high";
     if (indicators.some((item) => includesToken(item, "chronic wound"))) return "moderate";
     return "low";
+  }
+
+  if (includesToken(pathway, "glp1")) {
+    if (indicators.some((item) => includesToken(item, "pancreatitis")) || indicators.some((item) => includesToken(item, "thyroid"))) {
+      return "high";
+    }
+    if (indicators.some((item) => includesToken(item, "BMI")) || indicators.some((item) => includesToken(item, "diabetes"))) {
+      return "moderate";
+    }
+    return "low";
+  }
+
+  if (includesToken(pathway, "peptide")) {
+    if (indicators.some((item) => includesToken(item, "allerg"))) return "moderate";
+    return indicators.length >= 2 ? "moderate" : "low";
+  }
+
+  if (includesToken(pathway, "wellness")) {
+    return indicators.length >= 3 ? "moderate" : "low";
   }
 
   if (indicators.some((item) => includesToken(item, "high pain"))) return "moderate";

@@ -207,6 +207,20 @@ function buildRiskFlags(pathway: string, answers: ResponseMap) {
     if (Number(answers.pain_level ?? 0) >= 8) flags.push("high pain");
     if (answers.multiple_wounds === true) flags.push("multiple wounds");
   }
+  if (pathway === "glp1") {
+    if (answers.pancreatitis_history === true) flags.push("pancreatitis history");
+    if (answers.thyroid_history === true) flags.push("thyroid history");
+    if (answers.gallbladder_history === true) flags.push("gallbladder history");
+  }
+  if (pathway === "wellness") {
+    if (answers.energy_level === "low") flags.push("low energy");
+    if (answers.sleep_quality === "poor") flags.push("poor sleep");
+    if (answers.stress_level === "high") flags.push("high stress");
+  }
+  if (pathway === "peptides") {
+    if (answers.prior_peptide_use === true) flags.push("prior peptide use");
+    if (answers.medication_allergies) flags.push("medication allergy review");
+  }
   if (answers.visit_type === "follow-up") flags.push("follow-up visit");
   return flags;
 }
@@ -214,6 +228,9 @@ function buildRiskFlags(pathway: string, answers: ResponseMap) {
 function buildTriageLevel(pathway: string, answers: ResponseMap) {
   if (pathway === "wound-care" && answers.infection_concern === true) return "high";
   if (pathway === "wound-care" && Number(answers.pain_level ?? 0) >= 8) return "high";
+  if (pathway === "glp1" && (answers.pancreatitis_history === true || answers.thyroid_history === true)) return "high";
+  if (pathway === "glp1") return "medium";
+  if (pathway === "wellness" || pathway === "peptides") return "standard";
   return pathway === "wound-care" ? "medium" : "standard";
 }
 
@@ -223,6 +240,24 @@ function buildProfileSummary(pathway: string, patient: PatientRecord | null, ans
     return `${name || "Patient"} reported a wound at ${answerLabel(answers.wound_location)} present for ${answerLabel(
       answers.wound_duration
     )}. Pain level ${answerLabel(answers.pain_level)}. Infection concern: ${answerLabel(answers.infection_concern)}.`;
+  }
+
+  if (pathway === "glp1") {
+    return `${name || "Patient"} requested GLP-1 review at ${answerLabel(answers.current_weight)} lb with goal weight ${answerLabel(
+      answers.goal_weight
+    )}. Diabetes status: ${answerLabel(answers.diabetes_status)}. Prior GLP-1 use: ${answerLabel(answers.prior_glp1_use)}.`;
+  }
+
+  if (pathway === "wellness") {
+    return `${name || "Patient"} requested wellness review focused on ${answerLabel(answers.health_goals)}. Energy ${answerLabel(
+      answers.energy_level
+    )}, sleep ${answerLabel(answers.sleep_quality)}, stress ${answerLabel(answers.stress_level)}.`;
+  }
+
+  if (pathway === "peptides") {
+    return `${name || "Patient"} requested peptide review for ${answerLabel(answers.peptide_primary_goal)}. Prior peptide use: ${answerLabel(
+      answers.prior_peptide_use
+    )}. Symptoms: ${answerLabel(answers.relevant_symptoms)}.`;
   }
 
   return `${name || "Patient"} requested a ${answerLabel(answers.visit_type)} for ${answerLabel(
@@ -277,6 +312,7 @@ function buildLeadJson(args: {
       preferred_contact: answers.preferred_contact ?? null,
     },
     chief_concern: answers.primary_concern ?? answers.wound_location ?? null,
+    service_goal: answers.health_goals ?? answers.peptide_primary_goal ?? answers.goal_weight ?? null,
     goals: answers.goals ?? null,
     infection_concern: answers.infection_concern ?? null,
     attachments_present: files.length > 0,
@@ -287,6 +323,8 @@ function buildLeadJson(args: {
 function buildLeadPriority(pathway: string, answers: ResponseMap) {
   if (pathway === "wound-care" && answers.infection_concern === true) return "high";
   if (pathway === "wound-care" && Number(answers.pain_level ?? 0) >= 8) return "high";
+  if (pathway === "glp1" && (answers.pancreatitis_history === true || answers.thyroid_history === true)) return "high";
+  if (pathway === "glp1") return "normal";
   return "normal";
 }
 

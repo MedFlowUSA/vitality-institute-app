@@ -1792,6 +1792,9 @@ export default function PatientHome() {
             avatarCircular
           >
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+              <button className="btn btn-ghost" type="button" onClick={() => navigate("/intake")}>
+                Intake
+              </button>
               {vitalAiHeroActions.map((action) => (
                 <button key={action.key} className={action.className} type="button" onClick={action.onClick}>
                   {action.label}
@@ -1810,6 +1813,9 @@ export default function PatientHome() {
           secondaryCta={{ label: "View Appointments", onClick: scrollToAppointments }}
           rightActions={
             <>
+              <button className="btn btn-primary" {...quickBtnProps} onClick={() => navigate("/intake")}>
+                Intake
+              </button>
               <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/treatments")}>
                 Treatments
               </button>

@@ -35,6 +35,9 @@ function firstText(answers: ResponseMap, keys: string[]) {
 function inferPathway(pathwaySlug: string | null | undefined, answers: ResponseMap) {
   if (pathwaySlug) return pathwaySlug;
   if (firstText(answers, ["wound_location", "wound_duration", "drainage_amount", "exudate"])) return "wound-care";
+  if (firstText(answers, ["current_weight", "goal_weight", "prior_glp1_use", "diabetes_status"])) return "glp1";
+  if (firstText(answers, ["peptide_primary_goal", "prior_peptide_use", "relevant_symptoms"])) return "peptides";
+  if (firstText(answers, ["energy_level", "sleep_quality", "stress_level", "health_goals"])) return "wellness";
   return "general-consult";
 }
 
@@ -59,6 +62,57 @@ export function generateFollowUps(session: VitalAiSessionRow, responses: VitalAi
           type: "healing_progress_check",
           dayOffset: 14,
           message: "Please share how your wound is healing and let us know about any increased pain, swelling, or drainage.",
+        },
+      ],
+    };
+  }
+
+  if (pathway.includes("glp1")) {
+    return {
+      followUps: [
+        {
+          type: "symptom_check",
+          dayOffset: 3,
+          message: "How are you feeling since your GLP-1 intake? Let us know about any nausea, GI changes, or medication concerns.",
+        },
+        {
+          type: "healing_progress_check",
+          dayOffset: 14,
+          message: "Please share any appetite, weight, or side-effect changes so the care team can review your progress.",
+        },
+      ],
+    };
+  }
+
+  if (pathway.includes("wellness")) {
+    return {
+      followUps: [
+        {
+          type: "symptom_check",
+          dayOffset: 7,
+          message: "How are your energy, sleep, and stress levels doing since you completed your wellness intake?",
+        },
+        {
+          type: "healing_progress_check",
+          dayOffset: 14,
+          message: "Let us know about any changes in your routine, symptoms, or health goals so your provider can stay aligned.",
+        },
+      ],
+    };
+  }
+
+  if (pathway.includes("peptide")) {
+    return {
+      followUps: [
+        {
+          type: "symptom_check",
+          dayOffset: 7,
+          message: "How are your symptoms and goals progressing? Let us know about any recovery, inflammation, or performance changes.",
+        },
+        {
+          type: "healing_progress_check",
+          dayOffset: 14,
+          message: "Please share any updates in your symptoms, medications, or treatment goals for follow-up review.",
         },
       ],
     };

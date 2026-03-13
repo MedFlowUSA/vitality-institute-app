@@ -130,7 +130,7 @@ export default function VitalAiIntakeHome() {
         <div className="card card-pad" style={{ background: "rgba(8,15,28,0.98)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 14px 34px rgba(0,0,0,0.22)" }}>
           <div className="h2" style={{ color: "#F8FAFC" }}>Choose Your Intake Pathway</div>
           <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, color: "rgba(226,232,240,0.84)" }}>
-            Phase 1 includes general consultation and wound care. Your progress is saved automatically once you begin.
+            Vital AI now supports general consultation, wound care, wellness, peptides, and GLP-1. Your progress is saved automatically once you begin.
           </div>
 
           <div className="space" />

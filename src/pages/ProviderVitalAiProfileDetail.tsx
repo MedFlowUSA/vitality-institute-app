@@ -178,6 +178,71 @@ export default function ProviderVitalAiProfileDetail() {
                 <div className="space" />
 
                 <div className="card card-pad">
+                  <div className="h2">Provider Recommendation Summary</div>
+                  <div className="space" />
+
+                  <div style={{ display: "grid", gap: 12 }}>
+                    <div>
+                      <div className="muted" style={{ fontSize: 12 }}>Patient concern</div>
+                      <div style={{ marginTop: 4, fontWeight: 800 }}>{insights.providerRecommendations.patientConcern}</div>
+                    </div>
+
+                    <div>
+                      <div className="muted" style={{ fontSize: 12 }}>Risk indicators</div>
+                      <div style={{ marginTop: 6 }}>
+                        {insights.providerRecommendations.riskIndicators.length === 0 ? (
+                          <div className="muted">No elevated risk indicators detected.</div>
+                        ) : (
+                          insights.providerRecommendations.riskIndicators.map((item) => (
+                            <div key={item} style={{ marginBottom: 4 }}>
+                              - {item}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="muted" style={{ fontSize: 12 }}>Suggested priority</div>
+                      <div style={{ marginTop: 4, fontWeight: 800 }}>
+                        {insights.providerRecommendations.suggestedPriority === "high"
+                          ? "High - provider review within 24 hours"
+                          : insights.providerRecommendations.suggestedPriority === "moderate"
+                          ? "Moderate - schedule within 48 hours"
+                          : "Low - standard review cadence"}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="muted" style={{ fontSize: 12 }}>Treatment considerations</div>
+                      <div style={{ marginTop: 6 }}>
+                        {insights.providerRecommendations.treatmentConsiderations.length === 0 ? (
+                          <div className="muted">No treatment considerations detected from current rule-based analysis.</div>
+                        ) : (
+                          insights.providerRecommendations.treatmentConsiderations.map((item) => (
+                            <div key={item} style={{ marginBottom: 4 }}>
+                              - {item}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="muted" style={{ fontSize: 12 }}>Likely service fit</div>
+                      <div style={{ marginTop: 6 }}>
+                        {insights.providerRecommendations.likelyServiceFit.map((item) => (
+                          <div key={item} style={{ marginBottom: 4 }}>
+                            - {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="space" />
+
+                <div className="card card-pad">
                   <div className="h2">Vital AI Clinical Insights</div>
                   <div className="space" />
 
@@ -188,7 +253,7 @@ export default function ProviderVitalAiProfileDetail() {
                     </div>
 
                     <div>
-                      <div className="muted" style={{ fontSize: 12 }}>Duration</div>
+                      <div className="muted" style={{ fontSize: 12 }}>Duration / context</div>
                       <div style={{ marginTop: 4, fontWeight: 800 }}>{insights.summary.duration ?? "Not captured"}</div>
                     </div>
 
