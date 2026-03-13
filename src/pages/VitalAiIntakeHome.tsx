@@ -92,22 +92,31 @@ export default function VitalAiIntakeHome() {
         ) : null}
 
         <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-          <div className="card card-pad" style={{ flex: "1 1 420px", minWidth: 320 }}>
-            <div className="muted" style={{ fontSize: 12, color: "rgba(226,232,240,0.82)" }}>
+          <div
+            className="card card-pad"
+            style={{
+              flex: "1 1 420px",
+              minWidth: 320,
+              background: "rgba(8,15,28,0.98)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              boxShadow: "0 14px 34px rgba(0,0,0,0.22)",
+            }}
+          >
+            <div className="muted" style={{ fontSize: 12, color: "rgba(226,232,240,0.78)" }}>
               Welcome to Vital AI
             </div>
-            <div className="h2" style={{ marginTop: 6 }}>A guided intake experience</div>
-            <div className="muted" style={{ marginTop: 8, lineHeight: 1.7, color: "rgba(226,232,240,0.84)" }}>
+            <div className="h2" style={{ marginTop: 6, color: "#F8FAFC" }}>A guided intake experience</div>
+            <div style={{ marginTop: 8, lineHeight: 1.7, color: "rgba(226,232,240,0.86)" }}>
               Vital AI helps you move step by step, saves your progress automatically, and routes your intake to the right care team for review.
             </div>
 
             <div className="space" />
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-              <div className="v-chip">General Consultation</div>
-              <div className="v-chip">Wound Care</div>
-              <div className="v-chip">Draft Resume</div>
-              <div className="v-chip">Secure Uploads</div>
+              <div className="v-chip" style={{ background: "rgba(200,182,255,0.18)", border: "1px solid rgba(200,182,255,0.34)", color: "#F8FAFC" }}>General Consultation</div>
+              <div className="v-chip" style={{ background: "rgba(200,182,255,0.18)", border: "1px solid rgba(200,182,255,0.34)", color: "#F8FAFC" }}>Wound Care</div>
+              <div className="v-chip" style={{ background: "rgba(200,182,255,0.18)", border: "1px solid rgba(200,182,255,0.34)", color: "#F8FAFC" }}>Draft Resume</div>
+              <div className="v-chip" style={{ background: "rgba(200,182,255,0.18)", border: "1px solid rgba(200,182,255,0.34)", color: "#F8FAFC" }}>Secure Uploads</div>
             </div>
           </div>
 
@@ -118,9 +127,9 @@ export default function VitalAiIntakeHome() {
 
         <div className="space" />
 
-        <div className="card card-pad">
-          <div className="h2">Choose Your Intake Pathway</div>
-          <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
+        <div className="card card-pad" style={{ background: "rgba(8,15,28,0.98)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 14px 34px rgba(0,0,0,0.22)" }}>
+          <div className="h2" style={{ color: "#F8FAFC" }}>Choose Your Intake Pathway</div>
+          <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, color: "rgba(226,232,240,0.84)" }}>
             Phase 1 includes general consultation and wound care. Your progress is saved automatically once you begin.
           </div>
 
@@ -131,29 +140,29 @@ export default function VitalAiIntakeHome() {
 
         <div className="space" />
 
-        <div className="card card-pad">
-          <div className="h2">Resume Draft Intake</div>
+        <div className="card card-pad" style={{ background: "rgba(8,15,28,0.98)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 14px 34px rgba(0,0,0,0.22)" }}>
+          <div className="h2" style={{ color: "#F8FAFC" }}>Resume Draft Intake</div>
           <div className="space" />
           {loading ? (
-            <div className="muted">Loading drafts...</div>
+            <div className="muted" style={{ color: "rgba(226,232,240,0.82)" }}>Loading drafts...</div>
           ) : drafts.length === 0 ? (
-            <div className="muted">No draft intakes yet.</div>
+            <div className="muted" style={{ color: "rgba(226,232,240,0.82)" }}>No draft intakes yet.</div>
           ) : (
             drafts.map((draft) => (
               <button
                 key={draft.id}
                 className="btn btn-ghost"
                 type="button"
-                style={{ width: "100%", justifyContent: "space-between", marginBottom: 8, textAlign: "left" }}
+                style={{ width: "100%", justifyContent: "space-between", marginBottom: 8, textAlign: "left", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", color: "#F8FAFC", minHeight: 52 }}
                 onClick={() => navigate(`/intake/session/${draft.id}`)}
               >
                 <span>
-                  <div style={{ fontWeight: 800 }}>{draft.current_step_key || "Continue intake"}</div>
-                  <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                  <div style={{ fontWeight: 800, color: "#F8FAFC" }}>{draft.current_step_key || "Continue intake"}</div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 4, color: "rgba(226,232,240,0.8)" }}>
                     Last saved {new Date(draft.last_saved_at).toLocaleString()}
                   </div>
                 </span>
-                <span className="muted" style={{ fontSize: 12 }}>
+                <span className="muted" style={{ fontSize: 12, color: "rgba(226,232,240,0.8)" }}>
                   Resume
                 </span>
               </button>

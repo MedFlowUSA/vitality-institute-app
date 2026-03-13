@@ -1,16 +1,11 @@
 // src/pages/ProviderHome.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
-import VitalityHero from "../components/VitalityHero";
-import SystemStatusBar from "../components/SystemStatusBar";
-import InsightRibbon from "../components/InsightRibbon";
-import LocationPicker from "../components/LocationPicker";
 
 type LocationRow = { id: string; name: string };
 type ServiceRow = { id: string; name: string; location_id: string };
-
 type UserLocationRow = { location_id: string; is_primary: boolean };
 
 type ApptRow = {
@@ -28,21 +23,23 @@ type ProviderCounts = {
   requestedToday: number;
   confirmedToday: number;
   completedToday: number;
+  requestedUpcoming: number;
+  confirmedUpcoming: number;
+  woundIntakesPending: number;
+};
 
-  requestedUpcoming: number; // next 7 days
-  confirmedUpcoming: number; // next 7 days
-
-  woundIntakesPending: number; // status submitted/needs_info
+type NavItem = {
+  label: string;
+  to: string;
 };
 
 export default function ProviderHome() {
-  const { user, role, signOut, activeLocationId } = useAuth();
+  const { user, role, signOut, activeLocationId, setActiveLocationId } = useAuth();
   const navigate = useNavigate();
+  const routerLocation = useLocation();
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [services, setServices] = useState<ServiceRow[]>([]);
-  const [locationId, setLocationId] = useState<string>("");
-
   const [appointments, setAppointments] = useState<ApptRow[]>([]);
   const [counts, setCounts] = useState<ProviderCounts>({
     apptsToday: 0,
@@ -56,41 +53,63 @@ export default function ProviderHome() {
 
   const [loading, setLoading] = useState(true);
   const [countsLoading, setCountsLoading] = useState(false);
+  const [locationSaving, setLocationSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
   const [startingVisitId, setStartingVisitId] = useState<string | null>(null);
 
+  const didInit = useRef(false);
   const isAdmin = useMemo(() => role === "super_admin" || role === "location_admin", [role]);
-  const canChooseLocation = useMemo(() => isAdmin, [isAdmin]);
+
+  const navItems = useMemo<NavItem[]>(
+    () => [
+      { label: "Queue", to: "/provider/queue" },
+      { label: "Intake Review", to: "/provider/intake" },
+      { label: "Command Center", to: "/provider/command" },
+      { label: "Referrals", to: "/provider/referrals" },
+      { label: "Messages", to: "/provider/chat" },
+      { label: "Labs", to: "/provider/labs" },
+      { label: "Patient Center", to: "/provider/patients" },
+    ],
+    []
+  );
 
   const locName = useMemo(() => {
-    const map = new Map(locations.map((l) => [l.id, l.name]));
-    return (id: string) => map.get(id) ?? id;
+    const map = new Map(locations.map((item) => [item.id, item.name]));
+    return (id: string | null) => {
+      if (!id) return "No location selected";
+      return map.get(id) ?? id;
+    };
   }, [locations]);
 
   const svcName = useMemo(() => {
-    const map = new Map(services.map((s) => [s.id, s.name]));
-    return (id: string | null) => (id ? map.get(id) ?? "—" : "—");
+    const map = new Map(services.map((item) => [item.id, item.name]));
+    return (id: string | null) => (id ? map.get(id) ?? "-" : "-");
   }, [services]);
 
-  const fmt = (iso: string) => new Date(iso).toLocaleString();
+  const nextAppointments = useMemo(() => appointments.slice(0, 3), [appointments]);
 
-  const didInit = useRef(false);
-  const effectiveLocationId = activeLocationId || locationId;
+  const summaryItems = useMemo(
+    () => [
+      { label: "Role", value: role ?? "-" },
+      { label: "Active Location", value: locName(activeLocationId) },
+      { label: "Today", value: countsLoading ? "..." : `${counts.apptsToday} appointments` },
+      { label: "Pending Intake", value: countsLoading ? "..." : `${counts.woundIntakesPending} awaiting review` },
+    ],
+    [activeLocationId, counts, countsLoading, locName, role]
+  );
+
+  const fmtDateTime = (iso: string) =>
+    new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
   const getLocationScopeFilter = (query: any) => {
-    if (effectiveLocationId) return query.eq("location_id", effectiveLocationId);
-    return query;
+    if (!activeLocationId) return query;
+    return query.eq("location_id", activeLocationId);
   };
 
   const resolvePatientRecordId = async (candidateId: string) => {
     if (!candidateId) throw new Error("Missing patient id.");
 
-    const { data: byId, error: byIdErr } = await supabase
-      .from("patients")
-      .select("id")
-      .eq("id", candidateId)
-      .maybeSingle();
+    const { data: byId, error: byIdErr } = await supabase.from("patients").select("id").eq("id", candidateId).maybeSingle();
     if (byIdErr) throw byIdErr;
     if (byId?.id) return byId.id as string;
 
@@ -108,51 +127,50 @@ export default function ProviderHome() {
   const loadBase = async (uid: string) => {
     setErr(null);
 
-    // Locations
-    let locs: LocationRow[] = [];
-
-    if (canChooseLocation) {
+    if (isAdmin) {
       const { data, error } = await supabase.from("locations").select("id,name").order("name");
       if (error) throw error;
-      locs = (data as LocationRow[]) ?? [];
-      setLocations(locs);
-      // allow "All Locations" by leaving locationId empty
+      setLocations((data as LocationRow[]) ?? []);
     } else {
-      const { data: ul, error: ulErr } = await supabase
+      const { data: memberships, error: membershipErr } = await supabase
         .from("user_locations")
         .select("location_id,is_primary")
         .eq("user_id", uid)
         .order("is_primary", { ascending: false });
 
-      if (ulErr) throw ulErr;
+      if (membershipErr) throw membershipErr;
 
-      const ids = ((ul as UserLocationRow[]) ?? []).map((x) => x.location_id).filter(Boolean);
+      const rows = (memberships as UserLocationRow[]) ?? [];
+      const ids = rows.map((item) => item.location_id).filter(Boolean);
       if (ids.length === 0) {
         setLocations([]);
-        setLocationId("");
         throw new Error("No location access found for your user. Add a row in user_locations.");
       }
 
-      const { data: l, error: lErr } = await supabase.from("locations").select("id,name").in("id", ids).order("name");
-      if (lErr) throw lErr;
+      const { data: locationRows, error: locationErr } = await supabase
+        .from("locations")
+        .select("id,name")
+        .in("id", ids)
+        .order("name");
 
-      locs = (l as LocationRow[]) ?? [];
-      setLocations(locs);
+      if (locationErr) throw locationErr;
 
-      const primary = ((ul as UserLocationRow[]) ?? []).find((x) => x.is_primary)?.location_id;
-      const fallback = primary ?? ids[0];
-      setLocationId((prev) => prev || fallback);
+      setLocations((locationRows as LocationRow[]) ?? []);
+
+      const fallbackLocationId = rows.find((item) => item.is_primary)?.location_id ?? rows[0]?.location_id ?? null;
+      if (!activeLocationId && fallbackLocationId) {
+        await setActiveLocationId(fallbackLocationId);
+      }
     }
 
-    // Services
-    const { data: svcs, error: svcErr } = await supabase
+    const { data: serviceRows, error: serviceErr } = await supabase
       .from("services")
       .select("id,name,location_id")
       .eq("is_active", true)
       .order("name");
-    if (svcErr) throw svcErr;
 
-    setServices((svcs as ServiceRow[]) ?? []);
+    if (serviceErr) throw serviceErr;
+    setServices((serviceRows as ServiceRow[]) ?? []);
   };
 
   const loadAppointments = async () => {
@@ -160,19 +178,19 @@ export default function ProviderHome() {
     setLoading(true);
 
     try {
-      if (!canChooseLocation && !locationId) {
+      if (!activeLocationId) {
         setAppointments([]);
         return;
       }
 
-      let q = supabase
+      let query = supabase
         .from("appointments")
         .select("id,location_id,service_id,patient_id,start_time,status,notes")
         .order("start_time", { ascending: true });
 
-      q = getLocationScopeFilter(q);
+      query = getLocationScopeFilter(query);
 
-      const { data, error } = await q;
+      const { data, error } = await query;
       if (error) throw error;
 
       setAppointments((data as ApptRow[]) ?? []);
@@ -186,72 +204,67 @@ export default function ProviderHome() {
 
   const loadCounts = async () => {
     if (!user?.id) return;
-    if (!canChooseLocation && !locationId) return;
 
     setCountsLoading(true);
     setErr(null);
 
     try {
+      if (!activeLocationId) {
+        setCounts({
+          apptsToday: 0,
+          requestedToday: 0,
+          confirmedToday: 0,
+          completedToday: 0,
+          requestedUpcoming: 0,
+          confirmedUpcoming: 0,
+          woundIntakesPending: 0,
+        });
+        return;
+      }
+
       const now = new Date();
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
       const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-
       const plus7 = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-      // 1) Appointments today (for cards)
-      let qToday = supabase
+      let todayQuery = supabase
         .from("appointments")
         .select("id,status,start_time,location_id", { count: "exact" })
         .gte("start_time", todayStart.toISOString())
         .lte("start_time", todayEnd.toISOString());
+      todayQuery = getLocationScopeFilter(todayQuery);
 
-      qToday = getLocationScopeFilter(qToday);
-
-      const { data: todayRows, error: todayErr } = await qToday;
+      const { data: todayRows, error: todayErr } = await todayQuery;
       if (todayErr) throw todayErr;
 
-      const apptsToday = (todayRows ?? []).length;
-      const requestedToday = (todayRows ?? []).filter((a: any) => (a.status || "").toLowerCase() === "requested").length;
-      const confirmedToday = (todayRows ?? []).filter((a: any) => (a.status || "").toLowerCase() === "confirmed").length;
-      const completedToday = (todayRows ?? []).filter((a: any) => (a.status || "").toLowerCase() === "completed").length;
-
-      // 2) Upcoming 7 days counts (requested + confirmed)
-      let qUpcoming = supabase
+      let upcomingQuery = supabase
         .from("appointments")
         .select("id,status,start_time,location_id")
         .gte("start_time", now.toISOString())
         .lte("start_time", plus7.toISOString());
+      upcomingQuery = getLocationScopeFilter(upcomingQuery);
 
-      qUpcoming = getLocationScopeFilter(qUpcoming);
+      const { data: upcomingRows, error: upcomingErr } = await upcomingQuery;
+      if (upcomingErr) throw upcomingErr;
 
-      const { data: upRows, error: upErr } = await qUpcoming;
-      if (upErr) throw upErr;
-
-      const requestedUpcoming = (upRows ?? []).filter((a: any) => (a.status || "").toLowerCase() === "requested").length;
-      const confirmedUpcoming = (upRows ?? []).filter((a: any) => (a.status || "").toLowerCase() === "confirmed").length;
-
-      // 3) Wound intake pending (submitted / needs_info)
-      let qWound = supabase
+      let intakeQuery = supabase
         .from("patient_intakes")
         .select("id,status,location_id")
         .eq("service_type", "wound_care")
         .in("status", ["submitted", "needs_info"]);
+      intakeQuery = getLocationScopeFilter(intakeQuery);
 
-      qWound = getLocationScopeFilter(qWound);
-
-      const { data: woundRows, error: woundErr } = await qWound;
-      if (woundErr) throw woundErr;
-
-      const woundIntakesPending = (woundRows ?? []).length;
+      const { data: intakeRows, error: intakeErr } = await intakeQuery;
+      if (intakeErr) throw intakeErr;
 
       setCounts({
-        apptsToday,
-        requestedToday,
-        confirmedToday,
-        completedToday,
-        requestedUpcoming,
-        confirmedUpcoming,
-        woundIntakesPending,
+        apptsToday: (todayRows ?? []).length,
+        requestedToday: (todayRows ?? []).filter((item: any) => (item.status || "").toLowerCase() === "requested").length,
+        confirmedToday: (todayRows ?? []).filter((item: any) => (item.status || "").toLowerCase() === "confirmed").length,
+        completedToday: (todayRows ?? []).filter((item: any) => (item.status || "").toLowerCase() === "completed").length,
+        requestedUpcoming: (upcomingRows ?? []).filter((item: any) => (item.status || "").toLowerCase() === "requested").length,
+        confirmedUpcoming: (upcomingRows ?? []).filter((item: any) => (item.status || "").toLowerCase() === "confirmed").length,
+        woundIntakesPending: (intakeRows ?? []).length,
       });
     } catch (e: any) {
       setErr(e?.message ?? "Failed to load provider counts.");
@@ -275,26 +288,38 @@ export default function ProviderHome() {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [activeLocationId, isAdmin, setActiveLocationId, user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
-    if (!canChooseLocation && !locationId) return;
 
     loadAppointments();
     loadCounts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationId, canChooseLocation, user?.id, activeLocationId]);
+  }, [activeLocationId, user?.id]);
 
   const refreshAll = async () => {
     await loadAppointments();
     await loadCounts();
   };
 
+  const updateActiveLocation = async (nextLocationId: string) => {
+    setLocationSaving(true);
+    setErr(null);
+    try {
+      await setActiveLocationId(nextLocationId || null);
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to update active location.");
+    } finally {
+      setLocationSaving(false);
+    }
+  };
+
   const setStatus = async (id: string, status: string) => {
     const { error } = await supabase.from("appointments").update({ status }).eq("id", id);
-    if (error) return alert(error.message);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
     await refreshAll();
   };
 
@@ -346,28 +371,25 @@ export default function ProviderHome() {
     navigate(`/provider/chat?threadId=${threadId}`);
   };
 
-  // ✅ NEW: Start Visit (create patient_visits row if missing, then open chart)
   const startVisit = async (appt: ApptRow) => {
     try {
       setErr(null);
       setStartingVisitId(appt.id);
       const visitPatientId = await resolvePatientRecordId(appt.patient_id);
 
-      // 1) If visit already exists for this appointment, open it
-      const { data: existingVisit, error: evErr } = await supabase
+      const { data: existingVisit, error: visitErr } = await supabase
         .from("patient_visits")
         .select("id")
         .eq("appointment_id", appt.id)
         .maybeSingle();
 
-      if (evErr) throw evErr;
+      if (visitErr) throw visitErr;
 
       if (existingVisit?.id) {
         navigate(`/provider/patients/${visitPatientId}?visitId=${existingVisit.id}`);
         return;
       }
 
-      // 2) Otherwise create via RPC
       const { data: visitId, error: rpcErr } = await supabase.rpc("start_patient_visit", {
         p_patient: visitPatientId,
         p_location: appt.location_id,
@@ -376,13 +398,10 @@ export default function ProviderHome() {
 
       if (rpcErr) throw rpcErr;
 
-      const vid = typeof visitId === "string" ? visitId : (visitId as any)?.id;
-      if (!vid) throw new Error("Visit created but no visitId was returned.");
+      const nextVisitId = typeof visitId === "string" ? visitId : (visitId as any)?.id;
+      if (!nextVisitId) throw new Error("Visit created but no visitId was returned.");
 
-      // 3) Navigate to patient center with visitId
-      navigate(`/provider/patients/${visitPatientId}?visitId=${vid}`);
-
-      // Optional: refresh counts/appointments
+      navigate(`/provider/patients/${visitPatientId}?visitId=${nextVisitId}`);
       await refreshAll();
     } catch (e: any) {
       setErr(e?.message ?? "Failed to start visit.");
@@ -391,302 +410,337 @@ export default function ProviderHome() {
     }
   };
 
-  const StatPill = ({ label, value }: { label: string; value: number | string }) => (
-    <div className="card card-pad" style={{ minWidth: 190 }}>
+  const StatCard = ({ label, value, note }: { label: string; value: string | number; note?: string }) => (
+    <div
+      className="card card-pad"
+      style={{
+        flex: "1 1 180px",
+        minWidth: 160,
+        background: "rgba(255,255,255,0.9)",
+        border: "1px solid rgba(184,164,255,0.22)",
+      }}
+    >
       <div className="muted" style={{ fontSize: 12 }}>
         {label}
       </div>
-      <div className="h1" style={{ marginTop: 6 }}>
+      <div className="h1" style={{ marginTop: 8 }}>
         {value}
       </div>
+      {note ? (
+        <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+          {note}
+        </div>
+      ) : null}
     </div>
   );
 
-  const ActionCard = ({
+  const WorkflowCard = ({
     title,
-    desc,
-    to,
-    badge,
+    description,
+    actions,
   }: {
     title: string;
-    desc: string;
-    to: string;
-    badge?: string;
+    description: string;
+    actions: Array<{ label: string; to: string; tone?: "primary" | "ghost" }>;
   }) => (
-    <button
-      type="button"
+    <div
       className="card card-pad"
-      onClick={() => navigate(to)}
       style={{
-        textAlign: "left",
-        cursor: "pointer",
-        border: "1px solid rgba(255,255,255,.14)",
-        background: "rgba(255,255,255,.06)",
+        background: "rgba(255,255,255,0.92)",
+        border: "1px solid rgba(184,164,255,0.2)",
+        display: "grid",
+        gap: 12,
       }}
     >
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+      <div>
         <div className="h2" style={{ margin: 0 }}>
           {title}
         </div>
-        {badge ? (
-          <span
-            className="muted"
-            style={{
-              fontSize: 12,
-              padding: "2px 10px",
-              borderRadius: 999,
-              border: "1px solid rgba(255,255,255,.25)",
-              background: "rgba(255,255,255,.08)",
-              whiteSpace: "nowrap",
-            }}
+        <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+          {description}
+        </div>
+      </div>
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        {actions.map((action) => (
+          <button
+            key={action.to}
+            className={action.tone === "primary" ? "btn btn-primary" : "btn btn-ghost"}
+            type="button"
+            onClick={() => navigate(action.to)}
           >
-            {badge}
-          </span>
-        ) : null}
+            {action.label}
+          </button>
+        ))}
       </div>
-      <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
-        {desc}
-      </div>
-    </button>
+    </div>
   );
 
   return (
     <div className="app-bg">
       <div className="shell">
-        <VitalityHero
-          title="Vitality Institute"
-          subtitle="Provider Dashboard • Queue • Intake • Scheduling • Messaging • Labs"
-          secondaryCta={{ label: "Refresh", onClick: refreshAll }}
-          primaryCta={{ label: "Queue", to: "/provider/queue" }}
-          rightActions={
-            <>
-              <button
-                className="btn btn-primary"
-                onClick={() => navigate("/provider/intakes")}
-                type="button"
+        <div
+          className="card card-pad"
+          style={{
+            background: "linear-gradient(135deg, rgba(27,20,49,.96), rgba(35,26,61,.94))",
+            border: "1px solid rgba(184,164,255,.24)",
+            boxShadow: "0 24px 70px rgba(10,8,24,.26)",
+          }}
+        >
+          <div className="row" style={{ justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <div style={{ flex: "1 1 360px", minWidth: 280 }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: "rgba(216,204,255,.88)",
+                  textTransform: "uppercase",
+                  letterSpacing: ".08em",
+                }}
               >
-                Intake Queue
-              </button>
-              <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/command")}>
-                Command Center
-              </button>
-              <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/referrals")}>
-                Referrals
-              </button>
-              <button className="btn btn-ghost" onClick={signOut} type="button">
-                Sign out
-              </button>
-            </>
-          }
-          showKpis={true}
-        />
-
-        <SystemStatusBar />
-
-        <div className="space" />
-        <InsightRibbon />
-        <div className="space" />
-        <LocationPicker />
-        <div className="space" />
-
-        <div className="card card-pad">
-          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <div className="h1">Provider Portal</div>
-              <div className="muted">Role: {role}</div>
-              <div className="muted">Signed in: {user?.email}</div>
-            </div>
-
-            <div style={{ minWidth: 260 }}>
-              <select
-                className="input"
-                value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
-                disabled={!canChooseLocation || !!activeLocationId}
-                title={
-                  activeLocationId
-                    ? "Location is controlled by Active Location in the status bar."
-                    : !canChooseLocation
-                    ? "Location is set by your access membership."
-                    : "Filter by location"
-                }
-              >
-                {canChooseLocation && <option value="">All Locations</option>}
-                {locations.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                {effectiveLocationId
-                  ? `Viewing: ${locName(effectiveLocationId)}`
-                  : canChooseLocation
-                  ? "Viewing: All Locations"
-                  : "Viewing: Assigned Location"}
+                Provider Dashboard
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="space" />
-
-        {/* KPI strip */}
-        <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-          <StatPill label="Appointments Today" value={countsLoading ? "…" : counts.apptsToday} />
-          <StatPill label="Requested Today" value={countsLoading ? "…" : counts.requestedToday} />
-          <StatPill label="Confirmed Today" value={countsLoading ? "…" : counts.confirmedToday} />
-          <StatPill label="Completed Today" value={countsLoading ? "…" : counts.completedToday} />
-        </div>
-
-        <div className="space" />
-
-        {/* Action tiles */}
-        <div className="card card-pad">
-          <div className="h2">Workflows</div>
-          <div className="muted" style={{ marginTop: 6 }}>
-            Jump into the main provider actions — queue, intake, patients, messaging, labs.
-          </div>
-
-          <div className="space" />
-
-          <div className="grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
-            <ActionCard title="Command Center" desc="Today’s schedule + wound intake queue in one view." to="/provider/command" />
-            <ActionCard title="Provider Queue" desc="Your working list of visits. Open patient center fast." to="/provider/queue" />
-            <ActionCard
-              title="Intake Review"
-              desc="Review incoming submissions and move them forward."
-              to="/provider/intake"
-              badge={countsLoading ? "…" : `${counts.woundIntakesPending} pending`}
-            />
-            <ActionCard title="Patient Center" desc="Search patients, open their chart, notes, files." to="/provider/patients" />
-            <ActionCard title="Referrals" desc="Referral inbox with urgency + denial-risk triage." to="/provider/referrals" />
-            <ActionCard title="Messages" desc="Secure threads with patients tied to appointments." to="/provider/chat" />
-            <ActionCard title="Labs" desc="Review uploaded lab results & provider notes." to="/provider/labs" />
-            <ActionCard title="AI Drafts" desc="Generate plans, summaries, and documentation drafts." to="/provider/ai" />
-          </div>
-        </div>
-
-        <div className="space" />
-
-        {/* Admin tools */}
-        {isAdmin ? (
-          <>
-            <div className="card card-pad">
-              <div className="h2">Admin Tools</div>
-              <div className="muted" style={{ marginTop: 6 }}>
-                Visible only to super admin / location admin.
+              <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900, color: "#FAF7FF", lineHeight: 1.04 }}>
+                One workspace for today&apos;s clinical flow
               </div>
-              <div className="space" />
-              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                <button className="btn btn-ghost" type="button" onClick={() => navigate("/admin/services")}>
-                  Services Panel
-                </button>
-                <button className="btn btn-ghost" type="button" onClick={() => navigate("/admin")}>
-                  Location Hours
-                </button>
-              </div>
-            </div>
-            <div className="space" />
-          </>
-        ) : null}
-
-        {/* Appointments */}
-        <div className="card card-pad">
-          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <div className="h2">Appointments</div>
-              <div className="muted" style={{ marginTop: 6 }}>
-                Review requests and update status.
-                <span className="muted" style={{ marginLeft: 10, fontSize: 12 }}>
-                  Upcoming 7 days: <strong>{countsLoading ? "…" : counts.requestedUpcoming}</strong> requested •{" "}
-                  <strong>{countsLoading ? "…" : counts.confirmedUpcoming}</strong> confirmed
-                </span>
+              <div style={{ marginTop: 10, maxWidth: 760, color: "rgba(233,226,255,.8)", lineHeight: 1.7 }}>
+                Review your active location, move through queue and intake review, then continue into patients, referrals, messages,
+                labs, and command tools without stacked duplicate controls.
               </div>
             </div>
 
-            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <button className="btn btn-ghost" type="button" onClick={refreshAll}>
                 Refresh
               </button>
+              <button className="btn btn-ghost" type="button" onClick={signOut}>
+                Sign out
+              </button>
             </div>
           </div>
 
           <div className="space" />
 
-          {loading && <div className="muted">Loading…</div>}
-          {err && <div style={{ color: "crimson" }}>{err}</div>}
+          <div
+            className="row"
+            style={{
+              justifyContent: "space-between",
+              gap: 16,
+              flexWrap: "wrap",
+              alignItems: "flex-end",
+              padding: 16,
+              borderRadius: 20,
+              background: "rgba(255,255,255,.07)",
+              border: "1px solid rgba(216,204,255,.14)",
+            }}
+          >
+            <div style={{ flex: "1 1 280px", minWidth: 260 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(216,204,255,.76)", marginBottom: 6 }}>Active Location</div>
+              <select
+                className="input"
+                style={{ width: "100%" }}
+                value={activeLocationId ?? ""}
+                onChange={(e) => updateActiveLocation(e.target.value)}
+                disabled={locationSaving || locations.length === 0}
+                title="Set the location context for the provider portal"
+              >
+                <option value="" disabled>
+                  Select location...
+                </option>
+                {locations.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              <div style={{ marginTop: 8, color: "rgba(233,226,255,.72)", fontSize: 12 }}>
+                {activeLocationId
+                  ? `Current scope: ${locName(activeLocationId)}`
+                  : isAdmin
+                  ? "Choose a location to scope the provider portal."
+                  : "Your location context is required to load provider work."}
+              </div>
+            </div>
 
-          {!loading && !err && (
+            <div style={{ flex: "2 1 480px", minWidth: 280 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(216,204,255,.76)", marginBottom: 8 }}>Primary Navigation</div>
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                {navItems.map((item) => {
+                  const isActive = routerLocation.pathname === item.to;
+                  return (
+                    <button
+                      key={item.to}
+                      type="button"
+                      className={isActive ? "btn btn-primary" : "btn btn-ghost"}
+                      onClick={() => navigate(item.to)}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space" />
+
+        <div
+          className="card card-pad"
+          style={{
+            background: "rgba(255,255,255,0.92)",
+            border: "1px solid rgba(184,164,255,0.2)",
+          }}
+        >
+          <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+            {summaryItems.map((item) => (
+              <div
+                key={item.label}
+                style={{
+                  flex: "1 1 180px",
+                  minWidth: 160,
+                  padding: "12px 14px",
+                  borderRadius: 16,
+                  border: "1px solid rgba(184,164,255,0.2)",
+                  background: "rgba(250,247,255,0.92)",
+                }}
+              >
+                <div className="muted" style={{ fontSize: 12 }}>
+                  {item.label}
+                </div>
+                <div style={{ marginTop: 6, fontWeight: 800, color: "#241B3D" }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space" />
+
+        <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+          <StatCard
+            label="Appointments Today"
+            value={countsLoading ? "..." : counts.apptsToday}
+            note={countsLoading ? undefined : `${counts.requestedUpcoming} requested in the next 7 days`}
+          />
+          <StatCard label="Requested Today" value={countsLoading ? "..." : counts.requestedToday} />
+          <StatCard label="Confirmed Today" value={countsLoading ? "..." : counts.confirmedToday} />
+          <StatCard label="Completed Today" value={countsLoading ? "..." : counts.completedToday} />
+        </div>
+
+        <div className="space" />
+
+        <div
+          className="grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 12,
+          }}
+        >
+          <WorkflowCard
+            title="Flow Control"
+            description="Start with queue and command views when you need the fastest operational path through today's workload."
+            actions={[
+              { label: "Open Queue", to: "/provider/queue", tone: "primary" },
+              { label: "Command Center", to: "/provider/command" },
+            ]}
+          />
+          <WorkflowCard
+            title="Clinical Review"
+            description="Move through intake review, referrals, and labs without jumping between overlapping headers or duplicate launch areas."
+            actions={[
+              { label: "Intake Review", to: "/provider/intake", tone: "primary" },
+              { label: "Referrals", to: "/provider/referrals" },
+              { label: "Labs", to: "/provider/labs" },
+            ]}
+          />
+          <WorkflowCard
+            title="Patient Follow-up"
+            description="Open the patient center or message threads when you need chart context, communication, and next-step coordination."
+            actions={[
+              { label: "Patient Center", to: "/provider/patients", tone: "primary" },
+              { label: "Messages", to: "/provider/chat" },
+            ]}
+          />
+        </div>
+
+        <div className="space" />
+
+        <div className="card card-pad">
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div>
-              {appointments.map((a) => (
-                <div key={a.id} className="card card-pad" style={{ marginBottom: 12 }}>
-                  <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <div style={{ flex: 1, minWidth: 260 }}>
-                      <div className="h2">{fmt(a.start_time)}</div>
-                      <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                        Location: {locName(a.location_id)} {" • "} Service: {svcName(a.service_id)}
-                      </div>
+              <div className="h2">Today's Appointment Queue</div>
+              <div className="muted" style={{ marginTop: 6 }}>
+                {activeLocationId
+                  ? `Appointments scoped to ${locName(activeLocationId)}.`
+                  : "Select an active location to load queue data for the provider portal."}
+              </div>
+            </div>
+            <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/queue")}>
+              Full Queue
+            </button>
+          </div>
 
-                      {a.notes ? (
-                        <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
-                          Notes: {a.notes}
+          <div className="space" />
+
+          {err ? <div style={{ color: "crimson" }}>{err}</div> : null}
+          {!err && !activeLocationId ? <div className="muted">No active location selected.</div> : null}
+          {loading && activeLocationId ? <div className="muted">Loading...</div> : null}
+
+          {!loading && !err && activeLocationId ? (
+            nextAppointments.length === 0 ? (
+              <div className="muted">No appointments found for this location.</div>
+            ) : (
+              <div style={{ display: "grid", gap: 12 }}>
+                {nextAppointments.map((appt) => (
+                  <div
+                    key={appt.id}
+                    className="card card-pad"
+                    style={{ background: "rgba(250,247,255,0.82)", border: "1px solid rgba(184,164,255,0.2)" }}
+                  >
+                    <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                      <div style={{ flex: "1 1 260px", minWidth: 220 }}>
+                        <div className="h2" style={{ margin: 0 }}>
+                          {fmtDateTime(appt.start_time)}
                         </div>
-                      ) : null}
-
-                      <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-                        Appointment ID: {a.id}
+                        <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+                          Location: {locName(appt.location_id)} | Service: {svcName(appt.service_id)}
+                        </div>
+                        {appt.notes ? (
+                          <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+                            Notes: {appt.notes}
+                          </div>
+                        ) : null}
+                        <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+                          Status: <strong>{appt.status}</strong>
+                        </div>
                       </div>
-                    </div>
 
-                    <div style={{ textAlign: "right", minWidth: 260 }}>
-                      <div className="muted" style={{ fontSize: 12 }}>
-                        Status: <strong>{a.status}</strong>
-                      </div>
-
-                      <div className="space" />
-
-                      <div className="row" style={{ gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                        <button className="btn btn-ghost" type="button" onClick={() => messagePatient(a)}>
+                      <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        <button className="btn btn-ghost" type="button" onClick={() => messagePatient(appt)}>
                           Message Patient
                         </button>
-
-                        <button className="btn btn-ghost" type="button" onClick={() => navigate(`/provider/patients/${a.patient_id}`)}>
+                        <button className="btn btn-ghost" type="button" onClick={() => navigate(`/provider/patients/${appt.patient_id}`)}>
                           Open Patient
                         </button>
-
-                        {/* ✅ NEW: Start Visit */}
                         <button
                           className="btn btn-primary"
                           type="button"
-                          onClick={() => startVisit(a)}
-                          disabled={startingVisitId === a.id}
-                          title="Creates (or opens) a patient visit tied to this appointment."
+                          onClick={() => startVisit(appt)}
+                          disabled={startingVisitId === appt.id}
                         >
-                          {startingVisitId === a.id ? "Starting…" : "Start Visit"}
+                          {startingVisitId === appt.id ? "Starting..." : "Start Visit"}
                         </button>
-
-                        <button className="btn btn-ghost" type="button" onClick={() => setStatus(a.id, "confirmed")}>
+                        <button className="btn btn-ghost" type="button" onClick={() => setStatus(appt.id, "confirmed")}>
                           Confirm
-                        </button>
-                        <button className="btn btn-ghost" type="button" onClick={() => setStatus(a.id, "completed")}>
-                          Complete
-                        </button>
-                        <button className="btn btn-ghost" type="button" onClick={() => setStatus(a.id, "cancelled")}>
-                          Cancel
                         </button>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
-
-              {appointments.length === 0 ? <div className="muted">No appointments found.</div> : null}
-            </div>
-          )}
+                ))}
+              </div>
+            )
+          ) : null}
         </div>
-
-        <div className="space" />
       </div>
     </div>
   );

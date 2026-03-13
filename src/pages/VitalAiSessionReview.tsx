@@ -83,12 +83,12 @@ export default function VitalAiSessionReview() {
         <div className="space" />
 
         {loading ? (
-          <div className="card card-pad">
-            <div className="muted">Loading review...</div>
+          <div className="card card-pad" style={{ background: "rgba(8,15,28,0.98)", border: "1px solid rgba(255,255,255,0.14)" }}>
+            <div className="muted" style={{ color: "rgba(226,232,240,0.82)" }}>Loading review...</div>
           </div>
         ) : !pathway || !session ? (
-          <div className="card card-pad">
-            <div className="muted">This intake review is unavailable.</div>
+          <div className="card card-pad" style={{ background: "rgba(8,15,28,0.98)", border: "1px solid rgba(255,255,255,0.14)" }}>
+            <div className="muted" style={{ color: "rgba(226,232,240,0.82)" }}>This intake review is unavailable.</div>
           </div>
         ) : (
           <>
@@ -109,12 +109,12 @@ export default function VitalAiSessionReview() {
 
             <div className="space" />
 
-            <div className="card card-pad">
+            <div className="card card-pad" style={{ background: "rgba(8,15,28,0.98)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 14px 34px rgba(0,0,0,0.22)" }}>
               <div className="row" style={{ justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                <button className="btn btn-ghost" type="button" onClick={() => navigate(`/intake/session/${session.id}`)}>
+                <button className="btn btn-ghost" type="button" onClick={() => navigate(`/intake/session/${session.id}`)} style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.18)", color: "#F8FAFC", minHeight: 48, padding: "12px 16px" }}>
                   Edit Answers
                 </button>
-                <button className="btn btn-primary" type="button" onClick={handleSubmit} disabled={submitting}>
+                <button className="btn btn-primary" type="button" onClick={handleSubmit} disabled={submitting} style={{ background: "linear-gradient(135deg, #C8B6FF, #8B7CFF)", color: "#140F24", border: "1px solid rgba(184,164,255,0.42)", minHeight: 48, padding: "12px 18px", fontWeight: 900, boxShadow: "0 14px 30px rgba(139,124,255,0.22)" }}>
                   {submitting ? "Submitting..." : "Submit Intake"}
                 </button>
               </div>

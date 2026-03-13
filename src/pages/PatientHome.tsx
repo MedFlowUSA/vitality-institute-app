@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
 import VitalityHero from "../components/VitalityHero";
+import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 
 type LocationRow = { id: string; name: string; city: string | null; state: string | null };
 type ServiceRow = {
@@ -41,6 +42,14 @@ type LatestWoundIntake = {
   status: "submitted" | "needs_info" | "approved" | "locked" | string;
   created_at: string;
   locked_at: string | null;
+};
+
+type VitalAiSessionRow = {
+  id: string;
+  status: "draft" | "submitted" | string;
+  updated_at: string;
+  completed_at: string | null;
+  created_at: string;
 };
 
 type AppointmentIntakeStatusRow = {
@@ -495,6 +504,7 @@ export default function PatientHome() {
   const [recentLabs, setRecentLabs] = useState<PatientLabRow[]>([]);
   const [loadingLabsPreview, setLoadingLabsPreview] = useState(false);
   const [patientFiles, setPatientFiles] = useState<any[]>([]);
+  const [latestVitalAiSession, setLatestVitalAiSession] = useState<VitalAiSessionRow | null>(null);
 
   // latest wound intake status
   const [latestWoundIntake, setLatestWoundIntake] = useState<LatestWoundIntake | null>(null);
@@ -777,14 +787,124 @@ export default function PatientHome() {
     nextAppointment,
     latestWoundIntake,
     latestTreatmentPlan,
-    unreadThreads,
-    svcName,
+      unreadThreads,
+      svcName,
   ]);
+
+  const supportedVitalAiAppointment = useMemo(() => {
+    return myAppointments.find((appt) => {
+      if (!appt?.start_time || new Date(appt.start_time).getTime() < Date.now()) return false;
+      if ((appt.status || "").toLowerCase() === "cancelled") return false;
+
+      const svc = serviceById(appt.service_id);
+      const typeKey = serviceTypeKey(svc?.name ?? null, svc?.category ?? null);
+      return typeKey === "general" || typeKey === "wound_care";
+    }) ?? null;
+  }, [myAppointments, serviceById]);
+
+  const vitalAiHeroState = useMemo(() => {
+    const dashboardAction = {
+      label: "Continue to Dashboard",
+      onClick: () => {
+        const el = document.getElementById("patient-portal-content");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      },
+    };
+
+    if (latestVitalAiSession?.status === "draft") {
+      return {
+        eyebrow: "Resume Your Intake",
+        title: "Hi, I'm Vital AI - your intake assistant.",
+        guidance:
+          "I saved your progress so you can pick up where you left off. Resume your intake and help our team prepare for your visit.",
+        statusLabel: "Draft intake saved",
+        statusTone: "rgba(59,130,246,.18)",
+        primary: {
+          label: "Resume Intake",
+          onClick: () => navigate(`/intake/session/${latestVitalAiSession.id}`),
+        },
+        secondary: dashboardAction,
+      };
+    }
+
+    if (latestVitalAiSession?.status === "submitted") {
+      return {
+        eyebrow: "Intake Submitted",
+        title: "Hi, I'm Vital AI - your intake assistant.",
+        guidance:
+          "Your intake has been submitted successfully. Our clinical team is reviewing your information now, and you can continue using the rest of your portal below.",
+        statusLabel: "Under review",
+        statusTone: "rgba(34,197,94,.18)",
+        primary: {
+          label: "View Appointments",
+          onClick: () => {
+            const el = document.getElementById("my-appointments");
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          },
+        },
+        secondary: dashboardAction,
+      };
+    }
+
+    if (supportedVitalAiAppointment) {
+      const svc = serviceById(supportedVitalAiAppointment.service_id);
+      return {
+        eyebrow: "Start with Vital AI",
+        title: "Hi, I'm Vital AI - your intake assistant.",
+        guidance: `I can help guide your intake and prepare our team for your visit. Your upcoming ${svc?.name ?? "appointment"} supports the new guided intake experience.`,
+        statusLabel: "Recommended before your visit",
+        statusTone: "rgba(139,124,255,.20)",
+        primary: {
+          label: "Start Intake",
+          onClick: () => navigate(`/intake?appointmentId=${supportedVitalAiAppointment.id}`),
+        },
+        secondary: dashboardAction,
+      };
+    }
+
+    return {
+      eyebrow: "Start with Vital AI",
+      title: "Hi, I'm Vital AI - your intake assistant.",
+      guidance:
+        "I can help guide your intake and prepare our team for your visit. Start your general consultation or wound care intake here, then continue through the rest of your portal at any time.",
+      statusLabel: "General consult and wound care",
+      statusTone: "rgba(139,124,255,.20)",
+      primary: {
+        label: "Start Intake",
+        onClick: () => navigate("/intake"),
+      },
+      secondary: dashboardAction,
+    };
+  }, [latestVitalAiSession, navigate, serviceById, supportedVitalAiAppointment]);
 
   const scrollToBooking = () => {
     const el = document.getElementById("book-appointment");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  const scrollToAppointments = () => {
+    const el = document.getElementById("my-appointments");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const vitalAiHeroActions = useMemo(() => {
+    const actions = [
+      {
+        key: "primary",
+        label: vitalAiHeroState.primary.label,
+        onClick: vitalAiHeroState.primary.onClick,
+        className: "btn btn-primary",
+      },
+      {
+        key: "secondary",
+        label: vitalAiHeroState.secondary.label,
+        onClick: vitalAiHeroState.secondary.onClick,
+        className: "btn btn-ghost",
+      },
+    ];
+
+    return actions.filter((action, index, list) => list.findIndex((item) => item.label === action.label) === index);
+  }, [vitalAiHeroState]);
 
   useEffect(() => {
     if (!prefillServiceId) return;
@@ -1204,6 +1324,26 @@ export default function PatientHome() {
     }
   };
 
+  const loadLatestVitalAiSession = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("vital_ai_sessions")
+        .select("id,status,updated_at,completed_at,created_at")
+        .eq("profile_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      setLatestVitalAiSession((data as VitalAiSessionRow | null) ?? null);
+    } catch {
+      setLatestVitalAiSession(null);
+    }
+  };
+
   // ONBOARDING GATE EFFECT (runs first)
   useEffect(() => {
     let cancelled = false;
@@ -1270,6 +1410,7 @@ export default function PatientHome() {
         setServices(svcs ?? []);
 
         await loadMyAppointments();
+        await loadLatestVitalAiSession();
         await loadLatestWoundIntake();
         await loadDashboard();
         await loadLatestTreatmentPlan();
@@ -1606,11 +1747,68 @@ export default function PatientHome() {
   return (
     <div className="app-bg">
       <div className="shell">
+        <div
+          className="card card-pad"
+          style={{
+            background: "linear-gradient(135deg, rgba(27,20,49,.96), rgba(35,26,61,.94))",
+            border: "1px solid rgba(184,164,255,.26)",
+            boxShadow: "0 24px 70px rgba(10,8,24,.34)",
+          }}
+        >
+          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(216,204,255,.88)", textTransform: "uppercase", letterSpacing: ".08em" }}>
+                Vital AI
+              </div>
+              <div style={{ marginTop: 8, fontSize: 26, fontWeight: 900, color: "#FAF7FF", lineHeight: 1.08 }}>
+                Your guided intake experience
+              </div>
+              <div style={{ marginTop: 8, maxWidth: 700, color: "rgba(233,226,255,.78)", lineHeight: 1.7 }}>
+                Vital AI is now the first step for general consultation and wound care. You can start, resume, or review your intake here and still use the rest of your portal normally below.
+              </div>
+            </div>
+
+            <div
+              style={{
+                padding: "8px 14px",
+                borderRadius: 999,
+                border: "1px solid rgba(216,204,255,.20)",
+                background: vitalAiHeroState.statusTone,
+                color: "#F7F3FF",
+                fontSize: 12,
+                fontWeight: 800,
+              }}
+            >
+              {vitalAiHeroState.statusLabel}
+            </div>
+          </div>
+
+          <div className="space" />
+
+          <VitalAiAvatarAssistant
+            title={vitalAiHeroState.title}
+            eyebrow={vitalAiHeroState.eyebrow}
+            guidanceOverride={vitalAiHeroState.guidance}
+            avatarSize={80}
+            avatarCircular
+          >
+            <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+              {vitalAiHeroActions.map((action) => (
+                <button key={action.key} className={action.className} type="button" onClick={action.onClick}>
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </VitalAiAvatarAssistant>
+        </div>
+
+        <div className="space" />
+
         <VitalityHero
           title="Vitality Institute"
           subtitle="Patient Portal - Scheduling - Treatments - Messaging - Labs - Intake"
           primaryCta={{ label: "Book Appointment", onClick: scrollToBooking }}
-          secondaryCta={{ label: "Wound Intake", to: "/patient/intake/wound" }}
+          secondaryCta={{ label: "View Appointments", onClick: scrollToAppointments }}
           rightActions={
             <>
               <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/treatments")}>
@@ -1631,7 +1829,7 @@ export default function PatientHome() {
             { t: "Just now", m: "Request appointments instantly", s: "Scheduling" },
             { t: "Today", m: "View current + past treatments", s: "Treatments" },
             { t: "Anytime", m: "Message the clinic securely", s: "Messaging" },
-            { t: "Fast", m: "Complete wound intake securely", s: "Wound Intake" },
+            { t: "Guided", m: "Start or resume Vital AI intake", s: "Vital AI" },
           ]}
         />
 
@@ -1701,34 +1899,7 @@ export default function PatientHome() {
         <div className="space" />
 
         <div
-          className="card card-pad"
-          style={{
-            background: "linear-gradient(135deg, rgba(200,182,255,.14), rgba(139,124,255,.08))",
-            border: "1px solid rgba(184,164,255,.22)",
-          }}
-        >
-          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <div style={{ flex: 1, minWidth: 260 }}>
-              <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
-                New Intake Experience
-              </div>
-              <div className="h2">Vital AI Intake</div>
-              <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
-                Start or resume your general consultation or wound care intake.
-              </div>
-            </div>
-
-            <div>
-              <button className="btn btn-primary" type="button" onClick={() => navigate("/intake")}>
-                Start Intake
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="space" />
-
-        <div
+          id="patient-portal-content"
           className="card card-pad"
           style={{
             background: "linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.03))",
