@@ -66,7 +66,7 @@ export default function PatientBooking() {
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
 
   const [locationId, setLocationId] = useState<string>(activeLocationId ?? "");
-  const [visitType, setVisitType] = useState<string>("wound_care"); // "wound_care" or "wellness"
+  const [serviceType, setServiceType] = useState<string>("wound_care");
   const [serviceId, setServiceId] = useState<string>("");
 
   const [slot, setSlot] = useState<string>(""); // ISO string
@@ -87,8 +87,8 @@ export default function PatientBooking() {
     return services
       .filter((s) => (locationId ? s.location_id === locationId : true))
       .filter((s) => (s.is_active === null ? true : s.is_active))
-      .filter((s) => (visitType ? (s.visit_type ?? "") === visitType : true));
-  }, [services, locationId, visitType]);
+      .filter((s) => (serviceType ? (s.visit_type ?? "") === serviceType : true));
+  }, [services, locationId, serviceType]);
 
   const bookedSlotSet = useMemo(() => {
     // block times already booked at that location (same exact start_time)
@@ -174,7 +174,7 @@ export default function PatientBooking() {
     // Reset service/slot when location or visitType changes
     setServiceId("");
     setSlot("");
-  }, [locationId, visitType]);
+  }, [locationId, serviceType]);
 
   const createAppointment = async () => {
     setErr(null);
@@ -182,7 +182,7 @@ export default function PatientBooking() {
     if (!user?.id) return setErr("Not signed in.");
     if (!patient?.id) return setErr("No patient profile linked.");
     if (!locationId) return setErr("Select a location.");
-    if (!visitType) return setErr("Select a visit type.");
+    if (!serviceType) return setErr("Select a visit type.");
     if (!serviceId) return setErr("Select a service.");
     if (!slot) return setErr("Select a time slot.");
 
@@ -206,7 +206,8 @@ export default function PatientBooking() {
             start_time: start.toISOString(),
             end_time: end.toISOString(),
             status: "scheduled",
-            visit_type: visitType,
+            visit_type: "in_person",
+            telehealth_enabled: false,
             notes: notes?.trim() ? notes.trim() : null,
           },
         ])
@@ -269,7 +270,7 @@ export default function PatientBooking() {
                   <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
                     Visit Type
                   </div>
-                  <select className="input" value={visitType} onChange={(e) => setVisitType(e.target.value)}>
+                    <select className="input" value={serviceType} onChange={(e) => setServiceType(e.target.value)}>
                     <option value="wound_care">Wound Care</option>
                     <option value="wellness">Wellness</option>
                   </select>

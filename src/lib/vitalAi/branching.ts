@@ -50,7 +50,14 @@ export function normalizeAnswerValue(question: IntakeQuestion, rawValue: unknown
   }
 
   if (question.type === "boolean") {
-    return rawValue === true;
+    if (rawValue == null || rawValue === "") return null;
+    if (typeof rawValue === "string") {
+      const normalized = rawValue.trim().toLowerCase();
+      if (normalized === "true" || normalized === "yes") return true;
+      if (normalized === "false" || normalized === "no") return false;
+      return null;
+    }
+    return rawValue === true ? true : rawValue === false ? false : null;
   }
 
   if (typeof rawValue === "string") return rawValue.trim();

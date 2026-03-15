@@ -64,6 +64,9 @@ function escapeHtml(s: string) {
     .replaceAll("'", "&#039;");
 }
 
+const SOAP_SELECT_FIELDS =
+  "id,visit_id,patient_id,location_id,provider_profile_id,created_by,subjective,objective,assessment,plan,is_signed,is_locked,locked_at,signed_at,signed_by,created_at,updated_at,amended_from_id,amendment_reason,amendment_at,amendment_by";
+
 export default function SoapNotePanel({ visitId, patientId, locationId }: Props) {
   const { user, role } = useAuth();
 
@@ -213,7 +216,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
     // check if SOAP exists
     const { data: existing, error } = await supabase
       .from("patient_soap_notes")
-      .select("*")
+      .select(SOAP_SELECT_FIELDS)
       .eq("visit_id", visitId)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -252,7 +255,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
         signed_at: null,
         signed_by: null,
       })
-      .select()
+      .select(SOAP_SELECT_FIELDS)
       .single();
 
     if (createErr) {
@@ -399,7 +402,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
             amendment_by: user.id,
           },
         ])
-        .select("*")
+        .select(SOAP_SELECT_FIELDS)
         .single();
 
       if (error) throw error;

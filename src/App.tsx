@@ -46,7 +46,7 @@ import ProviderReferrals from "./pages/ProviderReferrals";
 import ProviderReferralDetail from "./pages/ProviderReferralDetail";
 import ProviderVisitQueue from "./pages/ProviderVisitQueue";
 import ProviderVisitChart from "./pages/ProviderVisitChart";
-import ProviderVisitBuilder from "./pages/ProviderVisitBuilder";
+import ProviderVisitBuilder from "./pages/ProviderVisitBuilderVirtual";
 import ProviderVitalAiQueue from "./pages/ProviderVitalAiQueue";
 import ProviderVitalAiProfileDetail from "./pages/ProviderVitalAiProfileDetail";
 

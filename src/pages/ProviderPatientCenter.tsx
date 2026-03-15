@@ -19,6 +19,11 @@ import WoundHealingCurvePanel from "../components/provider/WoundHealingCurvePane
 import IVRPacketPanel from "../components/provider/IVRPacketPanel";
 import ChargeCapturePanel from "../components/provider/ChargeCapturePanel";
 import { calculateHealingTrend, getWoundHistory, type WoundObservation } from "../lib/vital-ai/woundTracking";
+import {
+  deriveEncounterState,
+  type EncounterPlanSummary,
+  type EncounterSoapSummary,
+} from "../lib/provider/encounterState";
 
 type VisitRow = {
   id: string;
@@ -28,6 +33,12 @@ type VisitRow = {
   visit_date: string; // timestamptz
   status: string | null;
   summary: string | null;
+  next_action_type: string | null;
+  next_action_due_at: string | null;
+  next_action_notes: string | null;
+  follow_up_required: boolean | null;
+  follow_up_mode: string | null;
+  requires_labs_before_followup: boolean | null;
   created_at: string;
 };
 
@@ -124,6 +135,44 @@ type LabRow = {
   updated_at: string;
 };
 
+type SoapSummaryRow = EncounterSoapSummary & {
+  patient_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type PlanSummaryRow = EncounterPlanSummary & {
+  patient_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+const VISIT_SELECT_FIELDS =
+  "id,patient_id,location_id,appointment_id,visit_date,status,summary,next_action_type,next_action_due_at,next_action_notes,follow_up_required,follow_up_mode,requires_labs_before_followup,created_at";
+const VISIT_TIMELINE_SELECT_FIELDS =
+  "visit_id,patient_id,location_id,visit_date,visit_status,summary,soap_id,is_signed,is_locked,signed_at,soap_created_at";
+const NOTE_SELECT_FIELDS = "id,patient_id,location_id,visit_id,note_type,body,created_at,created_by";
+const LAB_SELECT_FIELDS =
+  "id,patient_id,location_id,visit_id,lab_name,status,ordered_at,result_file_id,result_summary,created_by,created_at,updated_at";
+const SOAP_SUMMARY_SELECT_FIELDS = "id,visit_id,patient_id,is_signed,is_locked,signed_at,created_at,updated_at";
+const PLAN_SUMMARY_SELECT_FIELDS = "id,visit_id,patient_id,status,is_locked,signed_at,created_at,updated_at";
+
+const NEXT_ACTION_LABELS: Record<string, string> = {
+  none: "No follow-up needed",
+  follow_up_needed: "Follow-up visit needed",
+  virtual_follow_up: "Virtual follow-up needed",
+  in_person_follow_up: "In-person follow-up needed",
+  labs_before_followup: "Labs needed before follow-up",
+  staff_outreach: "Staff outreach needed",
+  pending_review: "Pending review after records or labs",
+};
+
+const FOLLOW_UP_MODE_LABELS: Record<string, string> = {
+  none: "None",
+  virtual: "Virtual",
+  in_person: "In Person",
+};
+
 type PatientTab = "overview" | "wound" | "soap" | "plan" | "labs" | "notes" | "files" | "photos" | "ivr" | "charges";
 
 export default function ProviderPatientCenter() {
@@ -145,6 +194,8 @@ export default function ProviderPatientCenter() {
   const [files, setFiles] = useState<FileRow[]>([]);
   const [notes, setNotes] = useState<NoteRow[]>([]);
   const [labs, setLabs] = useState<LabRow[]>([]);
+  const [soapRows, setSoapRows] = useState<SoapSummaryRow[]>([]);
+  const [planRows, setPlanRows] = useState<PlanSummaryRow[]>([]);
 
   const [demo, setDemo] = useState<DemoRow | null>(null);
   const [insurance, setInsurance] = useState<InsuranceRow | null>(null);
@@ -178,6 +229,13 @@ export default function ProviderPatientCenter() {
   const [labUploadingId, setLabUploadingId] = useState<string | null>(null);
   const [labSummaryDrafts, setLabSummaryDrafts] = useState<Record<string, string>>({});
   const [labBusyId, setLabBusyId] = useState<string | null>(null);
+  const [completingVisit, setCompletingVisit] = useState(false);
+  const [completionBypassReason, setCompletionBypassReason] = useState("");
+  const [nextActionTypeDraft, setNextActionTypeDraft] = useState("none");
+  const [nextActionDueAtDraft, setNextActionDueAtDraft] = useState("");
+  const [nextActionNotesDraft, setNextActionNotesDraft] = useState("");
+  const [followUpModeDraft, setFollowUpModeDraft] = useState<"none" | "virtual" | "in_person">("none");
+  const [requiresLabsBeforeFollowUpDraft, setRequiresLabsBeforeFollowUpDraft] = useState(false);
 
   const authNotReady = !role;
 
@@ -255,32 +313,55 @@ export default function ProviderPatientCenter() {
 
   const activeTimelineVisit = timeline.find((t) => t.visit_id === activeVisitId) ?? null;
   const activeVisitFallback = visitsFallback.find((v) => v.id === activeVisitId) ?? null;
+  const activeSoap = soapRows.find((row) => row.visit_id === activeVisitId) ?? null;
+  const activePlan = planRows.find((row) => row.visit_id === activeVisitId) ?? null;
 
   const activeVisit = useMemo(() => {
-    if (activeTimelineVisit) {
+    if (activeTimelineVisit || activeVisitFallback) {
       return {
-        id: activeTimelineVisit.visit_id,
-        patient_id: activeTimelineVisit.patient_id,
-        location_id: activeTimelineVisit.location_id,
-        visit_date: activeTimelineVisit.visit_date,
-        status: activeTimelineVisit.visit_status,
-        summary: activeTimelineVisit.summary,
-      };
-    }
-    if (activeVisitFallback) {
-      return {
-        id: activeVisitFallback.id,
-        patient_id: activeVisitFallback.patient_id,
-        location_id: activeVisitFallback.location_id,
-        visit_date: activeVisitFallback.visit_date,
-        status: activeVisitFallback.status,
-        summary: activeVisitFallback.summary,
+        id: activeVisitFallback?.id ?? activeTimelineVisit?.visit_id ?? "",
+        patient_id: activeVisitFallback?.patient_id ?? activeTimelineVisit?.patient_id ?? "",
+        location_id: activeVisitFallback?.location_id ?? activeTimelineVisit?.location_id ?? "",
+        appointment_id: activeVisitFallback?.appointment_id ?? null,
+        visit_date: activeVisitFallback?.visit_date ?? activeTimelineVisit?.visit_date ?? "",
+        status: activeVisitFallback?.status ?? activeTimelineVisit?.visit_status ?? null,
+        summary: activeVisitFallback?.summary ?? activeTimelineVisit?.summary ?? null,
+        next_action_type: activeVisitFallback?.next_action_type ?? null,
+        next_action_due_at: activeVisitFallback?.next_action_due_at ?? null,
+        next_action_notes: activeVisitFallback?.next_action_notes ?? null,
+        follow_up_required: activeVisitFallback?.follow_up_required ?? null,
+        follow_up_mode: activeVisitFallback?.follow_up_mode ?? null,
+        requires_labs_before_followup: activeVisitFallback?.requires_labs_before_followup ?? null,
       };
     }
     return null;
   }, [activeTimelineVisit, activeVisitFallback]);
 
   const locationId = activeVisit?.location_id ?? timeline[0]?.location_id ?? visitsFallback[0]?.location_id ?? "";
+
+  useEffect(() => {
+    if (!activeVisit) {
+      setNextActionTypeDraft("none");
+      setNextActionDueAtDraft("");
+      setNextActionNotesDraft("");
+      setFollowUpModeDraft("none");
+      setRequiresLabsBeforeFollowUpDraft(false);
+      return;
+    }
+
+    setNextActionTypeDraft(activeVisit.next_action_type ?? "none");
+    setNextActionDueAtDraft(activeVisit.next_action_due_at ? new Date(activeVisit.next_action_due_at).toISOString().slice(0, 16) : "");
+    setNextActionNotesDraft(activeVisit.next_action_notes ?? "");
+    setFollowUpModeDraft((activeVisit.follow_up_mode as "none" | "virtual" | "in_person" | null) ?? "none");
+    setRequiresLabsBeforeFollowUpDraft(!!activeVisit.requires_labs_before_followup);
+  }, [
+    activeVisit?.id,
+    activeVisit?.next_action_due_at,
+    activeVisit?.next_action_notes,
+    activeVisit?.next_action_type,
+    activeVisit?.follow_up_mode,
+    activeVisit?.requires_labs_before_followup,
+  ]);
 
   const snapshot = useMemo(() => {
     const vid = activeVisitId || "general";
@@ -305,7 +386,65 @@ export default function ProviderPatientCenter() {
     };
   }, [activeVisitId, timeline, labsByVisit, notesByVisit, filesByVisit]);
 
+  const planSnapshot = !activeVisitId ? "â€”" : activePlan ? (activePlan.is_locked || activePlan.signed_at ? "Signed" : "Draft") : "None";
+
+  const planStatusLabel = !activeVisitId ? "-" : activePlan ? (activePlan.is_locked || activePlan.signed_at ? "Signed" : "Draft") : "None";
+  const soapStatusLabel = !activeVisitId ? "-" : activeSoap ? (activeSoap.is_locked || activeSoap.is_signed || activeSoap.signed_at ? "Signed" : "Draft") : "None";
+  void planSnapshot;
+
+  const encounterState = useMemo(
+    () =>
+      deriveEncounterState({
+        visit: activeVisit
+          ? {
+              id: activeVisit.id,
+              status: activeVisit.status,
+              visit_date: activeVisit.visit_date,
+              summary: activeVisit.summary,
+            }
+          : null,
+        soap: activeSoap,
+        plan: activePlan,
+      }),
+    [activePlan, activeSoap, activeVisit]
+  );
+
+  const followUpReadiness = useMemo(() => {
+    if (!activeVisit) return "No active visit is ready for follow-up planning yet.";
+    if (encounterState.state === "completed") {
+      return `Completed visit with ${snapshot.labs} labs, ${snapshot.files} files, and ${snapshot.notes} notes available for post-visit follow-up.`;
+    }
+    if (encounterState.state === "ready_to_complete") {
+      return "Encounter is ready to complete. Follow-up planning can proceed once the visit is closed.";
+    }
+    return encounterState.summary;
+  }, [activeVisit, encounterState, snapshot.files, snapshot.labs, snapshot.notes]);
+
   const woundTrend = useMemo(() => calculateHealingTrend(woundHistory), [woundHistory]);
+
+  const derivedFollowUpRequired = useMemo(() => {
+    if (nextActionTypeDraft === "none") return false;
+    return true;
+  }, [nextActionTypeDraft]);
+
+  const derivedFollowUpMode = useMemo(() => {
+    if (nextActionTypeDraft === "virtual_follow_up") return "virtual";
+    if (nextActionTypeDraft === "in_person_follow_up") return "in_person";
+    return followUpModeDraft;
+  }, [followUpModeDraft, nextActionTypeDraft]);
+
+  const currentNextActionLabel = NEXT_ACTION_LABELS[activeVisit?.next_action_type ?? "none"] ?? "No follow-up needed";
+  const currentFollowUpModeLabel = FOLLOW_UP_MODE_LABELS[activeVisit?.follow_up_mode ?? "none"] ?? "None";
+  const currentNextActionDue = activeVisit?.next_action_due_at ? fmt(activeVisit.next_action_due_at) : "Not set";
+  const currentNextActionNotes = activeVisit?.next_action_notes?.trim() ? activeVisit.next_action_notes : "No additional next-action notes.";
+  const canLaunchFollowUpScheduling =
+    !!activeVisit &&
+    (activeVisit.follow_up_required ||
+      activeVisit.next_action_type === "follow_up_needed" ||
+      activeVisit.next_action_type === "virtual_follow_up" ||
+      activeVisit.next_action_type === "in_person_follow_up" ||
+      activeVisit.next_action_type === "labs_before_followup" ||
+      activeVisit.next_action_type === "pending_review");
 
   const TabButton = ({ id, label }: { id: PatientTab; label: string }) => {
     const active = tab === id;
@@ -364,9 +503,7 @@ export default function ProviderPatientCenter() {
 
       const { data: tl, error: tlErr } = await supabase
         .from("v_patient_visit_timeline")
-        .select(
-          "visit_id,patient_id,location_id,visit_date,visit_status,summary,soap_id,is_signed,is_locked,signed_at,soap_created_at"
-        )
+        .select(VISIT_TIMELINE_SELECT_FIELDS)
         .eq("patient_id", patientId)
         .order("visit_date", { ascending: false });
 
@@ -376,26 +513,26 @@ export default function ProviderPatientCenter() {
         setTimeline([]);
         console.warn("v_patient_visit_timeline not available, falling back to patient_visits:", tlErr.message);
 
-        const { data: v, error: vErr } = await supabase
-          .from("patient_visits")
-          .select("id,patient_id,location_id,appointment_id,visit_date,status,summary,created_at")
-          .eq("patient_id", patientId)
-          .order("visit_date", { ascending: false });
-
-        if (vErr) throw vErr;
-        const visitRows = (v as VisitRow[]) ?? [];
-        setVisitsFallback(visitRows);
-
-        if (opts?.setDefaultActiveVisit && !activeVisitId && visitRows.length > 0) {
-          setActiveVisitId(visitRows[0].id);
-        }
       } else {
         timelineRows = (tl as VisitTimelineRow[]) ?? [];
         setTimeline(timelineRows);
-        setVisitsFallback([]); // we don’t need fallback if view works
+      }
 
-        if (opts?.setDefaultActiveVisit && !activeVisitId && timelineRows.length > 0) {
+      const { data: v, error: vErr } = await supabase
+        .from("patient_visits")
+        .select(VISIT_SELECT_FIELDS)
+        .eq("patient_id", patientId)
+        .order("visit_date", { ascending: false });
+
+      if (vErr) throw vErr;
+      const visitRows = (v as VisitRow[]) ?? [];
+      setVisitsFallback(visitRows);
+
+      if (opts?.setDefaultActiveVisit && !activeVisitId) {
+        if (timelineRows.length > 0) {
           setActiveVisitId(timelineRows[0].visit_id);
+        } else if (visitRows.length > 0) {
+          setActiveVisitId(visitRows[0].id);
         }
       }
 
@@ -413,7 +550,7 @@ export default function ProviderPatientCenter() {
       // NOTES
       const { data: n, error: nErr } = await supabase
         .from("patient_visit_notes")
-        .select("id,patient_id,location_id,visit_id,note_type,body,created_at,created_by")
+        .select(NOTE_SELECT_FIELDS)
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false });
       if (nErr) throw nErr;
@@ -422,15 +559,39 @@ export default function ProviderPatientCenter() {
       // LABS
       const { data: l, error: lErr } = await supabase
         .from("patient_labs")
-        .select(
-          "id,patient_id,location_id,visit_id,lab_name,status,ordered_at,result_file_id,result_summary,created_by,created_at,updated_at"
-        )
+        .select(LAB_SELECT_FIELDS)
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false });
       if (lErr) throw lErr;
 
       const labRows = (l as LabRow[]) ?? [];
       setLabs(labRows);
+
+      const { data: soapData, error: soapErr } = await supabase
+        .from("patient_soap_notes")
+        .select(SOAP_SUMMARY_SELECT_FIELDS)
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false });
+      if (soapErr) throw soapErr;
+
+      const latestSoapByVisit = new Map<string, SoapSummaryRow>();
+      for (const row of (soapData as SoapSummaryRow[]) ?? []) {
+        if (!latestSoapByVisit.has(row.visit_id)) latestSoapByVisit.set(row.visit_id, row);
+      }
+      setSoapRows(Array.from(latestSoapByVisit.values()));
+
+      const { data: planData, error: planErr } = await supabase
+        .from("patient_treatment_plans")
+        .select(PLAN_SUMMARY_SELECT_FIELDS)
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false });
+      if (planErr) throw planErr;
+
+      const latestPlanByVisit = new Map<string, PlanSummaryRow>();
+      for (const row of (planData as PlanSummaryRow[]) ?? []) {
+        if (!latestPlanByVisit.has(row.visit_id)) latestPlanByVisit.set(row.visit_id, row);
+      }
+      setPlanRows(Array.from(latestPlanByVisit.values()));
 
       const nextWoundHistory = await getWoundHistory(patientId);
       setWoundHistory(nextWoundHistory);
@@ -465,7 +626,7 @@ export default function ProviderPatientCenter() {
     (async () => {
       const { data: visit, error: vErr } = await supabase
         .from("patient_visits")
-        .select("id,patient_id,location_id,appointment_id,visit_date,status")
+        .select(VISIT_SELECT_FIELDS)
         .eq("id", visitIdFromRoute)
         .maybeSingle();
 
@@ -558,6 +719,30 @@ export default function ProviderPatientCenter() {
       return;
     }
 
+    const existingOpenVisit =
+      visitsFallback.find((visit) => {
+        const status = (visit.status ?? "").toLowerCase();
+        return status !== "completed" && status !== "closed";
+      }) ??
+      timeline
+        .filter((visit) => {
+          const status = (visit.visit_status ?? "").toLowerCase();
+          return status !== "completed" && status !== "closed";
+        })
+        .map((visit) => visit.visit_id)[0];
+
+    if (typeof existingOpenVisit === "string" && existingOpenVisit) {
+      setActiveVisitId(existingOpenVisit);
+      setTab("overview");
+      return;
+    }
+
+    if (existingOpenVisit && typeof existingOpenVisit !== "string") {
+      setActiveVisitId(existingOpenVisit.id);
+      setTab("overview");
+      return;
+    }
+
     const { data, error } = await supabase
       .from("patient_visits")
       .insert([
@@ -569,7 +754,7 @@ export default function ProviderPatientCenter() {
           summary: "New visit",
         },
       ])
-      .select("id,patient_id,location_id,appointment_id,visit_date,status,summary,created_at")
+      .select(VISIT_SELECT_FIELDS)
       .maybeSingle();
 
     if (error) return setErr(error.message);
@@ -582,6 +767,113 @@ export default function ProviderPatientCenter() {
       setActiveVisitId(newVisitId);
       setTab("overview");
     }
+  };
+
+  const completeVisit = async () => {
+    if (!user) return setErr("You must be signed in.");
+    if (!activeVisit) return setErr("Select or create a visit first.");
+
+    if (encounterState.state === "completed") {
+      setTab("overview");
+      return;
+    }
+
+    const bypassReason = completionBypassReason.trim();
+
+    if (!encounterState.canComplete && !encounterState.requiresPlanBypass) {
+      return setErr("Complete SOAP and finalize the encounter before marking the visit complete.");
+    }
+
+    if (encounterState.requiresPlanBypass && !bypassReason) {
+      return setErr("A bypass reason is required if the treatment plan is not finalized.");
+    }
+
+    setCompletingVisit(true);
+    setErr(null);
+
+    try {
+      const patch: {
+        status: string;
+        summary?: string | null;
+        next_action_type: string;
+        next_action_due_at: string | null;
+        next_action_notes: string | null;
+        follow_up_required: boolean;
+        follow_up_mode: "none" | "virtual" | "in_person";
+        requires_labs_before_followup: boolean;
+      } = {
+        status: "completed",
+        next_action_type: nextActionTypeDraft || "none",
+        next_action_due_at: nextActionDueAtDraft ? new Date(nextActionDueAtDraft).toISOString() : null,
+        next_action_notes: nextActionNotesDraft.trim() || null,
+        follow_up_required: derivedFollowUpRequired,
+        follow_up_mode: derivedFollowUpMode,
+        requires_labs_before_followup:
+          requiresLabsBeforeFollowUpDraft || nextActionTypeDraft === "labs_before_followup",
+      };
+      if (!activeVisit.summary?.trim()) patch.summary = "Visit completed";
+
+      const { error: visitErr } = await supabase.from("patient_visits").update(patch).eq("id", activeVisit.id);
+      if (visitErr) throw visitErr;
+
+      if (encounterState.requiresPlanBypass) {
+        const { error: noteErr } = await supabase.from("patient_visit_notes").insert([
+          {
+            patient_id: activeVisit.patient_id,
+            location_id: activeVisit.location_id,
+            visit_id: activeVisit.id,
+            note_type: "admin",
+            body: `Visit completed without a finalized treatment plan. Reason: ${bypassReason}`,
+            created_by: user.id,
+          },
+        ]);
+        if (noteErr) throw noteErr;
+      }
+
+      await auditWrite({
+        event_type: "visit_completed",
+        location_id: activeVisit.location_id,
+        patient_id: activeVisit.patient_id,
+        visit_id: activeVisit.id,
+        entity_type: "patient_visits",
+        entity_id: activeVisit.id,
+        metadata: {
+          completed_from: "ProviderPatientCenter",
+          next_action_type: patch.next_action_type,
+          follow_up_mode: patch.follow_up_mode,
+          follow_up_required: patch.follow_up_required,
+          requires_labs_before_followup: patch.requires_labs_before_followup,
+          ...(encounterState.requiresPlanBypass ? { plan_bypass_reason: bypassReason } : {}),
+        },
+      });
+
+      setCompletionBypassReason("");
+      setTab("overview");
+      await loadAll({ setDefaultActiveVisit: false });
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to complete visit.");
+    } finally {
+      setCompletingVisit(false);
+    }
+  };
+
+  const goToRecommendedAction = () => {
+    if (encounterState.state === "no_visit") {
+      void createVisit();
+      return;
+    }
+
+    if (encounterState.state === "ready_to_complete") {
+      void completeVisit();
+      return;
+    }
+
+    setTab(encounterState.nextActionTab);
+  };
+
+  const launchFollowUpScheduling = () => {
+    if (!patientId) return;
+    nav(`/provider/visit-builder/${patientId}`);
   };
 
   const addNote = async () => {
@@ -899,24 +1191,24 @@ export default function ProviderPatientCenter() {
 
         <InsightRibbon
           title="Patient Center"
-          subtitle="High-signal snapshot for the active visit"
-          status={activeVisit ? "Visit Active" : "No Visit Selected"}
+          subtitle={encounterState.summary}
+          status={encounterState.state.replaceAll("_", " ")}
           kpis={[
-            { label: "SOAP", value: snapshot.soap },
+            { label: "Visit", value: encounterState.visitLabel },
+            { label: "SOAP", value: soapStatusLabel },
+            { label: "Plan", value: planStatusLabel },
             { label: "Labs", value: String(snapshot.labs) },
-            { label: "Notes", value: String(snapshot.notes) },
-            { label: "Files", value: String(snapshot.files) },
           ]}
           right={
             <>
+              <button className="btn btn-primary" type="button" onClick={goToRecommendedAction} disabled={completingVisit}>
+                {completingVisit ? "Completing..." : encounterState.nextActionLabel}
+              </button>
               <button className="btn btn-ghost" type="button" onClick={() => setTab("soap")} disabled={!activeVisitId}>
-                Go SOAP
+                Continue SOAP
               </button>
               <button className="btn btn-ghost" type="button" onClick={() => setTab("plan")} disabled={!activeVisitId}>
-                Go Plan
-              </button>
-              <button className="btn btn-ghost" type="button" onClick={() => setTab("labs")} disabled={!activeVisitId}>
-                Go Labs
+                Continue Plan
               </button>
             </>
           }
@@ -991,7 +1283,7 @@ export default function ProviderPatientCenter() {
                     Messages
                   </button>
                   <button className="btn btn-primary" type="button" onClick={createVisit}>
-                    + New Visit
+                    {encounterState.state === "no_visit" ? "Start Visit" : "Resume Visit"}
                   </button>
                 </div>
               </div>
@@ -1040,6 +1332,16 @@ export default function ProviderPatientCenter() {
                   "Select a visit in the timeline to unlock SOAP/Plan/Labs/Notes/Files."
                 )}
               </div>
+              <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                Encounter state: <strong>{encounterState.state.replaceAll("_", " ")}</strong> • Next action:{" "}
+                <strong>{encounterState.nextActionLabel}</strong>
+              </div>
+              {activeVisit ? (
+                <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                  Follow-up plan: <strong>{currentNextActionLabel}</strong> • Mode: <strong>{currentFollowUpModeLabel}</strong> • Labs before follow-up:{" "}
+                  <strong>{activeVisit.requires_labs_before_followup ? "Yes" : "No"}</strong>
+                </div>
+              ) : null}
             </div>
 
             <div className="space" />
@@ -1120,7 +1422,13 @@ export default function ProviderPatientCenter() {
                       {activeVisit ? (
                         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                           <div className="v-chip">
-                            SOAP: <strong>{snapshot.soap}</strong>
+                            Visit: <strong>{encounterState.visitLabel}</strong>
+                          </div>
+                          <div className="v-chip">
+                            SOAP: <strong>{soapStatusLabel}</strong>
+                          </div>
+                          <div className="v-chip">
+                            Plan: <strong>{planStatusLabel}</strong>
                           </div>
                           <div className="v-chip">
                             Labs: <strong>{snapshot.labs}</strong>
@@ -1142,14 +1450,20 @@ export default function ProviderPatientCenter() {
                       <div className="card card-pad">
                         <div className="h2">Visit Snapshot</div>
                         <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                          Jump into the work for this visit.
+                          {encounterState.summary}
                         </div>
 
                         <div className="space" />
 
                         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
                           <div className="v-chip">
-                            SOAP: <strong>{snapshot.soap}</strong>
+                            Encounter: <strong>{encounterState.state.replaceAll("_", " ")}</strong>
+                          </div>
+                          <div className="v-chip">
+                            SOAP: <strong>{soapStatusLabel}</strong>
+                          </div>
+                          <div className="v-chip">
+                            Plan: <strong>{planStatusLabel}</strong>
                           </div>
                           <div className="v-chip">
                             Labs: <strong>{snapshot.labs}</strong>
@@ -1160,6 +1474,193 @@ export default function ProviderPatientCenter() {
                           <div className="v-chip">
                             Files: <strong>{snapshot.files}</strong>
                           </div>
+                        </div>
+
+                        <div className="space" />
+
+                        <div
+                          className="card card-pad"
+                          style={{ background: "rgba(250,247,255,0.72)", border: "1px solid rgba(184,164,255,0.22)" }}
+                        >
+                          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+                            <div style={{ flex: "1 1 320px" }}>
+                              <div className="h2">Encounter Workflow</div>
+                              <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                                Follow the current encounter state to move from visit creation through SOAP, plan, and completion.
+                              </div>
+                              <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+                                Follow-up readiness: <strong>{followUpReadiness}</strong>
+                              </div>
+                            </div>
+
+                            <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                              <button className="btn btn-primary" type="button" onClick={goToRecommendedAction} disabled={completingVisit}>
+                                {completingVisit ? "Completing..." : encounterState.nextActionLabel}
+                              </button>
+                              <button className="btn btn-ghost" type="button" onClick={() => setTab("soap")} disabled={!activeVisitId}>
+                                Continue SOAP
+                              </button>
+                              <button className="btn btn-ghost" type="button" onClick={() => setTab("plan")} disabled={!activeVisitId}>
+                                Continue Plan
+                              </button>
+                              <button
+                                className="btn btn-ghost"
+                                type="button"
+                                onClick={completeVisit}
+                                disabled={!activeVisitId || completingVisit || (!encounterState.canComplete && !encounterState.requiresPlanBypass)}
+                              >
+                                Complete Visit
+                              </button>
+                            </div>
+                          </div>
+
+                          {activeVisit ? (
+                            <>
+                              <div className="space" />
+                              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.55)", border: "1px solid rgba(184,164,255,0.18)" }}>
+                                <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                                  <div>
+                                    <div className="h2">Next Action</div>
+                                    <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                                      Set one clear post-visit step so follow-up planning stays visible after completion.
+                                    </div>
+                                  </div>
+                                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                                    <div className="v-chip">
+                                      Follow-up pending: <strong>{derivedFollowUpRequired ? "Yes" : "No"}</strong>
+                                    </div>
+                                    <div className="v-chip">
+                                      Mode: <strong>{FOLLOW_UP_MODE_LABELS[derivedFollowUpMode] ?? "None"}</strong>
+                                    </div>
+                                    <div className="v-chip">
+                                      Labs before follow-up: <strong>{requiresLabsBeforeFollowUpDraft || nextActionTypeDraft === "labs_before_followup" ? "Yes" : "No"}</strong>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space" />
+
+                                <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                                  <select
+                                    className="input"
+                                    value={nextActionTypeDraft}
+                                    onChange={(e) => setNextActionTypeDraft(e.target.value)}
+                                    style={{ flex: "1 1 280px" }}
+                                    disabled={!activeVisitId || completingVisit}
+                                  >
+                                    <option value="none">No follow-up needed</option>
+                                    <option value="follow_up_needed">Follow-up visit needed</option>
+                                    <option value="virtual_follow_up">Virtual follow-up needed</option>
+                                    <option value="in_person_follow_up">In-person follow-up needed</option>
+                                    <option value="labs_before_followup">Labs needed before follow-up</option>
+                                    <option value="staff_outreach">Staff outreach needed</option>
+                                    <option value="pending_review">Pending review after records or labs</option>
+                                  </select>
+
+                                  <select
+                                    className="input"
+                                    value={derivedFollowUpMode}
+                                    onChange={(e) => setFollowUpModeDraft(e.target.value as "none" | "virtual" | "in_person")}
+                                    style={{ flex: "1 1 180px" }}
+                                    disabled={!activeVisitId || completingVisit || nextActionTypeDraft === "virtual_follow_up" || nextActionTypeDraft === "in_person_follow_up"}
+                                  >
+                                    <option value="none">No follow-up mode</option>
+                                    <option value="virtual">Virtual follow-up</option>
+                                    <option value="in_person">In-person follow-up</option>
+                                  </select>
+
+                                  <input
+                                    className="input"
+                                    type="datetime-local"
+                                    value={nextActionDueAtDraft}
+                                    onChange={(e) => setNextActionDueAtDraft(e.target.value)}
+                                    style={{ flex: "1 1 220px" }}
+                                    disabled={!activeVisitId || completingVisit}
+                                  />
+                                </div>
+
+                                <div className="space" />
+
+                                <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                                  <label className="v-chip" style={{ cursor: activeVisitId && !completingVisit ? "pointer" : "default" }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={requiresLabsBeforeFollowUpDraft || nextActionTypeDraft === "labs_before_followup"}
+                                      onChange={(e) => setRequiresLabsBeforeFollowUpDraft(e.target.checked)}
+                                      disabled={!activeVisitId || completingVisit || nextActionTypeDraft === "labs_before_followup"}
+                                      style={{ marginRight: 8 }}
+                                    />
+                                    Labs required before follow-up
+                                  </label>
+
+                                  <button
+                                    className="btn btn-ghost"
+                                    type="button"
+                                    onClick={launchFollowUpScheduling}
+                                    disabled={!canLaunchFollowUpScheduling}
+                                  >
+                                    Schedule Follow-Up
+                                  </button>
+                                </div>
+
+                                <div className="space" />
+
+                                <DictationTextarea
+                                  value={nextActionNotesDraft}
+                                  onChange={setNextActionNotesDraft}
+                                  placeholder="Optional next-action notes for follow-up coordination."
+                                  style={{ minHeight: 84 }}
+                                  disabled={!activeVisitId || completingVisit}
+                                  helpText="Visible to the care team after the visit is completed. Keep internal operational detail concise."
+                                  unsupportedText="Voice input is not available in this browser. You can still type next-action notes."
+                                />
+                              </div>
+                            </>
+                          ) : null}
+
+                          {activeVisit && encounterState.requiresPlanBypass ? (
+                            <>
+                              <div className="space" />
+                              <DictationTextarea
+                                value={completionBypassReason}
+                                onChange={setCompletionBypassReason}
+                                placeholder="If you need to complete this visit without a finalized plan, document the reason here."
+                                style={{ minHeight: 84 }}
+                                helpText="Required only when completing a visit without a finalized treatment plan."
+                                unsupportedText="Voice input is not available in this browser. You can still type the completion reason."
+                              />
+                            </>
+                          ) : null}
+
+                          {activeVisit && encounterState.state === "completed" ? (
+                            <>
+                              <div className="space" />
+                              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.48)", border: "1px solid rgba(184,164,255,0.16)" }}>
+                                <div className="h2">Post-Visit Follow-Up State</div>
+                                <div className="space" />
+                                <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                                  <div className="v-chip">
+                                    Next action: <strong>{currentNextActionLabel}</strong>
+                                  </div>
+                                  <div className="v-chip">
+                                    Follow-up pending: <strong>{activeVisit.follow_up_required ? "Yes" : "No"}</strong>
+                                  </div>
+                                  <div className="v-chip">
+                                    Follow-up mode: <strong>{currentFollowUpModeLabel}</strong>
+                                  </div>
+                                  <div className="v-chip">
+                                    Labs required: <strong>{activeVisit.requires_labs_before_followup ? "Yes" : "No"}</strong>
+                                  </div>
+                                  <div className="v-chip">
+                                    Due: <strong>{currentNextActionDue}</strong>
+                                  </div>
+                                </div>
+                                <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>
+                                  {currentNextActionNotes}
+                                </div>
+                              </div>
+                            </>
+                          ) : null}
                         </div>
 
                         <div className="space" />

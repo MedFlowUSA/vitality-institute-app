@@ -143,6 +143,8 @@ export default function ProviderReferrals() {
             service_id: null,
             start_time: start.toISOString(),
             status: "requested",
+            visit_type: "in_person",
+            telehealth_enabled: false,
             notes: `Converted from referral ${r.id}. ${r.reason ?? ""}`.trim(),
           },
         ])

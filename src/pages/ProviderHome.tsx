@@ -3,6 +3,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
+import VirtualVisitBadge from "../components/VirtualVisitBadge";
+import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
+import { getVirtualVisitState } from "../lib/virtualVisits";
 
 type LocationRow = { id: string; name: string };
 type ServiceRow = { id: string; name: string; location_id: string };
@@ -16,6 +19,13 @@ type ApptRow = {
   start_time: string;
   status: string;
   notes: string | null;
+  visit_type: string | null;
+  telehealth_enabled: boolean | null;
+  meeting_url: string | null;
+  meeting_provider: string | null;
+  meeting_status: string | null;
+  join_window_opens_at: string | null;
+  virtual_instructions: string | null;
 };
 
 type ProviderCounts = {
@@ -41,6 +51,7 @@ export default function ProviderHome() {
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [appointments, setAppointments] = useState<ApptRow[]>([]);
+  const [patientNames, setPatientNames] = useState<Record<string, string>>({});
   const [counts, setCounts] = useState<ProviderCounts>({
     apptsToday: 0,
     requestedToday: 0,
@@ -86,7 +97,24 @@ export default function ProviderHome() {
     return (id: string | null) => (id ? map.get(id) ?? "-" : "-");
   }, [services]);
 
+  const patientLabel = (id: string) => patientNames[id] ?? "Patient";
+
   const nextAppointments = useMemo(() => appointments.slice(0, 3), [appointments]);
+  const todayVirtualVisits = useMemo(
+    () =>
+      appointments.filter((item) => {
+        const state = getVirtualVisitState(item);
+        const start = new Date(item.start_time);
+        const now = new Date();
+        return (
+          state.isVirtual &&
+          start.getFullYear() === now.getFullYear() &&
+          start.getMonth() === now.getMonth() &&
+          start.getDate() === now.getDate()
+        );
+      }),
+    [appointments]
+  );
 
   const summaryItems = useMemo(
     () => [
@@ -185,7 +213,9 @@ export default function ProviderHome() {
 
       let query = supabase
         .from("appointments")
-        .select("id,location_id,service_id,patient_id,start_time,status,notes")
+        .select(
+          "id,location_id,service_id,patient_id,start_time,status,notes,visit_type,telehealth_enabled,meeting_url,meeting_provider,meeting_status,join_window_opens_at,virtual_instructions"
+        )
         .order("start_time", { ascending: true });
 
       query = getLocationScopeFilter(query);
@@ -193,10 +223,37 @@ export default function ProviderHome() {
       const { data, error } = await query;
       if (error) throw error;
 
-      setAppointments((data as ApptRow[]) ?? []);
+      const rows = (data as ApptRow[]) ?? [];
+      setAppointments(rows);
+
+      const patientIds = Array.from(new Set(rows.map((item) => item.patient_id).filter(Boolean)));
+      if (patientIds.length === 0) {
+        setPatientNames({});
+        return;
+      }
+
+      const [{ data: byIdRows, error: byIdErr }, { data: byProfileRows, error: byProfileErr }] = await Promise.all([
+        supabase.from("patients").select("id,first_name,last_name").in("id", patientIds),
+        supabase.from("patients").select("profile_id,first_name,last_name").in("profile_id", patientIds),
+      ]);
+
+      if (byIdErr) throw byIdErr;
+      if (byProfileErr) throw byProfileErr;
+
+      const names: Record<string, string> = {};
+      [((byIdRows as any[]) ?? []), ((byProfileRows as any[]) ?? [])].forEach((group) => {
+        group.forEach((row: any) => {
+          const key = row.id ?? row.profile_id;
+          if (!key) return;
+          names[key] = `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || "Patient";
+        });
+      });
+
+      setPatientNames(names);
     } catch (e: any) {
       setErr(e?.message ?? "Failed to load appointments.");
       setAppointments([]);
+      setPatientNames({});
     } finally {
       setLoading(false);
     }
@@ -316,6 +373,15 @@ export default function ProviderHome() {
 
   const setStatus = async (id: string, status: string) => {
     const { error } = await supabase.from("appointments").update({ status }).eq("id", id);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    await refreshAll();
+  };
+
+  const setMeetingStatus = async (id: string, meetingStatus: string) => {
+    const { error } = await supabase.from("appointments").update({ meeting_status: meetingStatus }).eq("id", id);
     if (error) {
       setErr(error.message);
       return;
@@ -648,6 +714,7 @@ export default function ProviderHome() {
             description="Move through intake review, referrals, and labs without jumping between overlapping headers or duplicate launch areas."
             actions={[
               { label: "Intake Review", to: "/provider/intake", tone: "primary" },
+              { label: "Vital AI Requests", to: "/provider/vital-ai" },
               { label: "Referrals", to: "/provider/referrals" },
               { label: "Labs", to: "/provider/labs" },
             ]}
@@ -660,6 +727,95 @@ export default function ProviderHome() {
               { label: "Messages", to: "/provider/chat" },
             ]}
           />
+        </div>
+
+        <div className="space" />
+
+        <div className="card card-pad">
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="h2">Today's Virtual Visits</div>
+              <div className="muted" style={{ marginTop: 6 }}>
+                Join scheduled virtual visits, update readiness, and jump into the patient chart without leaving the dashboard.
+              </div>
+            </div>
+            <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/command")}>
+              Command Center
+            </button>
+          </div>
+
+          <div className="space" />
+
+          {!activeLocationId ? (
+            <div className="muted">Select an active location to load virtual visit scheduling.</div>
+          ) : todayVirtualVisits.length === 0 ? (
+            <div className="muted">No virtual visits scheduled today.</div>
+          ) : (
+            <div style={{ display: "grid", gap: 12 }}>
+              {todayVirtualVisits.map((appt) => (
+                <div
+                  key={appt.id}
+                  className="card card-pad"
+                  style={{ background: "rgba(250,247,255,0.82)", border: "1px solid rgba(184,164,255,0.2)" }}
+                >
+                  <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+                    <div style={{ flex: "1 1 280px", minWidth: 240 }}>
+                      <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <div className="h2" style={{ margin: 0 }}>
+                          {fmtDateTime(appt.start_time)}
+                        </div>
+                        <VirtualVisitBadge appointment={appt} />
+                      </div>
+                      <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+                        Patient: {patientLabel(appt.patient_id)} | Service: {svcName(appt.service_id)}
+                      </div>
+                      <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+                        Meeting status: <strong>{(appt.meeting_status || "not_started").replaceAll("_", " ")}</strong>
+                      </div>
+                      {appt.virtual_instructions ? (
+                        <div className="muted" style={{ marginTop: 8, fontSize: 13, lineHeight: 1.6 }}>
+                          {appt.virtual_instructions}
+                        </div>
+                      ) : null}
+                      {!appt.meeting_url ? (
+                        <div className="muted" style={{ marginTop: 8, fontSize: 13, color: "#b45309" }}>
+                          Virtual setup is incomplete. Add a meeting link in Visit Builder before the patient can join.
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div style={{ display: "grid", gap: 10, justifyItems: "end" }}>
+                      <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        <JoinVirtualVisitButton appointment={appt} className="btn btn-primary" label="Join Visit" />
+                        <button className="btn btn-ghost" type="button" onClick={() => navigate(`/provider/visit-builder?appointmentId=${appt.id}`)}>
+                          Edit Setup
+                        </button>
+                        <button className="btn btn-ghost" type="button" onClick={() => navigate(`/provider/patients/${appt.patient_id}`)}>
+                          Open Patient
+                        </button>
+                        <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/intake")}>
+                          Intake Review
+                        </button>
+                      </div>
+
+                      <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        {["ready", "in_progress", "completed", "missed"].map((status) => (
+                          <button
+                            key={status}
+                            className={appt.meeting_status === status ? "btn btn-primary" : "btn btn-ghost"}
+                            type="button"
+                            onClick={() => setMeetingStatus(appt.id, status)}
+                          >
+                            {status.replaceAll("_", " ")}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space" />

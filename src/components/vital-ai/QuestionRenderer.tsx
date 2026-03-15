@@ -77,20 +77,58 @@ export default function QuestionRenderer({
   }
 
   if (question.type === "boolean") {
+    const selectedValue = value === true ? "yes" : value === false ? "no" : null;
+
     return (
-      <div
-        className="card card-pad"
-        style={{
-          marginBottom: 16,
-          background: "rgba(255,255,255,0.06)",
-          border: "1px solid rgba(255,255,255,0.14)",
-        }}
-      >
-        <label style={{ display: "flex", gap: 10, alignItems: "center", color: "#F8FAFC", fontWeight: 700 }}>
-          <input type="checkbox" checked={value === true} onChange={(e) => onChange(e.target.checked)} />
-          {question.label}
-          {question.required ? " *" : ""}
-        </label>
+      <div style={{ marginBottom: 16 }}>
+        {label}
+        <div
+          className="card card-pad"
+          role="radiogroup"
+          aria-label={question.label}
+          style={{
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.14)",
+          }}
+        >
+          <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={selectedValue === "yes"}
+              className={selectedValue === "yes" ? "btn btn-primary" : "btn btn-ghost"}
+              onClick={() => onChange(true)}
+              style={{
+                minWidth: 110,
+                justifyContent: "center",
+                background: selectedValue === "yes" ? "linear-gradient(135deg, #C8B6FF, #8B7CFF)" : "rgba(255,255,255,0.08)",
+                color: selectedValue === "yes" ? "#140F24" : "#F8FAFC",
+                border: selectedValue === "yes" ? "1px solid rgba(184,164,255,0.46)" : "1px solid rgba(255,255,255,0.16)",
+              }}
+            >
+              Yes
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={selectedValue === "no"}
+              className={selectedValue === "no" ? "btn btn-primary" : "btn btn-ghost"}
+              onClick={() => onChange(false)}
+              style={{
+                minWidth: 110,
+                justifyContent: "center",
+                background: selectedValue === "no" ? "linear-gradient(135deg, #C8B6FF, #8B7CFF)" : "rgba(255,255,255,0.08)",
+                color: selectedValue === "no" ? "#140F24" : "#F8FAFC",
+                border: selectedValue === "no" ? "1px solid rgba(184,164,255,0.46)" : "1px solid rgba(255,255,255,0.16)",
+              }}
+            >
+              No
+            </button>
+          </div>
+          <div className="muted" style={{ marginTop: 8, fontSize: 12, color: "rgba(226,232,240,0.78)" }}>
+            Choose Yes or No to continue.
+          </div>
+        </div>
       </div>
     );
   }

@@ -331,7 +331,7 @@ export function validateVisibleQuestions(args: {
 
       const value = normalizeAnswerValue(question, answers[question.key]);
       if (question.type === "boolean") {
-        if (value !== true) return `${question.label} is required.`;
+        if (value == null) return `${question.label} is required.`;
         continue;
       }
 
@@ -541,6 +541,7 @@ export async function submitVitalAiSession(args: {
     });
     tasksCreated = true;
 
+    console.log("Marking session submitted:", args.session.id);
     const { error: sessionError } = await supabase
       .from("vital_ai_sessions")
       .update({

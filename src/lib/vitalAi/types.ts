@@ -110,6 +110,7 @@ export type VitalAiLeadRow = {
   pathway_id: string;
   patient_id: string | null;
   profile_id: string | null;
+  appointment_id?: string | null;
   lead_status: string;
   priority: string | null;
   assigned_to: string | null;

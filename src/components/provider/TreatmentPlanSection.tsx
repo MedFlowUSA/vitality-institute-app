@@ -42,6 +42,9 @@ type LatestWoundAssessmentRow = {
   notes: string | null;
 };
 
+const TREATMENT_PLAN_SELECT_FIELDS =
+  "id,visit_id,patient_id,location_id,status,summary,patient_instructions,internal_notes,plan,signed_by,signed_at,is_locked,created_at,updated_at";
+
 function pretty(v: any) {
   try {
     return JSON.stringify(v, null, 2);
@@ -120,7 +123,7 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
     try {
       const { data, error } = await supabase
         .from("patient_treatment_plans")
-        .select("*")
+        .select(TREATMENT_PLAN_SELECT_FIELDS)
         .eq("visit_id", visitId)
         .order("created_at", { ascending: false })
         .limit(1)

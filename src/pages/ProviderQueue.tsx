@@ -20,8 +20,9 @@ type VisitRow = {
 type SoapMini = {
   id: string;
   visit_id: string;
-  locked: boolean;
-  status: string | null;
+  is_locked: boolean | null;
+  is_signed: boolean | null;
+  signed_at: string | null;
 };
 
 type LabMini = {
@@ -75,7 +76,7 @@ export default function ProviderQueue() {
       if (visitIds.length) {
         const { data: s, error: sErr } = await supabase
           .from("patient_soap_notes")
-          .select("id,visit_id,locked,status")
+          .select("id,visit_id,is_locked,is_signed,signed_at")
           .in("visit_id", visitIds);
 
         if (sErr) throw sErr;
@@ -86,8 +87,9 @@ export default function ProviderQueue() {
           map[row.visit_id] = {
             id: row.id,
             visit_id: row.visit_id,
-            locked: !!row.locked,
-            status: row.status ?? null,
+            is_locked: row.is_locked ?? null,
+            is_signed: row.is_signed ?? null,
+            signed_at: row.signed_at ?? null,
           };
         }
         setSoapByVisit(map);
@@ -138,8 +140,7 @@ export default function ProviderQueue() {
 
     const needsSoap = visits.filter((v) => {
       const s = soapByVisit[v.id];
-      // needs soap if none exists OR exists but not locked/signed
-      return !s?.id || !s.locked || (s.status ?? "") !== "signed";
+      return !s?.id || !(s.is_locked || s.is_signed || s.signed_at);
     }).length;
 
     const needsLabs = visits.filter((v) => {
@@ -268,7 +269,7 @@ export default function ProviderQueue() {
                 visits.map((v) => {
                   const soap = soapByVisit[v.id];
                   const labs = labsByVisit[v.id] ?? [];
-                  const soapLabel = !soap?.id ? "None" : soap.locked || soap.status === "signed" ? "Signed" : "Draft";
+                  const soapLabel = !soap?.id ? "None" : soap.is_locked || soap.is_signed || soap.signed_at ? "Signed" : "Draft";
 
                   return (
                     <button

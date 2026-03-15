@@ -6,6 +6,9 @@ import { supabase } from "../lib/supabase";
 import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
 import VitalityHero from "../components/VitalityHero";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
+import VirtualVisitBadge from "../components/VirtualVisitBadge";
+import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
+import { getVirtualVisitState } from "../lib/virtualVisits";
 
 type LocationRow = { id: string; name: string; city: string | null; state: string | null };
 type ServiceRow = {
@@ -35,6 +38,14 @@ type ApptRow = {
   status: string;
   service_id: string | null;
   notes: string | null;
+  visit_type: string | null;
+  telehealth_enabled: boolean | null;
+  meeting_url: string | null;
+  meeting_provider: string | null;
+  meeting_status: string | null;
+  join_window_opens_at: string | null;
+  virtual_instructions: string | null;
+  provider_user_id?: string | null;
 };
 
 type LatestWoundIntake = {
@@ -545,6 +556,17 @@ export default function PatientHome() {
     return services.slice(0, 6);
   }, [services]);
 
+  const getPatientAppointmentIds = async () => {
+    if (!user?.id) return [] as string[];
+
+    const ids = new Set<string>([user.id]);
+    const { data, error } = await supabase.from("patients").select("id").eq("profile_id", user.id).maybeSingle();
+    if (error) throw error;
+    const patientId = (data as any)?.id as string | undefined;
+    if (patientId) ids.add(patientId);
+    return Array.from(ids);
+  };
+
   const nextFollowUpDate = useMemo(() => {
     if (!patientSafePlan) return null;
 
@@ -790,6 +812,12 @@ export default function PatientHome() {
       unreadThreads,
       svcName,
   ]);
+
+  const nextVirtualVisitState = useMemo(() => {
+    if (!nextAppointment) return null;
+    const state = getVirtualVisitState(nextAppointment);
+    return state.isVirtual ? state : null;
+  }, [nextAppointment]);
 
   const supportedVitalAiAppointment = useMemo(() => {
     return myAppointments.find((appt) => {
@@ -1081,10 +1109,13 @@ export default function PatientHome() {
     if (!user) return;
     setLoadingMine(true);
 
+    const patientIds = await getPatientAppointmentIds();
     const { data, error } = await supabase
       .from("appointments")
-      .select("id,location_id,start_time,status,service_id,notes")
-      .eq("patient_id", user.id)
+      .select(
+        "id,location_id,start_time,status,service_id,notes,visit_type,telehealth_enabled,meeting_url,meeting_provider,meeting_status,join_window_opens_at,virtual_instructions,provider_user_id"
+      )
+      .in("patient_id", patientIds)
       .order("start_time", { ascending: false })
       .limit(25);
 
@@ -1102,11 +1133,14 @@ export default function PatientHome() {
     if (!user?.id) return;
 
     try {
+      const patientIds = await getPatientAppointmentIds();
       // NEXT APPOINTMENT
       const { data: nextAppt } = await supabase
         .from("appointments")
-        .select("id,start_time,location_id,status,service_id,notes")
-        .eq("patient_id", user.id)
+        .select(
+          "id,start_time,location_id,status,service_id,notes,visit_type,telehealth_enabled,meeting_url,meeting_provider,meeting_status,join_window_opens_at,virtual_instructions,provider_user_id"
+        )
+        .in("patient_id", patientIds)
         .gte("start_time", new Date().toISOString())
         .order("start_time", { ascending: true })
         .limit(1)
@@ -1534,6 +1568,8 @@ export default function PatientHome() {
             service_id: serviceId || null,
             start_time: selectedSlotIso,
             status: "requested",
+            visit_type: "in_person",
+            telehealth_enabled: false,
             notes: notes || null,
           },
         ])
@@ -1839,6 +1875,44 @@ export default function PatientHome() {
         />
 
         <div className="space" />
+
+        {nextAppointment && nextVirtualVisitState ? (
+          <>
+            <div
+              className="card card-pad"
+              style={{
+                background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(245,241,255,0.96))",
+                border: "1px solid rgba(184,164,255,0.22)",
+              }}
+            >
+              <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+                <div style={{ flex: "1 1 360px" }}>
+                  <div className="muted" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                    Upcoming Virtual Visit
+                  </div>
+                  <div className="h2" style={{ marginTop: 8 }}>
+                    {new Date(nextAppointment.start_time).toLocaleString()}
+                  </div>
+                  <div className="muted" style={{ marginTop: 6, lineHeight: 1.7 }}>
+                    {svcName(nextAppointment.service_id)} • {locName(nextAppointment.location_id)}
+                  </div>
+                  {nextAppointment.virtual_instructions ? (
+                    <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                      {nextAppointment.virtual_instructions}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div style={{ display: "grid", gap: 10, justifyItems: "end" }}>
+                  <VirtualVisitBadge appointment={nextAppointment} />
+                  <JoinVirtualVisitButton appointment={nextAppointment} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space" />
+          </>
+        ) : null}
 
         {patientAlerts.length > 0 && (
           <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
@@ -2406,10 +2480,13 @@ export default function PatientHome() {
                 }}
               >
                 <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-                  <div style={{ flex: 1 }}>
-                    <div className="h2">{new Date(a.start_time).toLocaleString()}</div>
-                      <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                        Location: {locName(a.location_id)} {" - "} Service: {svcName(a.service_id)}
+                    <div style={{ flex: 1 }}>
+                      <div className="h2">{new Date(a.start_time).toLocaleString()}</div>
+                      <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
+                        <div className="muted" style={{ fontSize: 13 }}>
+                          Location: {locName(a.location_id)} {" - "} Service: {svcName(a.service_id)}
+                        </div>
+                        <VirtualVisitBadge appointment={a} />
                       </div>
                     <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
                       <div className="muted" style={{ fontSize: 12 }}>
@@ -2430,6 +2507,11 @@ export default function PatientHome() {
                   </div>
 
                   <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <JoinVirtualVisitButton
+                      appointment={a}
+                      className="btn btn-ghost"
+                      onClick={(e) => e.stopPropagation()}
+                    />
                     <button
                       className="btn btn-primary"
                       type="button"
@@ -2830,6 +2912,34 @@ export default function PatientHome() {
                 <div style={{ fontWeight: 800, marginTop: 6 }}>
                   {new Date(selectedAppointment.start_time).toLocaleString()}
                 </div>
+              </div>
+
+              <div className="space" />
+
+              <div className="card card-pad">
+                <div className="muted">Visit Type</div>
+                <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
+                  <div style={{ fontWeight: 800 }}>
+                    {getVirtualVisitState(selectedAppointment).isVirtual ? "Virtual" : "In Person"}
+                  </div>
+                  <VirtualVisitBadge appointment={selectedAppointment} />
+                </div>
+                {selectedAppointment.virtual_instructions ? (
+                  <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                    {selectedAppointment.virtual_instructions}
+                  </div>
+                ) : null}
+                {selectedAppointment.provider_user_id ? (
+                  <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+                    Provider assigned by clinic
+                  </div>
+                ) : null}
+                {getVirtualVisitState(selectedAppointment).isVirtual ? (
+                  <>
+                    <div className="space" />
+                    <JoinVirtualVisitButton appointment={selectedAppointment} />
+                  </>
+                ) : null}
               </div>
 
               <div className="space" />
