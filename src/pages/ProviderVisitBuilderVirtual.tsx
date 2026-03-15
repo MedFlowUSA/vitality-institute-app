@@ -3,7 +3,10 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import VitalityHero from "../components/VitalityHero";
+import RouteHeader from "../components/RouteHeader";
+import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import VirtualVisitFormFields from "../components/VirtualVisitFormFields";
+import { buildProviderVisitBuilderGuide } from "../lib/provider/providerGuide";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
 import {
@@ -50,7 +53,7 @@ type VisitRow = {
 };
 
 export default function ProviderVisitBuilderVirtual() {
-  const { signOut, activeLocationId } = useAuth();
+  const { signOut, activeLocationId, resumeKey } = useAuth();
   const nav = useNavigate();
   const { patientId: routePatientId } = useParams<{ patientId?: string }>();
   const [params] = useSearchParams();
@@ -87,6 +90,10 @@ export default function ProviderVisitBuilderVirtual() {
     if (!patient) return "Patient";
     return `${patient.first_name ?? ""} ${patient.last_name ?? ""}`.trim() || "Patient";
   }, [patient]);
+  const guide = useMemo(
+    () => buildProviderVisitBuilderGuide(!!appointment, !!visit, appointmentVisitType === "virtual"),
+    [appointment, appointmentVisitType, visit]
+  );
 
   const resolvePatientRecordId = async (candidateId: string) => {
     if (!candidateId) throw new Error("Missing patient id.");
@@ -175,7 +182,7 @@ export default function ProviderVisitBuilderVirtual() {
     };
 
     load();
-  }, [appointmentId, routePatientId]);
+  }, [appointmentId, resumeKey, routePatientId]);
 
   const saveAppointmentSettings = async () => {
     setErr(null);
@@ -322,16 +329,50 @@ export default function ProviderVisitBuilderVirtual() {
   return (
     <div className="app-bg">
       <div className="shell">
-        <VitalityHero
+        <RouteHeader
           title="Visit Builder"
-          subtitle="Create visit • add wound assessment • continue to chart"
-          secondaryCta={{ label: "Back", to: "/provider/queue" }}
-          rightActions={
+          subtitle="Use the shared navigation to get back to the queue or dashboard while keeping appointment setup in view."
+          backTo="/provider/queue"
+          homeTo="/provider"
+          rightAction={
             <button className="btn btn-ghost" onClick={signOut} type="button">
               Sign out
             </button>
           }
+        />
+
+        <div className="space" />
+
+        <VitalityHero
+          title="Visit Builder"
+          subtitle="Create visit • add wound assessment • continue to chart"
+          secondaryCta={{ label: "Back", to: "/provider/queue" }}
+          rightActions={null}
           showKpis={false}
+        />
+
+        <div className="space" />
+
+        <ProviderGuidePanel
+          title={guide.title}
+          description={guide.description}
+          workflowState={guide.workflowState}
+          nextAction={guide.nextAction}
+          actions={[
+            {
+              label: visit ? "Open Visit Chart" : "Create Visit",
+              onClick: () => {
+                if (visit) {
+                  nav(`/provider/visits/${visit.id}`);
+                  return;
+                }
+                void createVisit();
+              },
+              tone: "primary",
+            },
+            { label: "Open Queue", to: "/provider/queue" },
+            { label: "Provider Dashboard", to: "/provider" },
+          ]}
         />
 
         <div className="space" />

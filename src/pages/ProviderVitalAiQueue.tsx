@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
+import RouteHeader from "../components/RouteHeader";
+import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import ProfileSummaryCard from "../components/vital-ai/ProfileSummaryCard";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
+import { buildProviderVitalAiQueueGuide } from "../lib/provider/providerGuide";
 import { fromDateTimeLocalValue, getDefaultJoinWindowOpensAt } from "../lib/virtualVisits";
 import type { VitalAiLeadRow, VitalAiPathwayRow, VitalAiProfileRow } from "../lib/vitalAi/types";
 
@@ -81,7 +84,7 @@ function patientNameFromProfile(profile: ProfileQueueRow, patient?: QueuePatient
 
 export default function ProviderVitalAiQueue() {
   const navigate = useNavigate();
-  const { activeLocationId, role, user } = useAuth();
+  const { activeLocationId, role, user, resumeKey } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -111,6 +114,10 @@ export default function ProviderVitalAiQueue() {
 
   const selected = useMemo(() => queueItems.find((item) => item.profile.id === selectedId) ?? null, [queueItems, selectedId]);
   const selectedAppointment = selected?.lead?.appointment_id ? appointmentsById[selected.lead.appointment_id] ?? null : null;
+  const guide = useMemo(
+    () => buildProviderVitalAiQueueGuide(!!selected, !!selectedAppointment),
+    [selected, selectedAppointment]
+  );
   const locationScopedProviders = useMemo(
     () => providers.filter((provider) => !activeLocationId || !provider.active_location_id || provider.active_location_id === activeLocationId),
     [activeLocationId, providers]
@@ -180,7 +187,7 @@ export default function ProviderVitalAiQueue() {
   useEffect(() => {
     void loadQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [resumeKey]);
 
   useEffect(() => {
     if (!selected) {
@@ -335,11 +342,41 @@ export default function ProviderVitalAiQueue() {
   return (
     <div className="app-bg">
       <div className="shell">
+        <RouteHeader
+          title="Vital AI Requests"
+          subtitle="Open the request queue, return to the dashboard, or move back without relying on browser controls."
+          backTo="/provider"
+          homeTo="/provider"
+        />
+
+        <div className="space" />
+
         <VitalityHero
           title="Vital AI Requests"
           subtitle="Review submitted Vital AI intakes and convert approved requests into real scheduled visits."
           secondaryCta={{ label: "Back", to: "/provider" }}
           showKpis={false}
+        />
+
+        <div className="space" />
+
+        <ProviderGuidePanel
+          title={guide.title}
+          description={guide.description}
+          workflowState={guide.workflowState}
+          nextAction={guide.nextAction}
+          actions={[
+            { label: "Review Intake", to: selected ? `/provider/vital-ai/profile/${selected.profile.id}` : "/provider/vital-ai", tone: "primary" },
+            {
+              label: "Schedule Virtual Visit",
+              onClick: () => setScheduleVisitType("virtual"),
+            },
+            {
+              label: "Schedule In-Person Visit",
+              onClick: () => setScheduleVisitType("in_person"),
+            },
+            { label: "Back to Dashboard", to: "/provider" },
+          ]}
         />
 
         <div className="space" />

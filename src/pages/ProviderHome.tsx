@@ -5,6 +5,8 @@ import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
+import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
+import { buildProviderHomeGuide } from "../lib/provider/providerGuide";
 import { getVirtualVisitState } from "../lib/virtualVisits";
 
 type LocationRow = { id: string; name: string };
@@ -44,7 +46,7 @@ type NavItem = {
 };
 
 export default function ProviderHome() {
-  const { user, role, signOut, activeLocationId, setActiveLocationId } = useAuth();
+  const { user, role, signOut, activeLocationId, setActiveLocationId, resumeKey } = useAuth();
   const navigate = useNavigate();
   const routerLocation = useLocation();
 
@@ -100,6 +102,7 @@ export default function ProviderHome() {
   const patientLabel = (id: string) => patientNames[id] ?? "Patient";
 
   const nextAppointments = useMemo(() => appointments.slice(0, 3), [appointments]);
+  const guide = useMemo(() => buildProviderHomeGuide(), []);
   const todayVirtualVisits = useMemo(
     () =>
       appointments.filter((item) => {
@@ -352,7 +355,20 @@ export default function ProviderHome() {
 
     loadAppointments();
     loadCounts();
-  }, [activeLocationId, user?.id]);
+  }, [activeLocationId, resumeKey, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || resumeKey === 0) return;
+
+    (async () => {
+      try {
+        await loadBase(user.id);
+        await refreshAll();
+      } catch (e: any) {
+        setErr(e?.message ?? "Failed to recover the provider dashboard after returning to the app.");
+      }
+    })();
+  }, [resumeKey, user?.id]);
 
   const refreshAll = async () => {
     await loadAppointments();
@@ -646,6 +662,21 @@ export default function ProviderHome() {
             </div>
           </div>
         </div>
+
+        <div className="space" />
+
+        <ProviderGuidePanel
+          title={guide.title}
+          description={guide.description}
+          workflowState={guide.workflowState}
+          nextAction={guide.nextAction}
+          actions={[
+            { label: "Open Queue", to: "/provider/queue", tone: "primary" },
+            { label: "Review Intake", to: "/provider/intake" },
+            { label: "Vital AI Requests", to: "/provider/vital-ai" },
+            { label: "Patient Center", to: "/provider/patients" },
+          ]}
+        />
 
         <div className="space" />
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
+import RouteHeader from "../components/RouteHeader";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import VitalAI from "../lib/vital-ai/vitalAiService";
 import { loadVitalAiResponses, loadVitalAiSession } from "../lib/vitalAi/submission";
@@ -41,6 +42,15 @@ export default function VitalAiSessionComplete() {
   return (
     <div className="app-bg">
       <div className="shell">
+        <RouteHeader
+          title="Intake Complete"
+          subtitle="Your submission is in place. Use the shared navigation to return home or back through the intake area."
+          backTo="/intake"
+          homeTo="/patient"
+        />
+
+        <div className="space" />
+
         <VitalityHero
           title="Vital AI Intake Submitted"
           subtitle="Your intake has been received and routed for staff follow-up and provider review."

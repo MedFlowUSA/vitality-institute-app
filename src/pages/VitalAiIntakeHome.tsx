@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
+import RouteHeader from "../components/RouteHeader";
 import PathwaySelector from "../components/vital-ai/PathwaySelector";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import { useAuth } from "../auth/AuthProvider";
@@ -10,7 +11,7 @@ import { createVitalAiSession, resolveCurrentPatient } from "../lib/vitalAi/subm
 import type { PatientRecord, VitalAiPathwayRow, VitalAiSessionRow } from "../lib/vitalAi/types";
 
 export default function VitalAiIntakeHome() {
-  const { user } = useAuth();
+  const { user, resumeKey } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -53,7 +54,7 @@ export default function VitalAiIntakeHome() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [resumeKey, user?.id]);
 
   const startPathway = async (pathway: VitalAiPathwayRow) => {
     if (!user?.id) return;
@@ -73,6 +74,15 @@ export default function VitalAiIntakeHome() {
   return (
     <div className="app-bg">
       <div className="shell">
+        <RouteHeader
+          title="Vital AI Intake"
+          subtitle="Move between intake, your dashboard, and saved drafts without relying on browser navigation."
+          backTo="/patient"
+          homeTo="/patient"
+        />
+
+        <div className="space" />
+
         <VitalityHero
           title="Vital AI"
           subtitle="Start or resume your intake so our care team can prepare for your visit with the right information ahead of time."

@@ -466,7 +466,7 @@ function nextStepCardStyle(tone: "info" | "warning" | "success") {
 }
 
 export default function PatientHome() {
-  const { user, role, signOut } = useAuth();
+  const { user, role, signOut, resumeKey } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const prefillServiceId = searchParams.get("serviceId") ?? "";
@@ -1412,7 +1412,7 @@ export default function PatientHome() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, navigate]);
+  }, [navigate, resumeKey, user?.id]);
 
   // Prevent running the heavy portal loaders until onboarding is confirmed
   useEffect(() => {
@@ -1463,7 +1463,7 @@ export default function PatientHome() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, checkingOnboarding]);
+  }, [resumeKey, user?.id, checkingOnboarding]);
 
   useEffect(() => {
     let cancelled = false;

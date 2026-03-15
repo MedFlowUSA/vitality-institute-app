@@ -4,6 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import DictationTextarea from "../components/DictationTextarea";
+import RouteHeader from "../components/RouteHeader";
+import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import VitalityHero from "../components/VitalityHero";
 import SystemStatusBar from "../components/SystemStatusBar";
 import InsightRibbon from "../components/InsightRibbon";
@@ -24,6 +26,7 @@ import {
   type EncounterPlanSummary,
   type EncounterSoapSummary,
 } from "../lib/provider/encounterState";
+import { buildProviderPatientCenterGuide } from "../lib/provider/providerGuide";
 
 type VisitRow = {
   id: string;
@@ -176,7 +179,7 @@ const FOLLOW_UP_MODE_LABELS: Record<string, string> = {
 type PatientTab = "overview" | "wound" | "soap" | "plan" | "labs" | "notes" | "files" | "photos" | "ivr" | "charges";
 
 export default function ProviderPatientCenter() {
-  const { user, role, signOut } = useAuth();
+  const { user, role, signOut, resumeKey } = useAuth();
   const nav = useNavigate();
   const params = useParams<{ patientId?: string; visitId?: string }>();
   const patientIdFromRoute = params.patientId ?? "";
@@ -408,6 +411,7 @@ export default function ProviderPatientCenter() {
       }),
     [activePlan, activeSoap, activeVisit]
   );
+  const guide = buildProviderPatientCenterGuide(encounterState);
 
   const followUpReadiness = useMemo(() => {
     if (!activeVisit) return "No active visit is ready for follow-up planning yet.";
@@ -659,13 +663,13 @@ export default function ProviderPatientCenter() {
     return () => {
       cancelled = true;
     };
-  }, [visitIdFromRoute]);
+  }, [resumeKey, visitIdFromRoute]);
 
   useEffect(() => {
     if (!patientId) return;
     loadAll({ setDefaultActiveVisit: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId]);
+  }, [patientId, resumeKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1173,6 +1177,37 @@ export default function ProviderPatientCenter() {
   return (
     <div className="app-bg">
       <div className="shell">
+        <RouteHeader
+          title="Provider Patient Center"
+          subtitle="Move back to the provider workspace or patient list while keeping chart navigation consistent on mobile."
+          backTo="/provider/patients"
+          homeTo="/provider"
+          rightAction={
+            <button className="btn btn-ghost" onClick={signOut} type="button">
+              Sign out
+            </button>
+          }
+        />
+
+        <div className="space" />
+
+        <ProviderGuidePanel
+          title={guide.title}
+          description={guide.description}
+          workflowState={guide.workflowState}
+          nextAction={guide.nextAction}
+          actions={[
+            { label: encounterState.nextActionLabel, onClick: goToRecommendedAction, tone: "primary" },
+            { label: "Go to SOAP", onClick: () => setTab("soap") },
+            { label: "Go to Plan", onClick: () => setTab("plan") },
+            canLaunchFollowUpScheduling
+              ? { label: "Schedule Follow-Up", onClick: launchFollowUpScheduling }
+              : { label: "Back to Dashboard", to: "/provider" },
+          ]}
+        />
+
+        <div className="space" />
+
         <VitalityHero
           title="Patient Center"
           subtitle="Visits • SOAP • Plan • Labs • Notes • Files"
@@ -1613,6 +1648,7 @@ export default function ProviderPatientCenter() {
                                   disabled={!activeVisitId || completingVisit}
                                   helpText="Visible to the care team after the visit is completed. Keep internal operational detail concise."
                                   unsupportedText="Voice input is not available in this browser. You can still type next-action notes."
+                                  surface="light"
                                 />
                               </div>
                             </>
@@ -1628,6 +1664,7 @@ export default function ProviderPatientCenter() {
                                 style={{ minHeight: 84 }}
                                 helpText="Required only when completing a visit without a finalized treatment plan."
                                 unsupportedText="Voice input is not available in this browser. You can still type the completion reason."
+                                surface="light"
                               />
                             </>
                           ) : null}
@@ -2105,6 +2142,7 @@ export default function ProviderPatientCenter() {
                           style={{ minHeight: 90 }}
                           helpText="You can type or dictate clinical, admin, or billing notes."
                           unsupportedText="Microphone dictation is not available in this browser. You can keep typing notes."
+                          surface="light"
                         />
 
                         <div className="space" />

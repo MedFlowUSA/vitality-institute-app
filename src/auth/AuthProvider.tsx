@@ -1,5 +1,5 @@
 // src/auth/AuthProvider.tsx
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 
@@ -30,6 +30,7 @@ type AuthCtx = {
   accountStatus: AccountStatus;
   roleError: string | null;
   activeLocationId: string | null;
+  resumeKey: number;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshRole: () => Promise<void>;
@@ -118,6 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accountStatus, setAccountStatus] = useState<AccountStatus>("pending");
   const [roleError, setRoleError] = useState<string | null>(null);
   const [activeLocationId, setActiveLocationIdState] = useState<string | null>(null);
+  const [resumeKey, setResumeKey] = useState(0);
+  const lastResumeAtRef = useRef(0);
 
   const loadRole = useCallback(async (uid: string) => {
     setRole(null);
@@ -242,6 +245,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [loadRole]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const resumeApp = async () => {
+      const now = Date.now();
+      if (now - lastResumeAtRef.current < 1500) return;
+      lastResumeAtRef.current = now;
+
+      setLoading(true);
+
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        const sessionUser = data.session?.user ?? null;
+        if (!mounted) return;
+
+        setUser(sessionUser);
+        setRole(null);
+        setAccountStatus(sessionUser ? "pending" : "restricted");
+        setRoleError(null);
+        setActiveLocationIdState(null);
+
+        if (sessionUser?.id) {
+          await loadRole(sessionUser.id);
+        }
+
+        if (mounted) {
+          setResumeKey((current) => current + 1);
+        }
+      } catch (e) {
+        if (!mounted) return;
+        console.error("[Auth resume] failed to recover session", e);
+        setRole(null);
+        setAccountStatus(user ? "restricted" : "pending");
+        setRoleError(getErrorMessage(e, "Failed to recover your session after returning to the app."));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void resumeApp();
+      }
+    };
+
+    const handleFocus = () => {
+      void resumeApp();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      mounted = false;
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [loadRole, user]);
+
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -283,12 +347,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       accountStatus,
       roleError,
       activeLocationId,
+      resumeKey,
       signIn,
       signOut,
       refreshRole,
       setActiveLocationId,
     }),
-    [loading, user, role, accountStatus, roleError, activeLocationId, signIn, signOut, refreshRole, setActiveLocationId]
+    [loading, user, role, accountStatus, roleError, activeLocationId, resumeKey, signIn, signOut, refreshRole, setActiveLocationId]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

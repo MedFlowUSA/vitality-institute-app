@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
+import RouteHeader from "../components/RouteHeader";
 
 type LocationRow = { id: string; name: string | null };
 type ServiceRow = {
@@ -56,7 +57,7 @@ function buildSlots(days = 7, slotMinutes = 30) {
 }
 
 export default function PatientBooking() {
-  const { user, signOut, activeLocationId } = useAuth();
+  const { user, signOut, activeLocationId, resumeKey } = useAuth();
   const nav = useNavigate();
 
   const [patient, setPatient] = useState<PatientRow | null>(null);
@@ -168,7 +169,7 @@ export default function PatientBooking() {
 
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [resumeKey, user?.id]);
 
   useEffect(() => {
     // Reset service/slot when location or visitType changes
@@ -231,15 +232,25 @@ export default function PatientBooking() {
   return (
     <div className="app-bg">
       <div className="shell">
-        <VitalityHero
+        <RouteHeader
           title="Book Appointment"
-          subtitle="Select service • pick time • complete intake"
-          secondaryCta={{ label: "Back", to: "/patient" }}
-          rightActions={
+          subtitle="Return to your dashboard or back out of booking without depending on browser navigation."
+          backTo="/patient"
+          homeTo="/patient"
+          rightAction={
             <button className="btn btn-ghost" onClick={signOut} type="button">
               Sign out
             </button>
           }
+        />
+
+        <div className="space" />
+
+        <VitalityHero
+          title="Book Appointment"
+          subtitle="Select service • pick time • complete intake"
+          secondaryCta={{ label: "Back", to: "/patient" }}
+          rightActions={null}
           showKpis={false}
         />
 

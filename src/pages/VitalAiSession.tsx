@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
+import RouteHeader from "../components/RouteHeader";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import IntakeFlowShell from "../components/vital-ai/IntakeFlowShell";
 import IntakeStepRenderer from "../components/vital-ai/IntakeStepRenderer";
@@ -23,7 +24,7 @@ import type { IntakeQuestion, PatientRecord, ResponseMap, VitalAiFileRow, VitalA
 
 export default function VitalAiSession() {
   const { sessionId = "" } = useParams();
-  const { user } = useAuth();
+  const { user, resumeKey } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -95,7 +96,7 @@ export default function VitalAiSession() {
     };
 
     load();
-  }, [sessionId, user?.id]);
+  }, [resumeKey, sessionId, user?.id]);
 
   useEffect(() => {
     if (!hydratedRef.current || !session?.id) return;
@@ -200,6 +201,15 @@ export default function VitalAiSession() {
   return (
     <div className="app-bg">
       <div className="shell">
+        <RouteHeader
+          title={pathway?.name ?? "Vital AI Session"}
+          subtitle="Use the shared navigation to move back a step or return home without losing your place."
+          backTo="/intake"
+          homeTo="/patient"
+        />
+
+        <div className="space" />
+
         <VitalityHero
           title={pathway?.name ?? "Vital AI Intake"}
           subtitle="Complete your intake in steps. Your draft is saved automatically."

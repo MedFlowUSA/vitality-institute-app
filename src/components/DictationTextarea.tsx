@@ -29,6 +29,7 @@ export default function DictationTextarea({
   helpText = "You can type or use your microphone for longer answers.",
   unsupportedText = "Microphone dictation is not available in this browser. You can keep typing.",
   buttonClassName = "btn btn-ghost",
+  surface = "dark",
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -38,11 +39,13 @@ export default function DictationTextarea({
   helpText?: string;
   unsupportedText?: string;
   buttonClassName?: string;
+  surface?: "dark" | "light";
 }) {
   const speechCtor = getSpeechRecognitionCtor();
   const recognitionRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [dictationError, setDictationError] = useState<string | null>(null);
+  const isLightSurface = surface === "light";
 
   useEffect(() => {
     return () => {
@@ -110,9 +113,17 @@ export default function DictationTextarea({
               position: "absolute",
               right: 10,
               top: 10,
-              background: isListening ? "rgba(239,68,68,0.18)" : "rgba(255,255,255,0.10)",
-              border: isListening ? "1px solid rgba(239,68,68,0.34)" : "1px solid rgba(255,255,255,0.16)",
-              color: "#F8FAFC",
+              background: isListening
+                ? "rgba(239,68,68,0.18)"
+                : isLightSurface
+                ? "rgba(255,255,255,0.92)"
+                : "rgba(255,255,255,0.10)",
+              border: isListening
+                ? "1px solid rgba(239,68,68,0.34)"
+                : isLightSurface
+                ? "1px solid rgba(184,164,255,0.24)"
+                : "1px solid rgba(255,255,255,0.16)",
+              color: isLightSurface ? "#241B3D" : "#F8FAFC",
               minWidth: 96,
             }}
           >
@@ -120,11 +131,18 @@ export default function DictationTextarea({
           </button>
         ) : null}
       </div>
-      <div className="muted" style={{ marginTop: 6, fontSize: 12, color: "rgba(226,232,240,0.78)" }}>
+      <div
+        className="muted"
+        style={{
+          marginTop: 6,
+          fontSize: 12,
+          color: isLightSurface ? "#5B4E86" : "rgba(226,232,240,0.78)",
+        }}
+      >
         {speechCtor ? helpText : unsupportedText}
       </div>
       {dictationError ? (
-        <div style={{ marginTop: 6, fontSize: 12, color: "#FCA5A5" }}>{dictationError}</div>
+        <div style={{ marginTop: 6, fontSize: 12, color: isLightSurface ? "#B91C1C" : "#FCA5A5" }}>{dictationError}</div>
       ) : null}
     </div>
   );

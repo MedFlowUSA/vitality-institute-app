@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
+import RouteHeader from "../components/RouteHeader";
+import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import ProfileSummaryCard from "../components/vital-ai/ProfileSummaryCard";
+import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
+import { buildProviderVitalAiProfileGuide } from "../lib/provider/providerGuide";
 import VitalAI from "../lib/vital-ai/vitalAiService";
 import type { VitalAiFileRow, VitalAiPathwayRow, VitalAiProfileRow, VitalAiResponseRow, VitalAiSessionRow } from "../lib/vitalAi/types";
 
@@ -16,8 +20,22 @@ function formatProgressInterpretation(snapshot: WoundMetricsSnapshot | null) {
   return "Stable";
 }
 
+const lightCardStyle = {
+  color: "#241B3D",
+} as const;
+
+const labelStyle = {
+  fontSize: 12,
+  color: "#5B4E86",
+} as const;
+
+const bodyStyle = {
+  color: "#3E355C",
+} as const;
+
 export default function ProviderVitalAiProfileDetail() {
   const { profileId = "" } = useParams();
+  const { resumeKey } = useAuth();
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [profile, setProfile] = useState<VitalAiProfileRow | null>(null);
@@ -25,6 +43,7 @@ export default function ProviderVitalAiProfileDetail() {
   const [files, setFiles] = useState<VitalAiFileRow[]>([]);
   const [insights, setInsights] = useState<ReturnType<typeof VitalAI.generateInsights> | null>(null);
   const [woundMetrics, setWoundMetrics] = useState<WoundMetricsSnapshot | null>(null);
+  const guide = buildProviderVitalAiProfileGuide(!!insights);
 
   useEffect(() => {
     const load = async () => {
@@ -82,12 +101,34 @@ export default function ProviderVitalAiProfileDetail() {
     };
 
     load();
-  }, [profileId]);
+  }, [profileId, resumeKey]);
 
   return (
     <div className="app-bg">
       <div className="shell">
+        <RouteHeader
+          title="Vital AI Provider Review"
+          subtitle="Move back to the request queue or provider dashboard without losing access to this intake review."
+          backTo="/provider/vital-ai"
+          homeTo="/provider"
+        />
+
+        <div className="space" />
+
         <VitalityHero title="Vital AI Profile Detail" subtitle="Phase 1 provider review of intake-generated clinical summaries." secondaryCta={{ label: "Back", to: "/provider/vital-ai" }} showKpis={false} />
+
+        <div className="space" />
+
+        <ProviderGuidePanel
+          title={guide.title}
+          description={guide.description}
+          workflowState={guide.workflowState}
+          nextAction={guide.nextAction}
+          actions={[
+            { label: "Back to Queue", to: "/provider/vital-ai", tone: "primary" },
+            { label: "Provider Dashboard", to: "/provider" },
+          ]}
+        />
 
         <div className="space" />
 
@@ -101,26 +142,26 @@ export default function ProviderVitalAiProfileDetail() {
           <>
             {insights ? (
               <>
-                <div className="card card-pad">
+                <div className="card card-pad" style={lightCardStyle}>
                   <div className="h2">Provider Visit Summary</div>
                   <div className="space" />
 
                   <div style={{ display: "grid", gap: 12 }}>
                     <div>
-                      <div className="muted" style={{ fontSize: 12 }}>Visit reason</div>
+                      <div className="muted" style={labelStyle}>Visit reason</div>
                       <div style={{ marginTop: 4, fontWeight: 800 }}>{insights.providerVisitSummary.visitReason}</div>
                     </div>
 
                     <div>
-                      <div className="muted" style={{ fontSize: 12 }}>Concise narrative</div>
-                      <div style={{ marginTop: 6, lineHeight: 1.6 }}>{insights.providerVisitSummary.conciseNarrative}</div>
+                      <div className="muted" style={labelStyle}>Concise narrative</div>
+                      <div style={{ marginTop: 6, lineHeight: 1.6, ...bodyStyle }}>{insights.providerVisitSummary.conciseNarrative}</div>
                     </div>
 
                     <div>
-                      <div className="muted" style={{ fontSize: 12 }}>Key findings</div>
+                      <div className="muted" style={labelStyle}>Key findings</div>
                       <div style={{ marginTop: 6 }}>
                         {insights.providerVisitSummary.keyFindings.length === 0 ? (
-                          <div className="muted">No key findings were derived from the intake.</div>
+                            <div className="muted" style={bodyStyle}>No key findings were derived from the intake.</div>
                         ) : (
                           insights.providerVisitSummary.keyFindings.map((item) => (
                             <div key={item} style={{ marginBottom: 4 }}>
@@ -132,10 +173,10 @@ export default function ProviderVitalAiProfileDetail() {
                     </div>
 
                     <div>
-                      <div className="muted" style={{ fontSize: 12 }}>Risk flags</div>
+                      <div className="muted" style={labelStyle}>Risk flags</div>
                       <div style={{ marginTop: 6 }}>
                         {insights.providerVisitSummary.riskFlags.length === 0 ? (
-                          <div className="muted">No elevated risk flags were derived from this intake.</div>
+                            <div className="muted" style={bodyStyle}>No elevated risk flags were derived from this intake.</div>
                         ) : (
                           insights.providerVisitSummary.riskFlags.map((item) => (
                             <div key={item} style={{ marginBottom: 4 }}>
@@ -147,7 +188,7 @@ export default function ProviderVitalAiProfileDetail() {
                     </div>
 
                     <div>
-                      <div className="muted" style={{ fontSize: 12 }}>Suggested focus</div>
+                      <div className="muted" style={labelStyle}>Suggested focus</div>
                       <div style={{ marginTop: 6 }}>
                         {insights.providerVisitSummary.suggestedFocus.map((item) => (
                           <div key={item} style={{ marginBottom: 4 }}>
@@ -158,7 +199,7 @@ export default function ProviderVitalAiProfileDetail() {
                     </div>
 
                     <div>
-                      <div className="muted" style={{ fontSize: 12 }}>Suggested next steps</div>
+                      <div className="muted" style={labelStyle}>Suggested next steps</div>
                       <div style={{ marginTop: 6 }}>
                         {insights.providerVisitSummary.suggestedNextSteps.map((item) => (
                           <div key={item} style={{ marginBottom: 4 }}>
@@ -171,7 +212,7 @@ export default function ProviderVitalAiProfileDetail() {
                 </div>
                 <div className="space" />
 
-                <div className="card card-pad">
+                <div className="card card-pad" style={lightCardStyle}>
                   <div className="h2">Visit Preparation Summary</div>
                   <div className="space" />
 
@@ -239,7 +280,7 @@ export default function ProviderVitalAiProfileDetail() {
                 </div>
                 <div className="space" />
 
-                <div className="card card-pad">
+                <div className="card card-pad" style={lightCardStyle}>
                   <div className="h2">Vital AI Follow-Up Plan</div>
                   <div className="space" />
 
@@ -248,10 +289,10 @@ export default function ProviderVitalAiProfileDetail() {
                       <div className="muted">No follow-up plan was generated for this intake.</div>
                     ) : (
                       insights.followUpPlan.followUps.map((followUp) => (
-                        <div key={`${followUp.type}-${followUp.dayOffset}`} className="card card-pad" style={{ background: "rgba(255,255,255,0.02)" }}>
+                        <div key={`${followUp.type}-${followUp.dayOffset}`} className="card card-pad" style={{ background: "rgba(255,255,255,0.55)", color: "#241B3D" }}>
                           <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                             <div style={{ fontWeight: 800 }}>Day {followUp.dayOffset}</div>
-                            <div className="muted" style={{ fontSize: 12 }}>{followUp.type.replaceAll("_", " ")}</div>
+                            <div className="muted" style={labelStyle}>{followUp.type.replaceAll("_", " ")}</div>
                           </div>
                           <div style={{ marginTop: 8 }}>{followUp.message}</div>
                         </div>
@@ -261,7 +302,7 @@ export default function ProviderVitalAiProfileDetail() {
                 </div>
                 <div className="space" />
 
-                <div className="card card-pad">
+                <div className="card card-pad" style={lightCardStyle}>
                   <div className="h2">Provider Recommendation Summary</div>
                   <div className="space" />
 
@@ -326,7 +367,7 @@ export default function ProviderVitalAiProfileDetail() {
                 </div>
                 <div className="space" />
 
-                <div className="card card-pad">
+                <div className="card card-pad" style={lightCardStyle}>
                   <div className="h2">Treatment Opportunities</div>
                   <div className="space" />
 
@@ -335,10 +376,10 @@ export default function ProviderVitalAiProfileDetail() {
                       <div className="muted">No treatment opportunity signals were generated from the current intake.</div>
                     ) : (
                       insights.treatmentOpportunitySignals.opportunities.map((signal) => (
-                        <div key={signal.type} className="card card-pad" style={{ background: "rgba(255,255,255,0.02)" }}>
+                        <div key={signal.type} className="card card-pad" style={{ background: "rgba(255,255,255,0.55)", color: "#241B3D" }}>
                           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                             <div style={{ fontWeight: 800 }}>{signal.label}</div>
-                            <div className="muted" style={{ fontSize: 12, textTransform: "capitalize" }}>{signal.confidence} confidence</div>
+                            <div className="muted" style={{ ...labelStyle, textTransform: "capitalize" }}>{signal.confidence} confidence</div>
                           </div>
                           <div style={{ marginTop: 8 }}>{signal.reason}</div>
                         </div>
@@ -350,7 +391,7 @@ export default function ProviderVitalAiProfileDetail() {
 
                 {woundMetrics?.measurement ? (
                   <>
-                    <div className="card card-pad">
+                    <div className="card card-pad" style={lightCardStyle}>
                       <div className="h2">Wound Measurement Summary</div>
                       <div className="space" />
 
@@ -424,7 +465,7 @@ export default function ProviderVitalAiProfileDetail() {
                   </>
                 ) : null}
 
-                <div className="card card-pad">
+                <div className="card card-pad" style={lightCardStyle}>
                   <div className="h2">Vital AI Clinical Insights</div>
                   <div className="space" />
 
@@ -496,29 +537,29 @@ export default function ProviderVitalAiProfileDetail() {
 
             <ProfileSummaryCard profile={profile} />
             <div className="space" />
-            <div className="card card-pad">
+            <div className="card card-pad" style={lightCardStyle}>
               <div className="h2">Structured Profile Data</div>
               <div className="space" />
-              <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{JSON.stringify(profile.profile_json ?? {}, null, 2)}</pre>
+              <pre style={{ whiteSpace: "pre-wrap", margin: 0, color: "#2F2748" }}>{JSON.stringify(profile.profile_json ?? {}, null, 2)}</pre>
             </div>
             <div className="space" />
-            <div className="card card-pad">
+            <div className="card card-pad" style={lightCardStyle}>
               <div className="h2">Risk Flags</div>
               <div className="space" />
-              <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>{JSON.stringify(profile.risk_flags_json ?? [], null, 2)}</pre>
+              <pre style={{ whiteSpace: "pre-wrap", margin: 0, color: "#2F2748" }}>{JSON.stringify(profile.risk_flags_json ?? [], null, 2)}</pre>
             </div>
             <div className="space" />
-            <div className="card card-pad">
+            <div className="card card-pad" style={lightCardStyle}>
               <div className="h2">Attached Files</div>
               <div className="space" />
-              {files.length === 0 ? <div className="muted">No files attached.</div> : files.map((file) => <div key={file.id} style={{ marginBottom: 8 }}>{file.category} - {file.filename}</div>)}
+              {files.length === 0 ? <div className="muted" style={bodyStyle}>No files attached.</div> : files.map((file) => <div key={file.id} style={{ marginBottom: 8, color: "#3E355C" }}>{file.category} - {file.filename}</div>)}
             </div>
             <div className="space" />
-            <div className="card card-pad">
+            <div className="card card-pad" style={lightCardStyle}>
               <div className="h2">Session State</div>
               <div className="space" />
-              <div className="muted">Current step: {session?.current_step_key ?? "-"}</div>
-              <div className="muted" style={{ marginTop: 6 }}>Completed: {session?.completed_at ? new Date(session.completed_at).toLocaleString() : "-"}</div>
+              <div className="muted" style={bodyStyle}>Current step: {session?.current_step_key ?? "-"}</div>
+              <div className="muted" style={{ ...bodyStyle, marginTop: 6 }}>Completed: {session?.completed_at ? new Date(session.completed_at).toLocaleString() : "-"}</div>
             </div>
           </>
         )}

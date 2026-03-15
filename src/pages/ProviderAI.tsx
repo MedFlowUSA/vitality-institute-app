@@ -424,6 +424,7 @@ export default function ProviderAI() {
                     style={{ minHeight: 180 }}
                     helpText="You can type or dictate the provider summary."
                     unsupportedText="Microphone dictation is not available in this browser. You can keep typing the summary."
+                    surface="light"
                   />
 
                   <div className="space" />
@@ -440,6 +441,7 @@ export default function ProviderAI() {
                         style={{ minHeight: 120 }}
                         helpText="You can type or dictate risk items."
                         unsupportedText="Microphone dictation is not available in this browser. You can keep typing risk items."
+                        surface="light"
                       />
                     </div>
 
@@ -454,6 +456,7 @@ export default function ProviderAI() {
                         style={{ minHeight: 120 }}
                         helpText="You can type or dictate recommended next steps."
                         unsupportedText="Microphone dictation is not available in this browser. You can keep typing next steps."
+                        surface="light"
                       />
                     </div>
                   </div>

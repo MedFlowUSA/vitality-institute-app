@@ -3,8 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import DictationTextarea from "../components/DictationTextarea";
+import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
+import RouteHeader from "../components/RouteHeader";
+import { buildProviderIntakeGuide } from "../lib/provider/providerGuide";
 import { getSignedUrl } from "../lib/patientFiles";
 
 type LocationRow = { id: string; name: string };
@@ -78,8 +81,22 @@ function badgeStyle(status: string) {
   return base;
 }
 
+const intakeLightCardStyle: React.CSSProperties = {
+  color: "#241B3D",
+};
+
+const intakeLabelStyle: React.CSSProperties = {
+  fontSize: 12,
+  color: "#5B4E86",
+};
+
+const intakeValueStyle: React.CSSProperties = {
+  color: "#2F2748",
+  lineHeight: 1.65,
+};
+
 export default function ProviderIntake() {
-  const { user, role, signOut } = useAuth();
+  const { user, role, signOut, resumeKey } = useAuth();
   const [params] = useSearchParams();
 
   const prefillActiveId = params.get("activeId") ?? "";
@@ -105,6 +122,7 @@ export default function ProviderIntake() {
   }, [locations]);
 
   const active = rows.find((r) => r.id === activeId) ?? null;
+  const guide = buildProviderIntakeGuide(!!active);
 
   const loadAllowedLocations = async () => {
     if (!user?.id) {
@@ -259,7 +277,7 @@ export default function ProviderIntake() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, isAdmin]);
+  }, [resumeKey, user?.id, isAdmin]);
 
   useEffect(() => {
     let cancelled = false;
@@ -278,7 +296,7 @@ export default function ProviderIntake() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationId, statusFilter, isAdmin, allowedLocationIds.join(",")]);
+  }, [locationId, statusFilter, isAdmin, allowedLocationIds.join(","), resumeKey]);
 
   const updateStatus = async (id: string, status: string, providerNotes: string) => {
     if (!user?.id) return;
@@ -328,17 +346,41 @@ export default function ProviderIntake() {
   return (
     <div className="app-bg">
       <div className="shell">
+        <RouteHeader
+          title="Intake Review"
+          subtitle="Move between the provider dashboard and review queue without relying on browser navigation."
+          backTo="/provider"
+          homeTo="/provider"
+          rightAction={
+            <button className="btn btn-ghost" onClick={signOut} type="button">
+              Sign out
+            </button>
+          }
+        />
+
+        <div className="space" />
+
         <VitalityHero
           title="Vitality Institute"
           subtitle="Wound Care Intake Review • Submitted → Approved → Locked"
           secondaryCta={{ label: "Back", to: "/provider" }}
           primaryCta={{ label: "Queue", to: "/provider/queue" }}
-          rightActions={
-            <button className="btn btn-ghost" onClick={signOut} type="button">
-              Sign out
-            </button>
-          }
+          rightActions={null}
           showKpis={false}
+        />
+
+        <div className="space" />
+
+        <ProviderGuidePanel
+          title={guide.title}
+          description={guide.description}
+          workflowState={guide.workflowState}
+          nextAction={guide.nextAction}
+          actions={[
+            { label: "Open Queue", to: "/provider/queue", tone: "primary" },
+            { label: "Provider Dashboard", to: "/provider" },
+            active ? { label: "Open Patient Center", to: `/provider/patients/${active.patient_id}` } : { label: "Vital AI Requests", to: "/provider/vital-ai" },
+          ]}
         />
 
         <div className="space" />
@@ -530,30 +572,30 @@ function WoundIntakeDetail({
     <>
       <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div style={{ flex: 1 }}>
-          <div className="h2" style={{ marginBottom: 2 }}>
+          <div className="h2" style={{ marginBottom: 2, color: "#241B3D" }}>
             WOUND CARE • <span style={badgeStyle(row.status)}>{row.status.toUpperCase()}</span>
           </div>
-          <div className="muted" style={{ fontSize: 13 }}>
+          <div className="muted" style={{ fontSize: 13, color: "#5B4E86" }}>
             Submitted: {fmt(row.created_at)} • Location: {locationName}
           </div>
 
           <div className="space" />
 
-          <div className="card card-pad">
-            <div className="h2">Patient</div>
-            <div className="muted" style={{ marginTop: 6 }}>
-              <strong>{patientLabel}</strong>
+          <div className="card card-pad" style={intakeLightCardStyle}>
+            <div className="h2" style={{ color: "#241B3D" }}>Patient</div>
+            <div className="muted" style={{ marginTop: 6, color: "#2F2748" }}>
+              <strong style={{ color: "#241B3D" }}>{patientLabel}</strong>
             </div>
-            {patient?.email ? <div className="muted">Email: {patient.email}</div> : null}
-            {patient?.phone ? <div className="muted">Phone: {patient.phone}</div> : null}
-            <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            {patient?.email ? <div className="muted" style={{ color: "#3E355C" }}>Email: {patient.email}</div> : null}
+            {patient?.phone ? <div className="muted" style={{ color: "#3E355C" }}>Phone: {patient.phone}</div> : null}
+            <div className="muted" style={{ fontSize: 12, marginTop: 8, color: "#5B4E86" }}>
               Intake ID: {row.id}
             </div>
           </div>
         </div>
 
         <div style={{ width: 420, maxWidth: "100%" }}>
-          <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 6, color: "#5B4E86" }}>
             Provider notes
           </div>
 
@@ -565,6 +607,7 @@ function WoundIntakeDetail({
             style={{ minHeight: 110 }}
             helpText="You can type or dictate provider review notes."
             unsupportedText="Microphone dictation is not available in this browser. You can keep typing provider notes."
+            surface="light"
           />
 
           <div className="space" />
@@ -594,13 +637,13 @@ function WoundIntakeDetail({
           </button>
 
           {row.reviewed_at ? (
-            <div className="muted" style={{ fontSize: 12, marginTop: 10 }}>
+            <div className="muted" style={{ fontSize: 12, marginTop: 10, color: "#5B4E86" }}>
               Reviewed: {fmt(row.reviewed_at)}
             </div>
           ) : null}
 
           {row.locked_at ? (
-            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+            <div className="muted" style={{ fontSize: 12, marginTop: 6, color: "#5B4E86" }}>
               Locked: {fmt(row.locked_at)}
             </div>
           ) : null}
@@ -609,24 +652,24 @@ function WoundIntakeDetail({
 
       <div className="space" />
 
-      <div className="card card-pad">
-        <div className="h2">Wound Details</div>
+      <div className="card card-pad" style={intakeLightCardStyle}>
+        <div className="h2" style={{ color: "#241B3D" }}>Wound Details</div>
         <div className="space" />
 
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-          <div className="card card-pad" style={{ flex: "1 1 240px", minWidth: 240 }}>
-            <div className="muted" style={{ fontSize: 12 }}>Location</div>
-            <div style={{ marginTop: 6, fontWeight: 700 }}>{wound.wound_location || "—"}</div>
+          <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 240px", minWidth: 240 }}>
+            <div className="muted" style={intakeLabelStyle}>Location</div>
+            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.wound_location || "—"}</div>
           </div>
 
-          <div className="card card-pad" style={{ flex: "1 1 240px", minWidth: 240 }}>
-            <div className="muted" style={{ fontSize: 12 }}>Duration</div>
-            <div style={{ marginTop: 6, fontWeight: 700 }}>{wound.wound_duration || "—"}</div>
+          <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 240px", minWidth: 240 }}>
+            <div className="muted" style={intakeLabelStyle}>Duration</div>
+            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.wound_duration || "—"}</div>
           </div>
 
-          <div className="card card-pad" style={{ flex: "1 1 240px", minWidth: 240 }}>
-            <div className="muted" style={{ fontSize: 12 }}>Pain (0–10)</div>
-            <div style={{ marginTop: 6, fontWeight: 700 }}>
+          <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 240px", minWidth: 240 }}>
+            <div className="muted" style={intakeLabelStyle}>Pain (0–10)</div>
+            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>
               {typeof wound.pain_level === "number" ? wound.pain_level : "—"}
             </div>
           </div>
@@ -635,49 +678,49 @@ function WoundIntakeDetail({
         <div className="space" />
 
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-          <div className="card card-pad" style={{ flex: "1 1 320px", minWidth: 280 }}>
-            <div className="muted" style={{ fontSize: 12 }}>Cause</div>
-            <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{wound.wound_cause || "—"}</div>
+          <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 320px", minWidth: 280 }}>
+            <div className="muted" style={intakeLabelStyle}>Cause</div>
+            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{wound.wound_cause || "—"}</div>
           </div>
 
-          <div className="card card-pad" style={{ flex: "1 1 320px", minWidth: 280 }}>
-            <div className="muted" style={{ fontSize: 12 }}>Prior Treatments</div>
-            <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{wound.prior_treatments || "—"}</div>
+          <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 320px", minWidth: 280 }}>
+            <div className="muted" style={intakeLabelStyle}>Prior Treatments</div>
+            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{wound.prior_treatments || "—"}</div>
           </div>
 
-          <div className="card card-pad" style={{ flex: "1 1 320px", minWidth: 280 }}>
-            <div className="muted" style={{ fontSize: 12 }}>Current Dressing / Care</div>
-            <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{wound.current_dressing || "—"}</div>
+          <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 320px", minWidth: 280 }}>
+            <div className="muted" style={intakeLabelStyle}>Current Dressing / Care</div>
+            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{wound.current_dressing || "—"}</div>
           </div>
         </div>
 
         <div className="space" />
 
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-          <div className="card card-pad" style={{ flex: "1 1 240px", minWidth: 240 }}>
-            <div className="muted" style={{ fontSize: 12 }}>Diabetes</div>
-            <div style={{ marginTop: 6, fontWeight: 700 }}>{wound.has_diabetes || "—"}</div>
+          <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 240px", minWidth: 240 }}>
+            <div className="muted" style={intakeLabelStyle}>Diabetes</div>
+            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.has_diabetes || "—"}</div>
           </div>
 
-          <div className="card card-pad" style={{ flex: "1 1 240px", minWidth: 240 }}>
-            <div className="muted" style={{ fontSize: 12 }}>Smoking</div>
-            <div style={{ marginTop: 6, fontWeight: 700 }}>{wound.smokes || "—"}</div>
+          <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 240px", minWidth: 240 }}>
+            <div className="muted" style={intakeLabelStyle}>Smoking</div>
+            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.smokes || "—"}</div>
           </div>
 
-          <div className="card card-pad" style={{ flex: "2 1 420px", minWidth: 280 }}>
-            <div className="muted" style={{ fontSize: 12 }}>Medications</div>
-            <div style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{row.medications || "—"}</div>
+          <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "2 1 420px", minWidth: 280 }}>
+            <div className="muted" style={intakeLabelStyle}>Medications</div>
+            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{row.medications || "—"}</div>
           </div>
         </div>
       </div>
 
       <div className="space" />
 
-      <div className="card card-pad">
+      <div className="card card-pad" style={intakeLightCardStyle}>
         <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div>
-            <div className="h2">Uploads</div>
-            <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+            <div className="h2" style={{ color: "#241B3D" }}>Uploads</div>
+            <div className="muted" style={{ marginTop: 4, fontSize: 12, color: "#5B4E86" }}>
               ID / insurance / wound photos (if provided)
             </div>
           </div>
@@ -690,12 +733,12 @@ function WoundIntakeDetail({
         <div className="space" />
 
         {uploads.length === 0 ? (
-          <div className="muted">No uploads attached to this intake.</div>
+          <div className="muted" style={intakeValueStyle}>No uploads attached to this intake.</div>
         ) : signedUploads.length > 0 ? (
-          <ul className="text-sm list-disc pl-5">
+          <ul className="text-sm list-disc pl-5" style={{ color: "#2F2748" }}>
             {signedUploads.map((u, idx) => (
               <li key={`${u.url}-${idx}`}>
-                <span className="muted">{u.category}:</span>{" "}
+                <span className="muted" style={{ color: "#5B4E86" }}>{u.category}:</span>{" "}
                 <a className="link" href={u.url} target="_blank" rel="noreferrer">
                   {u.filename}
                 </a>
@@ -703,10 +746,10 @@ function WoundIntakeDetail({
             ))}
           </ul>
         ) : (
-          <ul className="text-sm list-disc pl-5">
+          <ul className="text-sm list-disc pl-5" style={{ color: "#2F2748" }}>
             {uploads.map((u, idx) => (
               <li key={`${u.path}-${idx}`}>
-                <span className="muted">{u.category}:</span> {u.filename || u.path}
+                <span className="muted" style={{ color: "#5B4E86" }}>{u.category}:</span> {u.filename || u.path}
               </li>
             ))}
           </ul>
@@ -715,13 +758,13 @@ function WoundIntakeDetail({
 
       <div className="space" />
 
-      <div className="card card-pad">
-        <div className="h2">Raw Intake JSON</div>
-        <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+      <div className="card card-pad" style={intakeLightCardStyle}>
+        <div className="h2" style={{ color: "#241B3D" }}>Raw Intake JSON</div>
+        <div className="muted" style={{ marginTop: 4, fontSize: 12, color: "#5B4E86" }}>
           Stored raw wound_data.
         </div>
         <div className="space" />
-        <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12, lineHeight: 1.35 }}>
+        <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12, lineHeight: 1.35, color: "#2F2748" }}>
           {JSON.stringify(row.wound_data ?? {}, null, 2)}
         </pre>
       </div>

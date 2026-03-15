@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
+import RouteHeader from "../components/RouteHeader";
 
 type LocationRow = { id: string; name: string };
 type ServiceRow = {
@@ -18,7 +19,7 @@ type ServiceRow = {
 type PatientRow = { id: string; profile_id: string; first_name: string | null; last_name: string | null };
 
 export default function PatientBookAppointment() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, resumeKey } = useAuth();
   const nav = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -93,7 +94,7 @@ export default function PatientBookAppointment() {
 
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [resumeKey, user?.id]);
 
   // when location changes, pick first service for that location
   useEffect(() => {
@@ -163,15 +164,25 @@ export default function PatientBookAppointment() {
   return (
     <div className="app-bg">
       <div className="shell">
-        <VitalityHero
-          title="Vitality Institute"
-          subtitle="Book Appointment • Then complete intake"
-          secondaryCta={{ label: "Back", to: "/patient" }}
-          rightActions={
+        <RouteHeader
+          title="Book Appointment"
+          subtitle="Use the shared controls to move back or return home without relying on browser navigation."
+          backTo="/patient"
+          homeTo="/patient"
+          rightAction={
             <button className="btn btn-ghost" onClick={signOut} type="button">
               Sign out
             </button>
           }
+        />
+
+        <div className="space" />
+
+        <VitalityHero
+          title="Vitality Institute"
+          subtitle="Book Appointment • Then complete intake"
+          secondaryCta={{ label: "Back", to: "/patient" }}
+          rightActions={null}
           showKpis={false}
         />
 

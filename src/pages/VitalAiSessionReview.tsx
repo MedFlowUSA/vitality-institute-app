@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
+import RouteHeader from "../components/RouteHeader";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import ReviewSummary from "../components/vital-ai/ReviewSummary";
 import { useAuth } from "../auth/AuthProvider";
@@ -10,7 +11,7 @@ import type { PatientRecord, VitalAiFileRow, VitalAiPathwayRow, VitalAiSessionRo
 
 export default function VitalAiSessionReview() {
   const { sessionId = "" } = useParams();
-  const { user } = useAuth();
+  const { user, resumeKey } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -63,7 +64,7 @@ export default function VitalAiSessionReview() {
     };
 
     load();
-  }, [sessionId, user?.id]);
+  }, [resumeKey, sessionId, user?.id]);
 
   const handleSubmit = async () => {
     if (!session || !pathway || submitting || submitLockRef.current) return;
@@ -91,6 +92,15 @@ export default function VitalAiSessionReview() {
   return (
     <div className="app-bg">
       <div className="shell">
+        <RouteHeader
+          title="Review Intake"
+          subtitle="Confirm your answers, move back to edit, or return to your dashboard without getting stranded in the flow."
+          backTo={sessionId ? `/intake/session/${sessionId}` : "/intake"}
+          homeTo="/patient"
+        />
+
+        <div className="space" />
+
         <VitalityHero
           title="Review Vital AI Intake"
           subtitle="Confirm your answers before submitting them to the Vitality team."
