@@ -280,7 +280,7 @@ export default function PatientServices() {
       <div className="shell">
         <VitalityHero
           title="Vitality Institute"
-          subtitle="Browse services • see pricing • book the right treatment"
+          subtitle="Browse services, compare options, and book the right treatment with confidence."
           secondaryCta={{ label: "Back", to: "/patient" }}
           rightActions={
             <button className="btn btn-ghost" onClick={signOut} type="button">
@@ -303,9 +303,12 @@ export default function PatientServices() {
             }}
           >
             <div>
-              <div className="h2">Services & Pricing</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#CFC3F5", textTransform: "uppercase", letterSpacing: ".08em" }}>
+                Treatment Guide
+              </div>
+              <div className="h2" style={{ marginTop: 8 }}>Services & Pricing</div>
               <div className="muted" style={{ marginTop: 4 }}>
-                Explore consultations, injectables, IV therapy, wound care, and wellness options.
+                Explore consultations, injectables, IV therapy, wound care, and wellness options. Tap a service card to open details or book.
               </div>
             </div>
 
@@ -339,9 +342,14 @@ export default function PatientServices() {
                       key={group.key}
                       type="button"
                       className="btn btn-ghost"
+                      style={{
+                        background: "rgba(255,255,255,0.08)",
+                        border: "1px solid rgba(200,182,255,0.18)",
+                        color: "#F8FAFC",
+                      }}
                       onClick={() => scrollToCategory(group.key)}
                     >
-                      {group.label}
+                      {categoryEmoji(group.key)} {group.label} ({group.rows.length})
                     </button>
                   ))}
                 </div>
@@ -367,12 +375,22 @@ export default function PatientServices() {
                           <div
                             key={service.id}
                             className="card card-pad service-card"
+                            role="button"
+                            tabIndex={0}
                             style={{
                               flex: "1 1 320px",
                               minWidth: 280,
-                              background: "rgba(255,255,255,0.05)",
-                              border: "1px solid rgba(255,255,255,0.08)",
+                              background: `linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03)), ${categoryAccent(serviceDisplayKey(service))}`,
+                              border: "1px solid rgba(255,255,255,0.10)",
                               transition: "all 0.25s ease",
+                              cursor: "pointer",
+                            }}
+                            onClick={() => setSelectedService(service)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                setSelectedService(service);
+                              }
                             }}
                           >
                             <div
@@ -428,6 +446,15 @@ export default function PatientServices() {
 
                             <div className="space" />
 
+                            <div style={{ fontSize: 12, color: "#E9DFFF", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                              Ideal For
+                            </div>
+                            <div style={{ marginTop: 8, lineHeight: 1.65, color: "rgba(248,250,252,0.92)" }}>
+                              {idealFor(service)}
+                            </div>
+
+                            <div className="space" />
+
                             {hasPricing ? (
                               <div>
                                 <div
@@ -455,7 +482,7 @@ export default function PatientServices() {
                             )}
 
                             <div className="muted" style={{ marginTop: 10, fontSize: 11 }}>
-                              {service.location_id ? "Location-specific service" : "Available across locations"}
+                              {service.location_id ? "Location-specific service" : "Available across locations"} • {estimatedTiming(service)}
                             </div>
 
                             <div className="space" />
@@ -464,7 +491,10 @@ export default function PatientServices() {
                               <button
                                 className="btn btn-primary"
                                 type="button"
-                                onClick={() => handoffToBooking(service)}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handoffToBooking(service);
+                                }}
                               >
                                 Book Appointment
                               </button>
@@ -472,9 +502,12 @@ export default function PatientServices() {
                               <button
                                 className="btn btn-ghost"
                                 type="button"
-                                onClick={() => setSelectedService(service)}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setSelectedService(service);
+                                }}
                               >
-                                Learn More
+                                View Details
                               </button>
                             </div>
                           </div>
@@ -502,13 +535,14 @@ export default function PatientServices() {
             />
 
             <div
+              className="surface-light"
               style={{
                 position: "fixed",
                 top: 0,
                 right: 0,
                 width: "min(520px, 92vw)",
                 height: "100vh",
-                background: "rgba(20,20,28,0.96)",
+                background: "linear-gradient(180deg, rgba(18,14,32,0.98), rgba(14,11,25,0.98))",
                 borderLeft: "1px solid rgba(255,255,255,0.10)",
                 boxShadow: "-20px 0 50px rgba(0,0,0,0.35)",
                 zIndex: 81,
@@ -537,10 +571,10 @@ export default function PatientServices() {
                     </div>
 
                     <div>
-                      <div className="h2" style={{ margin: 0 }}>
+                      <div className="h2" style={{ margin: 0, color: "#F8FAFC" }}>
                         {selectedService.name}
                       </div>
-                      <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
+                      <div style={{ marginTop: 4, fontSize: 13, color: "rgba(226,232,240,0.82)" }}>
                         {categoryLabel(serviceDisplayKey(selectedService))}
                       </div>
                     </div>
@@ -571,46 +605,46 @@ export default function PatientServices() {
               <div className="space" />
 
               <div
-                className="card card-pad"
+                className="card card-pad card-light"
                 style={{
-                  background: "linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.03))",
-                  border: "1px solid rgba(255,255,255,.10)",
+                  background: "linear-gradient(135deg, rgba(255,255,255,0.97), rgba(245,241,255,0.94))",
+                  border: "1px solid rgba(184,164,255,0.22)",
                 }}
               >
-                <div className="muted" style={{ fontSize: 12 }}>Pricing</div>
-                <div style={{ fontSize: 28, fontWeight: 900, marginTop: 8 }}>
+                <div className="muted" style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Pricing</div>
+                <div style={{ fontSize: 28, fontWeight: 900, marginTop: 8, color: "#140F24" }}>
                   {priceLabel(selectedService)
                     ? `Starting at ${priceLabel(selectedService)}`
                     : "Consultation required for pricing"}
                 </div>
-                <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                <div className="surface-light-helper" style={{ marginTop: 8, lineHeight: 1.6 }}>
                   Pricing may vary depending on provider evaluation, treatment customization, and follow-up needs.
                 </div>
               </div>
 
               <div className="space" />
 
-              <div className="card card-pad">
-                <div className="muted" style={{ marginBottom: 8 }}>Overview</div>
-                <div style={{ lineHeight: 1.7 }}>
+              <div className="card card-pad card-light">
+                <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Overview</div>
+                <div className="surface-light-body" style={{ lineHeight: 1.7 }}>
                   {shortBlurb(selectedService)}
                 </div>
               </div>
 
               <div className="space" />
 
-              <div className="card card-pad">
-                <div className="muted" style={{ marginBottom: 8 }}>Ideal For</div>
-                <div style={{ lineHeight: 1.7 }}>
+              <div className="card card-pad card-light">
+                <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Ideal For</div>
+                <div className="surface-light-body" style={{ lineHeight: 1.7 }}>
                   {idealFor(selectedService)}
                 </div>
               </div>
 
               <div className="space" />
 
-              <div className="card card-pad">
-                <div className="muted" style={{ marginBottom: 8 }}>Service Details</div>
-                <div style={{ lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
+              <div className="card card-pad card-light">
+                <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Service Details</div>
+                <div className="surface-light-body" style={{ lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
                   {selectedService.description?.trim() ||
                     "Additional details will be reviewed during your consultation and scheduling process."}
                 </div>
@@ -618,9 +652,9 @@ export default function PatientServices() {
 
               <div className="space" />
 
-              <div className="card card-pad">
-                <div className="muted" style={{ marginBottom: 8 }}>What To Expect</div>
-                <div style={{ lineHeight: 1.7 }}>
+              <div className="card card-pad card-light">
+                <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>What To Expect</div>
+                <div className="surface-light-body" style={{ lineHeight: 1.7 }}>
                   Your care team will review your goals, health history, and treatment needs to determine the most appropriate next step. Certain treatments may require consultation, provider approval, or a custom care plan before treatment is finalized.
                 </div>
               </div>

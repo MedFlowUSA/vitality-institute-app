@@ -60,6 +60,8 @@ export function normalizeAnswerValue(question: IntakeQuestion, rawValue: unknown
     return rawValue === true ? true : rawValue === false ? false : null;
   }
 
-  if (typeof rawValue === "string") return rawValue.trim();
+  // Preserve in-progress typing exactly as entered so mobile keyboards do not
+  // lose trailing spaces or merge words while the patient is still composing.
+  if (typeof rawValue === "string") return rawValue;
   return rawValue;
 }

@@ -103,6 +103,9 @@ export default function DictationTextarea({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
+          spellCheck
+          autoCorrect="on"
+          autoCapitalize="sentences"
         />
         {speechCtor && !disabled ? (
           <button

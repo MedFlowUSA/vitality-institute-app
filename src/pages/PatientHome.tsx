@@ -466,7 +466,7 @@ function nextStepCardStyle(tone: "info" | "warning" | "success") {
 }
 
 export default function PatientHome() {
-  const { user, role, signOut, resumeKey } = useAuth();
+  const { user, signOut, resumeKey } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const prefillServiceId = searchParams.get("serviceId") ?? "";
@@ -841,14 +841,14 @@ export default function PatientHome() {
 
     if (latestVitalAiSession?.status === "draft") {
       return {
-        eyebrow: "Resume Your Intake",
+        eyebrow: "Continue Your Intake",
         title: "Hi, I'm Vital AI - your intake assistant. I'll guide you through a few steps so our team can prepare for your visit.",
         guidance:
           "Start or resume your intake so our care team can prepare for your visit with the right information ahead of time.",
         statusLabel: "Draft intake saved",
         statusTone: "rgba(59,130,246,.18)",
         primary: {
-          label: "Resume Intake",
+          label: "Continue Intake Form",
           onClick: () => navigate(`/intake/session/${latestVitalAiSession.id}`),
         },
         secondary: dashboardAction,
@@ -1766,6 +1766,26 @@ export default function PatientHome() {
     type: "button" as const,
   };
 
+  const lightSurfaceCardStyle = {
+    background: "linear-gradient(135deg, rgba(255,255,255,0.96), rgba(245,241,255,0.94))",
+    border: "1px solid rgba(184,164,255,0.22)",
+    color: "#1F1633",
+  };
+
+  const glanceCardStyle = {
+    flex: "1 1 220px",
+    textAlign: "left" as const,
+    minHeight: 148,
+    background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,245,255,0.92))",
+    border: "1px solid rgba(184,164,255,0.22)",
+    color: "#1F1633",
+    boxShadow: "0 10px 28px rgba(16,24,40,0.08)",
+    display: "flex",
+    flexDirection: "column" as const,
+    justifyContent: "space-between",
+    cursor: "pointer",
+  };
+
   // Gate loading UI (keeps your full page intact, but prevents rendering before gate check)
   if (checkingOnboarding) {
     return (
@@ -1881,23 +1901,22 @@ export default function PatientHome() {
             <div
               className="card card-pad"
               style={{
-                background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(245,241,255,0.96))",
-                border: "1px solid rgba(184,164,255,0.22)",
+                ...lightSurfaceCardStyle,
               }}
             >
               <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
                 <div style={{ flex: "1 1 360px" }}>
-                  <div className="muted" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                  <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em", color: "#6D5F97", fontWeight: 800 }}>
                     Upcoming Virtual Visit
                   </div>
-                  <div className="h2" style={{ marginTop: 8 }}>
+                  <div className="h2" style={{ marginTop: 8, color: "#1F1633" }}>
                     {new Date(nextAppointment.start_time).toLocaleString()}
                   </div>
-                  <div className="muted" style={{ marginTop: 6, lineHeight: 1.7 }}>
+                  <div style={{ marginTop: 6, lineHeight: 1.7, color: "#4B5563" }}>
                     {svcName(nextAppointment.service_id)} • {locName(nextAppointment.location_id)}
                   </div>
                   {nextAppointment.virtual_instructions ? (
-                    <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                    <div style={{ marginTop: 8, lineHeight: 1.7, color: "#475569" }}>
                       {nextAppointment.virtual_instructions}
                     </div>
                   ) : null}
@@ -1981,15 +2000,17 @@ export default function PatientHome() {
           id="patient-portal-content"
           className="card card-pad"
           style={{
-            background: "linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.03))",
-            border: "1px solid rgba(255,255,255,.10)",
+            ...lightSurfaceCardStyle,
           }}
         >
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
-              <div className="h2">Today at a Glance</div>
-              <div className="muted" style={{ marginTop: 4 }}>
-                A quick summary of your current care activity.
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#6D5F97", textTransform: "uppercase", letterSpacing: ".08em" }}>
+                Dashboard Overview
+              </div>
+              <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Today at a Glance</div>
+              <div style={{ marginTop: 4, color: "#475569" }}>
+                Open the areas that matter most right now without hunting through the portal.
               </div>
             </div>
 
@@ -2005,47 +2026,106 @@ export default function PatientHome() {
           <div className="space" />
 
           <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-            <div className="card card-pad" style={{ flex: "1 1 220px" }}>
-              <div className="muted">Next Appointment</div>
-              <div style={{ fontWeight: 800, marginTop: 8, lineHeight: 1.6 }}>
-                {todayAtAGlance.nextAppointmentText}
+            <button
+              className="card card-pad"
+              type="button"
+              style={glanceCardStyle}
+              onClick={() => {
+                if (nextAppointment) {
+                  setAppointmentDrawerFiles([]);
+                  setSelectedAppointment(nextAppointment);
+                  return;
+                }
+                scrollToBooking();
+              }}
+            >
+              <div>
+                <div style={{ color: "#6D5F97", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                  Next Appointment
+                </div>
+                <div style={{ fontWeight: 800, marginTop: 10, lineHeight: 1.6, color: "#1F2937" }}>
+                  {todayAtAGlance.nextAppointmentText}
+                </div>
               </div>
-            </div>
+              <div style={{ color: "#7C3AED", fontSize: 13, fontWeight: 800 }}>
+                {nextAppointment ? "Open appointment details" : "Book an appointment"}
+              </div>
+            </button>
 
-            <div className="card card-pad" style={{ flex: "1 1 220px" }}>
-              <div className="muted">Intake Status</div>
-              <div style={{ fontWeight: 800, marginTop: 8, lineHeight: 1.6 }}>
-                {todayAtAGlance.intakeText}
+            <button
+              className="card card-pad"
+              type="button"
+              style={glanceCardStyle}
+              onClick={() => navigate("/intake")}
+            >
+              <div>
+                <div style={{ color: "#6D5F97", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                  Intake Status
+                </div>
+                <div style={{ fontWeight: 800, marginTop: 10, lineHeight: 1.6, color: "#1F2937" }}>
+                  {todayAtAGlance.intakeText}
+                </div>
               </div>
-            </div>
+              <div style={{ color: "#7C3AED", fontSize: 13, fontWeight: 800 }}>
+                {latestVitalAiSession?.status === "draft" ? "Continue Intake Form" : "Open Vital AI intake"}
+              </div>
+            </button>
 
-            <div className="card card-pad" style={{ flex: "1 1 220px" }}>
-              <div className="muted">Care Plan</div>
-              <div style={{ fontWeight: 800, marginTop: 8, lineHeight: 1.6 }}>
-                {todayAtAGlance.carePlanText}
+            <button
+              className="card card-pad"
+              type="button"
+              style={glanceCardStyle}
+              onClick={() => navigate("/patient/treatments")}
+            >
+              <div>
+                <div style={{ color: "#6D5F97", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                  Care Plan
+                </div>
+                <div style={{ fontWeight: 800, marginTop: 10, lineHeight: 1.6, color: "#1F2937" }}>
+                  {todayAtAGlance.carePlanText}
+                </div>
               </div>
-            </div>
+              <div style={{ color: "#7C3AED", fontSize: 13, fontWeight: 800 }}>
+                Review treatment instructions
+              </div>
+            </button>
 
-            <div className="card card-pad" style={{ flex: "1 1 220px" }}>
-              <div className="muted">Messages</div>
-              <div style={{ fontWeight: 800, marginTop: 8, lineHeight: 1.6 }}>
-                {todayAtAGlance.messagesText}
+            <button
+              className="card card-pad"
+              type="button"
+              style={glanceCardStyle}
+              onClick={() => navigate("/patient/chat")}
+            >
+              <div>
+                <div style={{ color: "#6D5F97", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                  Messages
+                </div>
+                <div style={{ fontWeight: 800, marginTop: 10, lineHeight: 1.6, color: "#1F2937" }}>
+                  {todayAtAGlance.messagesText}
+                </div>
               </div>
-            </div>
+              <div style={{ color: "#7C3AED", fontSize: 13, fontWeight: 800 }}>
+                Open secure messages
+              </div>
+            </button>
           </div>
         </div>
 
         <div id="my-appointments" className="card card-pad">
           <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
-              <div className="h1">Patient Portal</div>
-              <div className="muted">Role: {role}</div>
-              <div className="muted">Signed in: {user?.email}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#CFC3F5", textTransform: "uppercase", letterSpacing: ".08em" }}>
+                Quick Actions
+              </div>
+              <div className="h1">Care Access</div>
+              <div className="muted" style={{ marginTop: 6 }}>
+                Book care, continue your intake form, review visits, and stay in touch with the clinic.
+              </div>
 
               <div className="space" />
 
               <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                <div className="muted">Wound intake status:</div>
+                <div className="muted">Latest wound-care intake:</div>
                 {loadingWound ? (
                   <span className="muted">Loading...</span>
                 ) : latestWoundIntake ? (
@@ -2063,24 +2143,28 @@ export default function PatientHome() {
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", minHeight: 44 }}>
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/treatments")}>
-                Treatments
+              <button className="btn btn-primary" {...quickBtnProps} onClick={() => navigate("/intake")}>
+                Continue Intake Form
               </button>
 
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/labs")}>
-                Labs
+              <button className="btn btn-ghost" {...quickBtnProps} onClick={scrollToBooking}>
+                Book Appointment
               </button>
 
               <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/services")}>
                 Browse Services
               </button>
 
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/visits")}>
-                Visit Chart
+              <button className="btn btn-ghost" {...quickBtnProps} onClick={scrollToAppointments}>
+                My Appointments
               </button>
 
               <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/chat")}>
-                Messages
+                Message Clinic
+              </button>
+
+              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/treatments")}>
+                Open My Chart
               </button>
             </div>
           </div>
@@ -2091,9 +2175,12 @@ export default function PatientHome() {
         <div className="card card-pad">
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             <div>
-              <div className="h2">Featured Services</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#CFC3F5", textTransform: "uppercase", letterSpacing: ".08em" }}>
+                Explore Treatments
+              </div>
+              <div className="h2" style={{ marginTop: 8 }}>Browse Care Options</div>
               <div className="muted" style={{ marginTop: 4 }}>
-                Explore some of our most requested treatments and consultations.
+                Tap a service card to explore details, compare options, or book when you are ready.
               </div>
             </div>
 
@@ -2121,14 +2208,25 @@ export default function PatientHome() {
                   <div
                     key={service.id}
                     className="card card-pad"
+                    role="button"
+                    tabIndex={0}
                     style={{
                       flex: "1 1 300px",
                       minWidth: 280,
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.08)",
+                      background: "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))",
+                      border: "1px solid rgba(200,182,255,0.16)",
+                      boxShadow: "0 16px 32px rgba(10,8,24,0.18)",
+                      cursor: "pointer",
+                    }}
+                    onClick={() => navigate("/patient/services")}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        navigate("/patient/services");
+                      }
                     }}
                   >
-                    <div className="muted" style={{ fontSize: 12 }}>
+                    <div style={{ fontSize: 12, color: "#CFC3F5", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
                       {prettyCategory(service.category)}
                     </div>
 
@@ -2158,14 +2256,15 @@ export default function PatientHome() {
                       <button
                         className="btn btn-primary"
                         type="button"
-                        onClick={() =>
+                        onClick={(event) => {
+                          event.stopPropagation();
                           navigate(
                             `/patient?serviceId=${service.id}` +
                               `&serviceName=${encodeURIComponent(service.name)}` +
                               `&category=${encodeURIComponent(service.category ?? "")}` +
                               `&price=${service.price_marketing_cents ?? service.price_regular_cents ?? ""}`
-                          )
-                        }
+                          );
+                        }}
                       >
                         Book Now
                       </button>
@@ -2173,9 +2272,12 @@ export default function PatientHome() {
                       <button
                         className="btn btn-ghost"
                         type="button"
-                        onClick={() => navigate("/patient/services")}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigate("/patient/services");
+                        }}
                       >
-                        Learn More
+                        View Details
                       </button>
                     </div>
                   </div>
@@ -3180,7 +3282,7 @@ export default function PatientHome() {
                     : appointmentIntakeStatus.status === "needs_info"
                     ? "Update Intake"
                     : appointmentIntakeStatus.status === "submitted"
-                    ? "Continue Intake"
+                    ? "Continue Intake Form"
                     : appointmentIntakeStatus.status === "approved" || appointmentIntakeStatus.status === "locked"
                     ? "View Intake"
                     : "Open Intake"}

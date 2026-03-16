@@ -125,7 +125,7 @@ export default function VitalAiIntakeHome() {
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
               <div className="v-chip" style={{ background: "rgba(200,182,255,0.18)", border: "1px solid rgba(200,182,255,0.34)", color: "#F8FAFC" }}>General Consultation</div>
               <div className="v-chip" style={{ background: "rgba(200,182,255,0.18)", border: "1px solid rgba(200,182,255,0.34)", color: "#F8FAFC" }}>Wound Care</div>
-              <div className="v-chip" style={{ background: "rgba(200,182,255,0.18)", border: "1px solid rgba(200,182,255,0.34)", color: "#F8FAFC" }}>Draft Resume</div>
+              <div className="v-chip" style={{ background: "rgba(200,182,255,0.18)", border: "1px solid rgba(200,182,255,0.34)", color: "#F8FAFC" }}>Continue Intake Form</div>
               <div className="v-chip" style={{ background: "rgba(200,182,255,0.18)", border: "1px solid rgba(200,182,255,0.34)", color: "#F8FAFC" }}>Secure Uploads</div>
             </div>
           </div>
@@ -151,7 +151,7 @@ export default function VitalAiIntakeHome() {
         <div className="space" />
 
         <div className="card card-pad" style={{ background: "rgba(8,15,28,0.98)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 14px 34px rgba(0,0,0,0.22)" }}>
-          <div className="h2" style={{ color: "#F8FAFC" }}>Resume Draft Intake</div>
+          <div className="h2" style={{ color: "#F8FAFC" }}>Continue Intake Form</div>
           <div className="space" />
           {loading ? (
             <div className="muted" style={{ color: "rgba(226,232,240,0.82)" }}>Loading drafts...</div>
@@ -173,7 +173,7 @@ export default function VitalAiIntakeHome() {
                   </div>
                 </span>
                 <span className="muted" style={{ fontSize: 12, color: "rgba(226,232,240,0.8)" }}>
-                  Resume
+                  Continue
                 </span>
               </button>
             ))

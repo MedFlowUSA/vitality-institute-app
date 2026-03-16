@@ -335,6 +335,11 @@ export function validateVisibleQuestions(args: {
         continue;
       }
 
+      if (typeof value === "string") {
+        if (value.trim() === "") return `${question.label} is required.`;
+        continue;
+      }
+
       if (value == null || value === "") return `${question.label} is required.`;
     }
   }

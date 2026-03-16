@@ -144,6 +144,9 @@ export default function QuestionRenderer({
         style={sharedInputStyle}
         value={typeof value === "string" || typeof value === "number" ? value : ""}
         onChange={(e) => onChange(question.type === "number" ? e.target.value : e.target.value)}
+        spellCheck={question.type === "text"}
+        autoCorrect={question.type === "text" ? "on" : undefined}
+        autoCapitalize={question.type === "text" ? "sentences" : undefined}
       />
     </div>
   );

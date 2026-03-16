@@ -29,6 +29,13 @@
   --v-text: rgba(255,255,255,0.92);
   --v-muted: rgba(255,255,255,0.68);
   --v-muted2: rgba(255,255,255,0.55);
+  --v-text-dark: #1f1633;
+  --v-heading-dark: #140f24;
+  --v-body-dark: #334155;
+  --v-muted-dark: #5b4e86;
+  --v-helper-dark: #64748b;
+  --v-border-light: rgba(184,164,255,0.22);
+  --v-card-light: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(245,241,255,0.94));
 
   --v-glow: 0 0 0 1px rgba(255,255,255,0.08), 0 10px 40px rgba(0,0,0,0.45);
   --v-glow-2: 0 0 0 1px rgba(255,255,255,0.10), 0 16px 60px rgba(0,0,0,0.55);
@@ -97,6 +104,53 @@ a:hover { text-decoration: underline; }
   font-weight: 700;
 }
 .muted { color: var(--v-muted); }
+
+.surface-light {
+  color: var(--v-text-dark);
+}
+
+.surface-light .h1,
+.surface-light .h2 {
+  color: var(--v-heading-dark);
+}
+
+.surface-light .muted {
+  color: var(--v-muted-dark);
+}
+
+.surface-light-body {
+  color: var(--v-body-dark);
+}
+
+.surface-light-helper {
+  color: var(--v-helper-dark);
+}
+
+.card-light {
+  background: var(--v-card-light);
+  border: 1px solid var(--v-border-light);
+  color: var(--v-text-dark);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.card-light .muted {
+  color: var(--v-muted-dark);
+}
+
+.card-light .h1,
+.card-light .h2 {
+  color: var(--v-heading-dark);
+}
+
+.card-light .v-chip {
+  background: rgba(124, 58, 237, 0.10);
+  border: 1px solid rgba(124, 58, 237, 0.18);
+  color: var(--v-text-dark);
+}
+
+.card-light .v-chip strong {
+  color: var(--v-heading-dark);
+}
 
 .space { height: 14px; }
 
