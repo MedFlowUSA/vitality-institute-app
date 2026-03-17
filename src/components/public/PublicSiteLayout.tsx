@@ -7,6 +7,7 @@ type Props = {
   children: ReactNode;
   rightAction?: ReactNode;
   backFallbackTo?: string;
+  compactHeader?: boolean;
 };
 
 const navItems = [
@@ -25,7 +26,7 @@ function getBackFallback(pathname: string) {
   return "/";
 }
 
-export default function PublicSiteLayout({ title, subtitle, children, rightAction, backFallbackTo }: Props) {
+export default function PublicSiteLayout({ title, subtitle, children, rightAction, backFallbackTo, compactHeader = false }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const showBack = location.pathname !== "/";
@@ -49,10 +50,14 @@ export default function PublicSiteLayout({ title, subtitle, children, rightActio
                 <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase", color: "#C8B6FF" }}>
                   Vitality Institute
                 </div>
-                <div className="h1" style={{ marginTop: 8 }}>
-                  {title}
-                </div>
-                {subtitle ? <div className="muted" style={{ marginTop: 6, maxWidth: 680 }}>{subtitle}</div> : null}
+                {!compactHeader ? (
+                  <>
+                    <div className="h1" style={{ marginTop: 8 }}>
+                      {title}
+                    </div>
+                    {subtitle ? <div className="muted" style={{ marginTop: 6, maxWidth: 680 }}>{subtitle}</div> : null}
+                  </>
+                ) : null}
               </Link>
             </div>
 

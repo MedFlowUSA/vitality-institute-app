@@ -12,18 +12,8 @@ export default function PublicLandingSimplified() {
 
   return (
     <PublicSiteLayout
-      title="Modern wellness, aesthetics, and medical care - all in one place."
-      subtitle="Feel better, look better, and stay on track with personalized care, seamless booking, and direct access to your care team."
-      rightAction={
-        <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-          <Link to="/book" className="btn btn-primary">
-            Book Appointment
-          </Link>
-          <Link to="/services" className="btn btn-ghost">
-            Explore Services
-          </Link>
-        </div>
-      }
+      title="Vitality Institute"
+      compactHeader
     >
       <div className="row" style={{ gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
         <div
@@ -56,18 +46,15 @@ export default function PublicLandingSimplified() {
 
           <div className="space" />
 
-          <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+          <div className="row" style={{ gap: 14, flexWrap: "wrap", alignItems: "center" }}>
             <Link to="/book" className="btn btn-primary">
               Book Appointment
             </Link>
-            <Link to="/services" className="btn btn-ghost">
-              Explore Services
-            </Link>
-            <Link to="/vital-ai" className="btn btn-ghost">
+            <Link to="/vital-ai" className="btn btn-primary">
               Start with Vital AI
             </Link>
-            <Link to="/login" className="btn btn-ghost">
-              Sign In
+            <Link to="/services" className="btn btn-ghost">
+              Explore Services
             </Link>
           </div>
         </div>
