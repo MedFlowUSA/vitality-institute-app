@@ -257,6 +257,12 @@ export default function AdminHome() {
               <button className="btn btn-ghost" type="button" onClick={() => navigate("/admin/staff")}>
                 Staff Management
               </button>
+              <button className="btn btn-ghost" type="button" onClick={() => navigate("/admin/inquiries")}>
+                Public Inquiries
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => navigate("/admin/vital-ai-lite")}>
+                Vital AI Lite
+              </button>
               <button
                 className="btn btn-primary"
                 type="button"

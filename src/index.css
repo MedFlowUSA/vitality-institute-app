@@ -889,3 +889,220 @@ button.card .muted,
 .provider-action .muted {
   color: rgba(0, 0, 0, 0.65) !important;
 }
+
+/* ===============================
+   FINAL SEMANTIC CONTRAST SYSTEM
+   Authoritative overrides
+   =============================== */
+
+:root {
+  --v-text-primary: rgba(255, 255, 255, 0.94);
+  --v-text-secondary: rgba(226, 232, 240, 0.84);
+  --v-text-muted: rgba(203, 213, 225, 0.72);
+  --v-text-heading: #f8fafc;
+  --v-text-inverse: #140f24;
+  --v-surface-dark: rgba(11, 16, 32, 0.78);
+  --v-surface-elevated: rgba(255, 255, 255, 0.08);
+  --v-surface-light-solid: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(245,241,255,0.96));
+  --v-border-strong: rgba(255, 255, 255, 0.16);
+  --v-border-soft: rgba(255, 255, 255, 0.10);
+  --v-input-text: rgba(255, 255, 255, 0.94);
+  --v-input-placeholder: rgba(226, 232, 240, 0.58);
+  --v-helper: rgba(203, 213, 225, 0.78);
+  --v-success: #065f46;
+  --v-success-bg: rgba(16, 185, 129, 0.14);
+  --v-error: #991b1b;
+  --v-error-bg: rgba(239, 68, 68, 0.12);
+}
+
+body,
+.app-bg {
+  color: var(--v-text-primary);
+}
+
+.h1,
+.h2,
+.title {
+  color: var(--v-text-heading);
+}
+
+.muted,
+.sub {
+  color: var(--v-text-muted);
+}
+
+.card {
+  background: var(--v-surface-dark);
+  border: 1px solid var(--v-border-soft);
+  color: var(--v-text-primary);
+  box-shadow: var(--v-glow);
+}
+
+.card-light,
+.surface-light,
+.public-shell {
+  color: var(--v-text-dark);
+}
+
+.card-light,
+.public-shell .card {
+  background: var(--v-surface-light-solid);
+  border: 1px solid var(--v-border-light);
+  color: var(--v-text-dark);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.public-shell .h1,
+.public-shell .h2,
+.public-shell .title,
+.surface-light .h1,
+.surface-light .h2,
+.card-light .h1,
+.card-light .h2 {
+  color: var(--v-heading-dark);
+}
+
+.public-shell .muted,
+.public-shell .sub,
+.surface-light .muted,
+.card-light .muted {
+  color: var(--v-muted-dark);
+}
+
+.public-shell .surface-light-body,
+.public-shell .surface-light-helper,
+.surface-light-body {
+  color: var(--v-body-dark);
+}
+
+.surface-light-helper,
+.public-shell .surface-light-helper {
+  color: var(--v-helper-dark);
+}
+
+.btn {
+  font-weight: 800;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #7a5cff, #5a3cff);
+  color: #ffffff;
+  border: 1px solid rgba(90, 60, 255, 0.28);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.06);
+}
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--v-text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.surface-light .btn-ghost,
+.card-light .btn-ghost,
+.public-shell .btn-ghost {
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--v-text-dark);
+  border-color: rgba(100, 116, 139, 0.20);
+}
+
+.surface-light .btn-ghost:hover,
+.card-light .btn-ghost:hover,
+.public-shell .btn-ghost:hover {
+  background: rgba(15, 23, 42, 0.10);
+  border-color: rgba(100, 116, 139, 0.30);
+}
+
+.surface-light .btn-primary,
+.card-light .btn-primary,
+.public-shell .btn-primary {
+  color: #ffffff;
+}
+
+.input,
+textarea.input,
+select.input {
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--v-input-text);
+  border: 1px solid var(--v-border-soft);
+}
+
+.input::placeholder,
+textarea.input::placeholder {
+  color: var(--v-input-placeholder);
+}
+
+.surface-light .input,
+.card-light .input,
+.public-shell .input {
+  background: rgba(255, 255, 255, 0.98);
+  color: var(--v-text-dark);
+  border: 1px solid rgba(148, 163, 184, 0.30);
+}
+
+.surface-light .input::placeholder,
+.card-light .input::placeholder,
+.public-shell .input::placeholder,
+.surface-light textarea.input::placeholder,
+.card-light textarea.input::placeholder,
+.public-shell textarea.input::placeholder {
+  color: #64748b;
+}
+
+.v-chip {
+  background: rgba(0, 0, 0, 0.20);
+  color: rgba(255,255,255,0.9);
+}
+
+.card-light .v-chip,
+.public-shell .v-chip,
+.surface-light .v-chip {
+  background: rgba(124, 58, 237, 0.10);
+  border: 1px solid rgba(124, 58, 237, 0.18);
+  color: var(--v-text-dark);
+}
+
+.v-stat {
+  background: rgba(0, 0, 0, 0.18);
+  color: var(--v-text-primary);
+}
+
+.v-hero {
+  color: var(--v-text-primary);
+}
+
+.public-shell .v-hero,
+.public-shell .v-brand-title .title,
+.public-shell .v-brand-title .sub {
+  color: var(--v-text-dark);
+}
+
+.public-shell .v-brand-title .sub {
+  color: var(--v-body-dark);
+}
+
+.public-shell .v-stat {
+  background: var(--v-surface-light-solid);
+  border-color: var(--v-border-light);
+  color: var(--v-text-dark);
+}
+
+.public-shell .v-stat .k {
+  color: var(--v-muted-dark);
+}
+
+.public-shell .v-stat .v {
+  color: var(--v-heading-dark);
+}
+
+.public-shell a.card *,
+.public-shell .service-card *,
+.public-shell .card * {
+  -webkit-text-fill-color: initial;
+}

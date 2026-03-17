@@ -1,18 +1,69 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
+import { supabase } from "../lib/supabase";
 
 export default function PublicContact() {
   const [searchParams] = useSearchParams();
   const serviceId = searchParams.get("serviceId");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [preferredContactMethod, setPreferredContactMethod] = useState("email");
   const [topic, setTopic] = useState(serviceId ? "service_question" : "booking_help");
   const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
   const bookingLink = useMemo(() => {
     return serviceId ? `/book?interest=${encodeURIComponent(serviceId)}` : "/book";
   }, [serviceId]);
+
+  async function submitInquiry() {
+    setSubmitError(null);
+
+    if (!name.trim()) {
+      setSubmitError("Enter your name.");
+      return;
+    }
+    if (!email.trim() && !phone.trim()) {
+      setSubmitError("Enter an email or phone number so the clinic can reach you.");
+      return;
+    }
+    if (!message.trim()) {
+      setSubmitError("Enter your message.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("contact_inquiries").insert([
+        {
+          name: name.trim(),
+          phone: phone.trim() || null,
+          email: email.trim() || null,
+          preferred_contact_method: preferredContactMethod,
+          reason_for_inquiry: topic,
+          message: message.trim(),
+          status: "new",
+          source: serviceId ? "public_contact_form_service" : "public_contact_form",
+        },
+      ]);
+
+      if (error) throw error;
+
+      setSubmitted(true);
+      setName("");
+      setPhone("");
+      setEmail("");
+      setMessage("");
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Unable to submit your inquiry right now.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <PublicSiteLayout title="Contact the Clinic" subtitle="Reach the Vitality team for service questions, scheduling help, or next-step guidance.">
@@ -57,15 +108,35 @@ export default function PublicContact() {
         <div className="card card-pad" style={{ flex: "1 1 460px" }}>
           <div className="h2">Inquiry Form</div>
           <div className="muted" style={{ marginTop: 6 }}>
-            This lightweight form is a placeholder for a future secure inquiry workflow. For now, use it to organize your question before calling or emailing the clinic.
+            Send a real inquiry to the clinic and we will follow up using your preferred contact method.
           </div>
 
           <div className="space" />
 
+          {submitted ? (
+            <div className="card card-pad card-light surface-light">
+              <div className="h2">Inquiry sent</div>
+              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
+                Your message has been sent to Vitality Institute of Redlands. The team can follow up by {preferredContactMethod === "either" ? "phone or email" : preferredContactMethod}.
+              </div>
+            </div>
+          ) : null}
+
+          {submitError ? <div style={{ color: "#fecaca", marginBottom: 12 }}>{submitError}</div> : null}
+
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
             <input className="input" style={{ flex: "1 1 220px" }} placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
+            <input className="input" style={{ flex: "1 1 220px" }} placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
             <input className="input" style={{ flex: "1 1 260px" }} placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
+
+          <div className="space" />
+
+          <select className="input" value={preferredContactMethod} onChange={(e) => setPreferredContactMethod(e.target.value)}>
+            <option value="email">Prefer email</option>
+            <option value="phone">Prefer phone</option>
+            <option value="either">Either is fine</option>
+          </select>
 
           <div className="space" />
 
@@ -88,14 +159,9 @@ export default function PublicContact() {
           <div className="space" />
 
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-            <a
-              className="btn btn-primary"
-              href={`mailto:hello@vitalityinstitute.com?subject=${encodeURIComponent(
-                `Vitality Inquiry: ${topic.replaceAll("_", " ")}`
-              )}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\n${message}`)}`}
-            >
-              Email the Clinic
-            </a>
+            <button className="btn btn-primary" type="button" onClick={submitInquiry} disabled={submitting}>
+              {submitting ? "Sending..." : "Send Inquiry"}
+            </button>
             <a className="btn btn-ghost" href="tel:+19095004572">
               Call the Clinic
             </a>

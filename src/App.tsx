@@ -9,13 +9,15 @@ import AppStatusFooter from "./components/AppStatusFooter";
 import AuthCallback from "./pages/AuthCallback";
 
 import Login from "./pages/Login";
-import PublicLanding from "./pages/PublicLanding";
+import PublicLanding from "./pages/PublicLandingSimplified";
 import PublicServices from "./pages/PublicServices";
 import PublicServiceDetail from "./pages/PublicServiceDetail";
 import PublicContact from "./pages/PublicContact";
 import PublicBook from "./pages/PublicBook";
+import PublicVitalAiLite from "./pages/PublicVitalAiLite";
 import AdminHome from "./pages/AdminHome";
 import AdminStaffManagement from "./pages/AdminStaffManagement";
+import AdminInquiries from "./pages/AdminInquiries";
 
 import PatientAuth from "./pages/PatientAuth";
 import PatientHome from "./pages/PatientHome";
@@ -58,6 +60,7 @@ import ProviderCommandCenter from "./pages/ProviderCommandCenter";
 import ServicesPanel from "./pages/ServicesPanel";
 import AdminVitalAiQueue from "./pages/AdminVitalAiQueue";
 import AdminVitalAiLeadDetail from "./pages/AdminVitalAiLeadDetail";
+import AdminPublicVitalAiSubmissions from "./pages/AdminPublicVitalAiSubmissions";
 
 function FullscreenLoader({
   text = "Loading...",
@@ -241,6 +244,8 @@ export default function App() {
             <Route path="/services/:slug" element={<PublicServiceDetail />} />
             <Route path="/contact" element={<PublicContact />} />
             <Route path="/book" element={<PublicBook />} />
+            <Route path="/vital-ai" element={<PublicVitalAiLite />} />
+            <Route path="/start" element={<PublicVitalAiLite />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/login" element={<Login />} />
             <Route path="/login/reset-password" element={<ResetPassword />} />
@@ -276,6 +281,22 @@ export default function App() {
               element={
                 <RequireRole allow={[...PROVIDER_ROLES]}>
                   <AdminVitalAiQueue />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/admin/inquiries"
+              element={
+                <RequireRole allow={[...PROVIDER_ROLES]}>
+                  <AdminInquiries />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/admin/vital-ai-lite"
+              element={
+                <RequireRole allow={[...PROVIDER_ROLES]}>
+                  <AdminPublicVitalAiSubmissions />
                 </RequireRole>
               }
             />

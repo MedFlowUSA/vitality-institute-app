@@ -65,7 +65,7 @@ export default function PublicServices() {
                   style={{
                     flex: "1 1 300px",
                     minWidth: 260,
-                    background: "linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05))",
+                    background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(245,241,255,0.94))",
                   }}
                 >
                   <div className="row" style={{ justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
@@ -77,7 +77,7 @@ export default function PublicServices() {
                     </div>
                     <div className="v-chip">{service.price}</div>
                   </div>
-                  <div style={{ marginTop: 10, lineHeight: 1.7, color: "rgba(255,255,255,0.9)" }}>
+                  <div style={{ marginTop: 10, lineHeight: 1.7, color: "#334155" }}>
                     {service.summary}
                   </div>
                   <div className="muted" style={{ marginTop: 12, fontSize: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>

@@ -6,6 +6,7 @@ type Props = {
   subtitle?: string;
   children: ReactNode;
   rightAction?: ReactNode;
+  backFallbackTo?: string;
 };
 
 const navItems = [
@@ -16,13 +17,30 @@ const navItems = [
   { to: "/login", label: "Sign In" },
 ];
 
-export default function PublicSiteLayout({ title, subtitle, children, rightAction }: Props) {
+function getBackFallback(pathname: string) {
+  if (pathname.startsWith("/services/")) return "/services";
+  if (pathname === "/contact") return "/";
+  if (pathname === "/book") return "/services";
+  if (pathname === "/vital-ai" || pathname === "/start") return "/";
+  return "/";
+}
+
+export default function PublicSiteLayout({ title, subtitle, children, rightAction, backFallbackTo }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const showBack = location.pathname !== "/";
+  const resolvedBackFallback = backFallbackTo ?? getBackFallback(location.pathname);
+
+  function handleBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(resolvedBackFallback);
+  }
 
   return (
-    <div className="app-bg">
+    <div className="app-bg public-shell">
       <div className="shell">
         <div className="card card-pad" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))" }}>
           <div className="row" style={{ justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
@@ -45,7 +63,7 @@ export default function PublicSiteLayout({ title, subtitle, children, rightActio
 
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             {showBack ? (
-              <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>
+              <button type="button" className="btn btn-ghost" onClick={handleBack}>
                 Back
               </button>
             ) : null}

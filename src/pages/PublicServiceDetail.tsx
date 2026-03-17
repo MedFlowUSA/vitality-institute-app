@@ -35,7 +35,7 @@ export default function PublicServiceDetail() {
           <div
             className="card card-pad"
             style={{
-              background: "linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05))",
+              background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(245,241,255,0.94))",
             }}
           >
             <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
@@ -46,7 +46,7 @@ export default function PublicServiceDetail() {
                 <div className="h1" style={{ marginTop: 10 }}>
                   {service.title}
                 </div>
-                <div style={{ marginTop: 10, lineHeight: 1.7, maxWidth: 760, color: "rgba(255,255,255,0.92)" }}>
+                <div style={{ marginTop: 10, lineHeight: 1.7, maxWidth: 760, color: "#334155" }}>
                   {service.summary}
                 </div>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
@@ -69,7 +69,7 @@ export default function PublicServiceDetail() {
               <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-ghost">
                 Contact Us
               </Link>
-              <Link to="/access?mode=signup&next=/intake" className="btn btn-ghost">
+              <Link to="/vital-ai" className="btn btn-ghost">
                 Start with Vital AI
               </Link>
             </div>

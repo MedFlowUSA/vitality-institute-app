@@ -28,14 +28,14 @@ export default function PublicLanding() {
       }
     >
       <div className="row" style={{ gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
-        <div className="card card-pad" style={{ flex: "1 1 520px", background: "linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.05))" }}>
+        <div className="card card-pad" style={{ flex: "1 1 520px", background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(245,241,255,0.94))" }}>
           <div style={{ fontSize: 12, fontWeight: 900, color: "#C8B6FF", letterSpacing: ".12em", textTransform: "uppercase" }}>
             Vitality Institute
           </div>
           <div className="h1" style={{ marginTop: 10 }}>
             Modern wellness, aesthetics, and medical care — all in one place.
           </div>
-          <div style={{ marginTop: 10, lineHeight: 1.7, maxWidth: 760, color: "rgba(255,255,255,0.92)" }}>
+          <div style={{ marginTop: 10, lineHeight: 1.7, maxWidth: 760, color: "#334155" }}>
             Feel better, look better, and stay on track with personalized care, seamless booking, and direct access to your care team.
           </div>
 
@@ -60,7 +60,7 @@ export default function PublicLanding() {
             <a href="#download-app" className="btn btn-ghost">
               Download App
             </a>
-            <Link to="/access?mode=signup&next=/intake" className="btn btn-ghost">
+            <Link to="/vital-ai" className="btn btn-ghost">
               Start with Vital AI
             </Link>
           </div>
