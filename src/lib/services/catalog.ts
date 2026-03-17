@@ -77,6 +77,14 @@ export function serviceDisplayKey(service: Pick<CatalogService, "category" | "se
   return service.category ?? service.service_group ?? "other";
 }
 
+export function serviceSlug(service: Pick<CatalogService, "name">) {
+  return service.name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export function categoryAccent(cat: string | null) {
   switch (cat) {
     case "iv_therapy":
@@ -132,6 +140,37 @@ export function estimatedTiming(service: CatalogService) {
 export function shortBlurb(service: CatalogService) {
   if (service.description?.trim()) return service.description.trim();
   return "Personalized care options designed to support your goals and overall health.";
+}
+
+export function serviceOverview(service: CatalogService) {
+  if (service.description?.trim()) return service.description.trim();
+  return "This service is tailored around provider-guided care planning, clear next steps, and a premium clinical experience from evaluation through follow-up.";
+}
+
+export function serviceDetails(service: CatalogService) {
+  const parts = [
+    service.requires_consult ? "Provider review may be required before final treatment confirmation." : "This service can typically begin with online booking.",
+    service.duration_minutes ? `Typical visit length is about ${service.duration_minutes} minutes.` : "Visit timing depends on your treatment plan and provider review.",
+    service.visit_type ? `Primary care path: ${service.visit_type.replaceAll("_", " ")}.` : null,
+  ].filter(Boolean);
+  return parts.join(" ");
+}
+
+export function serviceExpectations(service: CatalogService) {
+  const key = serviceDisplayKey(service);
+  switch (key) {
+    case "wound_care":
+      return "Expect wound review, symptom discussion, image or measurement review when relevant, and a provider-led plan for the next step.";
+    case "glp1":
+      return "Expect a focused metabolic and weight-management discussion covering history, goals, and whether follow-up steps are appropriate.";
+    case "iv_therapy":
+    case "iv_drip":
+      return "Expect a quick review of your goals, suitability, and visit timing before the session is finalized.";
+    case "consult":
+      return "Expect a provider conversation first, with treatment options or additional follow-up steps discussed after evaluation.";
+    default:
+      return "Expect an initial review of your goals and history, followed by clear guidance on the most appropriate next step.";
+  }
 }
 
 export function idealFor(service: CatalogService) {

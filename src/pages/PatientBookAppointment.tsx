@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { clearPublicBookingDraft, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
@@ -36,10 +37,11 @@ export default function PatientBookAppointment() {
   const [startTimeLocal, setStartTimeLocal] = useState(""); // datetime-local
   const [notes, setNotes] = useState("");
 
-  const prefillLocationId = searchParams.get("locationId") ?? "";
-  const prefillServiceId = searchParams.get("serviceId") ?? "";
-  const prefillStart = searchParams.get("start") ?? "";
-  const prefillNotes = searchParams.get("notes") ?? "";
+  const storedDraft = readPublicBookingDraft();
+  const prefillLocationId = searchParams.get("locationId") ?? storedDraft?.locationId ?? "";
+  const prefillServiceId = searchParams.get("serviceId") ?? storedDraft?.serviceId ?? "";
+  const prefillStart = searchParams.get("start") ?? storedDraft?.startTimeLocal ?? "";
+  const prefillNotes = searchParams.get("notes") ?? storedDraft?.notes ?? "";
 
   const servicesForLocation = useMemo(() => {
     return services.filter((s) => s.location_id === locationId && (s.is_active ?? true));
@@ -95,9 +97,18 @@ export default function PatientBookAppointment() {
           .eq("is_active", true)
           .order("name");
         if (svcErr) throw svcErr;
-        setServices((svcs as ServiceRow[]) ?? []);
+        const serviceRows = (svcs as ServiceRow[]) ?? [];
+        setServices(serviceRows);
         if (prefillStart) setStartTimeLocal(prefillStart);
         if (prefillNotes) setNotes(prefillNotes);
+
+        if (prefillLocationId && !(locs as LocationRow[]).some((location) => location.id === prefillLocationId)) {
+          setErr("Your saved location is no longer available. Please choose a new location.");
+        }
+
+        if (prefillServiceId && !serviceRows.some((service) => service.id === prefillServiceId)) {
+          setErr("Your saved service is no longer available. Please choose another service.");
+        }
       } catch (e: any) {
         setErr(e?.message ?? "Failed to load booking.");
       } finally {
@@ -123,7 +134,11 @@ export default function PatientBookAppointment() {
     const first = servicesForLocation[0];
     if (first?.id) setServiceId(first.id);
     else setServiceId("");
-  }, [prefillServiceId, servicesForLocation]);
+  }, [prefillServiceId, serviceId, servicesForLocation]);
+
+  useEffect(() => {
+    savePublicBookingDraft({ locationId, serviceId, startTimeLocal, notes });
+  }, [locationId, notes, serviceId, startTimeLocal]);
 
   const computeEndTimeIso = (startIso: string) => {
     const mins = selectedService?.duration_minutes ?? 30;
@@ -146,6 +161,11 @@ export default function PatientBookAppointment() {
     if (!locationId) return setErr("Select a location.");
     if (!serviceId) return setErr("Select a service.");
     if (!startTimeLocal) return setErr("Select a date/time.");
+
+    const start = new Date(startTimeLocal);
+    if (Number.isNaN(start.getTime()) || start.getTime() < Date.now() - 60 * 1000) {
+      return setErr("Select a future date/time.");
+    }
 
     const startIso = toIsoFromLocal(startTimeLocal);
     const endIso = computeEndTimeIso(startIso);
@@ -178,6 +198,8 @@ export default function PatientBookAppointment() {
       setErr(error.message);
       return;
     }
+
+    clearPublicBookingDraft();
 
     // go straight into intake for this appointment
     nav(`/patient/intake?appointmentId=${data.id}`, { replace: true });

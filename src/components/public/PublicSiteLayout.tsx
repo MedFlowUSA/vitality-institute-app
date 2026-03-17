@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 type Props = {
   title: string;
@@ -18,6 +18,8 @@ const navItems = [
 
 export default function PublicSiteLayout({ title, subtitle, children, rightAction }: Props) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const showBack = location.pathname !== "/";
 
   return (
     <div className="app-bg">
@@ -42,6 +44,11 @@ export default function PublicSiteLayout({ title, subtitle, children, rightActio
           <div className="space" />
 
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            {showBack ? (
+              <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>
+                Back
+              </button>
+            ) : null}
             {navItems.map((item) => {
               const active =
                 item.to === "/"

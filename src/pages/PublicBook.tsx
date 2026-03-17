@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
+import { readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { loadCatalogLocations, loadCatalogServices, type CatalogLocation, type CatalogService } from "../lib/services/catalog";
 
 export default function PublicBook() {
@@ -14,10 +15,11 @@ export default function PublicBook() {
   const [locations, setLocations] = useState<CatalogLocation[]>([]);
   const [services, setServices] = useState<CatalogService[]>([]);
 
-  const [locationId, setLocationId] = useState(searchParams.get("locationId") ?? "");
-  const [serviceId, setServiceId] = useState(searchParams.get("serviceId") ?? "");
-  const [startTimeLocal, setStartTimeLocal] = useState(searchParams.get("start") ?? "");
-  const [notes, setNotes] = useState(searchParams.get("notes") ?? "");
+  const draft = readPublicBookingDraft();
+  const [locationId, setLocationId] = useState(searchParams.get("locationId") ?? draft?.locationId ?? "");
+  const [serviceId, setServiceId] = useState(searchParams.get("serviceId") ?? draft?.serviceId ?? "");
+  const [startTimeLocal, setStartTimeLocal] = useState(searchParams.get("start") ?? draft?.startTimeLocal ?? "");
+  const [notes, setNotes] = useState(searchParams.get("notes") ?? draft?.notes ?? "");
 
   useEffect(() => {
     let cancelled = false;
@@ -51,9 +53,25 @@ export default function PublicBook() {
     }
   }, [serviceId, servicesForLocation]);
 
+  useEffect(() => {
+    savePublicBookingDraft({ locationId, serviceId, startTimeLocal, notes });
+  }, [locationId, notes, serviceId, startTimeLocal]);
+
   const confirmBooking = () => {
     if (!locationId || !serviceId || !startTimeLocal) {
       setError("Select a location, service, and date/time before continuing.");
+      return;
+    }
+
+    const chosenService = services.find((service) => service.id === serviceId);
+    if (!chosenService) {
+      setError("That service is no longer available. Please choose another option.");
+      return;
+    }
+
+    const start = new Date(startTimeLocal);
+    if (Number.isNaN(start.getTime()) || start.getTime() < Date.now() - 60 * 1000) {
+      setError("That selected time is no longer valid. Please choose a future time.");
       return;
     }
 
@@ -93,6 +111,13 @@ export default function PublicBook() {
           </>
         ) : (
           <>
+            <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
+              <div className="h2">How this works</div>
+              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
+                Pick your service and preferred time now. We save that draft in this browser, and you only sign in when you are ready to confirm the booking.
+              </div>
+            </div>
+
             <div className="space" />
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 220px" }}>

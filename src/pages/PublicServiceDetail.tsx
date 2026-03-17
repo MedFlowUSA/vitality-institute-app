@@ -9,13 +9,17 @@ import {
   loadCatalogServices,
   priceLabel,
   pricingUnitLabel,
+  serviceDetails,
+  serviceExpectations,
+  serviceOverview,
+  serviceSlug,
   serviceDisplayKey,
   shortBlurb,
   type CatalogService,
 } from "../lib/services/catalog";
 
 export default function PublicServiceDetail() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const [services, setServices] = useState<CatalogService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +43,7 @@ export default function PublicServiceDetail() {
     };
   }, []);
 
-  const service = useMemo(() => services.find((row) => row.id === id) ?? null, [services, id]);
+  const service = useMemo(() => services.find((row) => serviceSlug(row) === slug) ?? null, [services, slug]);
 
   return (
     <PublicSiteLayout
@@ -92,6 +96,11 @@ export default function PublicServiceDetail() {
                 <div className="muted" style={{ marginTop: 10, lineHeight: 1.7, maxWidth: 760 }}>
                   {shortBlurb(service)}
                 </div>
+                <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                  <div className="v-chip">{serviceDisplayKey(service).replaceAll("_", " ")}</div>
+                  <div className="v-chip">{estimatedTiming(service)}</div>
+                  {service.requires_consult ? <div className="v-chip">Provider review may apply</div> : null}
+                </div>
               </div>
               {priceLabel(service) ? (
                 <div className="v-chip">
@@ -104,10 +113,13 @@ export default function PublicServiceDetail() {
 
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
               <Link to={`/book?serviceId=${encodeURIComponent(service.id)}`} className="btn btn-primary">
-                Book Now
+                Book Appointment
               </Link>
               <Link to={`/contact?serviceId=${encodeURIComponent(service.id)}`} className="btn btn-ghost">
-                Contact the Clinic
+                Contact Us
+              </Link>
+              <Link to="/access?mode=signup&next=/intake" className="btn btn-ghost">
+                Start with Vital AI
               </Link>
             </div>
           </div>
@@ -116,32 +128,61 @@ export default function PublicServiceDetail() {
 
           <div className="row" style={{ gap: 14, flexWrap: "wrap", alignItems: "stretch" }}>
             <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
-              <div className="h2">What this is best for</div>
-              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
-                {idealFor(service)}
+              <div className="h2">Overview</div>
+              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
+                {serviceOverview(service)}
               </div>
             </div>
 
-            <div className="card card-pad card-light surface-light" style={{ flex: "1 1 260px" }}>
-              <div className="h2">Typical timing</div>
-              <div className="surface-light-body" style={{ marginTop: 8 }}>{estimatedTiming(service)}</div>
-              <div className="surface-light-helper" style={{ marginTop: 8, fontSize: 13 }}>
-                Some services may still require provider review before final confirmation.
+            <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
+              <div className="h2">Ideal For</div>
+              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
+                {idealFor(service)}
               </div>
             </div>
           </div>
 
-          {service.description ? (
-            <>
-              <div className="space" />
-              <div className="card card-pad card-light surface-light">
-                <div className="h2">About this service</div>
-                <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
-                  {service.description}
+          <div className="space" />
+
+          <div className="row" style={{ gap: 14, flexWrap: "wrap", alignItems: "stretch" }}>
+            <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
+              <div className="h2">Service Details</div>
+              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
+                {serviceDetails(service)}
+              </div>
+            </div>
+
+            <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
+              <div className="h2">What To Expect</div>
+              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
+                {serviceExpectations(service)}
+              </div>
+              <div className="surface-light-helper" style={{ marginTop: 10, fontSize: 13 }}>
+                Typical timing: {estimatedTiming(service)}
+              </div>
+            </div>
+          </div>
+
+          <div className="space" />
+
+          <div className="card card-pad">
+            <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <div>
+                <div className="h2">Ready to move forward?</div>
+                <div className="muted" style={{ marginTop: 6 }}>
+                  Start booking now, contact the clinic, or begin with a guided Vital AI intake.
                 </div>
               </div>
-            </>
-          ) : null}
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <Link to={`/book?serviceId=${encodeURIComponent(service.id)}`} className="btn btn-primary">
+                  Book Appointment
+                </Link>
+                <Link to={`/contact?serviceId=${encodeURIComponent(service.id)}`} className="btn btn-ghost">
+                  Contact Us
+                </Link>
+              </div>
+            </div>
+          </div>
         </>
       )}
     </PublicSiteLayout>

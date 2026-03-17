@@ -238,7 +238,7 @@ export default function App() {
         <Routes>
             <Route path="/" element={<PublicLanding />} />
             <Route path="/services" element={<PublicServices />} />
-            <Route path="/services/:id" element={<PublicServiceDetail />} />
+            <Route path="/services/:slug" element={<PublicServiceDetail />} />
             <Route path="/contact" element={<PublicContact />} />
             <Route path="/book" element={<PublicBook />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
