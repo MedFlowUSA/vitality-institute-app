@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
+import { getPublicOfferingBySlug } from "../lib/publicMarketingCatalog";
 import { readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { loadCatalogLocations, loadCatalogServices, type CatalogLocation, type CatalogService } from "../lib/services/catalog";
 
@@ -9,6 +10,8 @@ export default function PublicBook() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const selectedInterestSlug = searchParams.get("interest") ?? "";
+  const selectedInterest = getPublicOfferingBySlug(selectedInterestSlug);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +114,20 @@ export default function PublicBook() {
           </>
         ) : (
           <>
+            {selectedInterest ? (
+              <>
+                <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
+                  <div className="h2">Selected Program Interest</div>
+                  <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
+                    <strong>{selectedInterest.title}</strong> — {selectedInterest.price}
+                  </div>
+                  <div className="surface-light-helper" style={{ marginTop: 8 }}>
+                    This public pricing item may map to a consultation, monthly program, or package. Choose the best booking option below and the clinic can confirm the exact next step after review.
+                  </div>
+                </div>
+              </>
+            ) : null}
+
             <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
               <div className="h2">How this works</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>

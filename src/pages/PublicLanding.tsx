@@ -1,63 +1,42 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
-import {
-  categoryAccent,
-  categoryIcon,
-  loadCatalogServices,
-  priceLabel,
-  serviceSlug,
-  serviceDisplayKey,
-  shortBlurb,
-  type CatalogService,
-} from "../lib/services/catalog";
+import { PUBLIC_OFFERINGS, PUBLIC_SERVICE_GROUPS, type PublicOffering } from "../lib/publicMarketingCatalog";
 
 export default function PublicLanding() {
-  const [services, setServices] = useState<CatalogService[]>([]);
+  const [services, setServices] = useState<PublicOffering[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const { services: rows } = await loadCatalogServices();
-        if (!cancelled) setServices(rows.slice(0, 6));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    setServices(PUBLIC_OFFERINGS.slice(0, 6));
+    setLoading(false);
   }, []);
 
   return (
     <PublicSiteLayout
       title="Care that feels polished before you even sign in"
-      subtitle="Explore services, request an appointment, and start your booking flow before creating an account."
+      subtitle="Feel better, look better, and stay on track with personalized care, seamless booking, and direct access to your care team."
       rightAction={
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-          <Link to="/services" className="btn btn-ghost">
-            Explore Services
-          </Link>
           <Link to="/book" className="btn btn-primary">
             Book Appointment
+          </Link>
+          <Link to="/services" className="btn btn-ghost">
+            Explore Services
           </Link>
         </div>
       }
     >
       <div className="row" style={{ gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
-        <div className="card card-pad" style={{ flex: "1 1 520px" }}>
+        <div className="card card-pad" style={{ flex: "1 1 520px", background: "linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.05))" }}>
           <div style={{ fontSize: 12, fontWeight: 900, color: "#C8B6FF", letterSpacing: ".12em", textTransform: "uppercase" }}>
-            Public Access
+            Vitality Institute
           </div>
           <div className="h1" style={{ marginTop: 10 }}>
-            Start with services, not a login wall
+            Modern wellness, aesthetics, and medical care — all in one place.
           </div>
-          <div className="muted" style={{ marginTop: 10, lineHeight: 1.7, maxWidth: 760 }}>
-            Browse treatments, compare pricing where available, and choose a preferred appointment time. We only ask you to sign in when you are ready to confirm the booking.
+          <div style={{ marginTop: 10, lineHeight: 1.7, maxWidth: 760, color: "rgba(255,255,255,0.92)" }}>
+            Feel better, look better, and stay on track with personalized care, seamless booking, and direct access to your care team.
           </div>
 
           <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 14 }}>
@@ -76,7 +55,7 @@ export default function PublicLanding() {
               Explore Services
             </Link>
             <Link to="/login" className="btn btn-ghost">
-              Patient Login
+              Sign In
             </Link>
             <a href="#download-app" className="btn btn-ghost">
               Download App
@@ -130,21 +109,14 @@ export default function PublicLanding() {
 
       <div className="card card-pad">
         <div className="h2">Featured Categories</div>
-        <div className="muted" style={{ marginTop: 4 }}>
-          Explore the most common ways patients begin with Vitality Institute.
-        </div>
+        <div className="muted" style={{ marginTop: 4 }}>Explore the clinic’s major service lines and pricing programs.</div>
         <div className="space" />
         <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-          {[
-            ["Consultations", "Clinical guidance and next-step planning."],
-            ["Wellness", "Metabolic, energy, and whole-body optimization."],
-            ["Wound Care", "Structured wound evaluation and follow-up support."],
-            ["Injectables", "Provider-guided aesthetic and injectable care."],
-          ].map(([title, copy]) => (
+          {PUBLIC_SERVICE_GROUPS.map((title) => (
             <div key={title} className="card card-pad card-light surface-light" style={{ flex: "1 1 220px", minWidth: 220 }}>
               <div className="h2">{title}</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
-                {copy}
+                Explore pricing, program structure, and the right starting point for this care path.
               </div>
             </div>
           ))}
@@ -171,29 +143,29 @@ export default function PublicLanding() {
         <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
           {services.map((service) => (
             <Link
-              key={service.id}
-              to={`/services/${serviceSlug(service)}`}
+              key={service.slug}
+              to={`/services/${service.slug}`}
               className="card card-pad service-card"
               style={{
                 flex: "1 1 280px",
                 minWidth: 260,
                 textDecoration: "none",
-                background: `linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03)), ${categoryAccent(serviceDisplayKey(service))}`,
+                background: "linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05))",
               }}
             >
               <div className="row" style={{ justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
                 <div>
                   <div style={{ fontSize: 12, color: "#C8B6FF", fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
-                    {categoryIcon(serviceDisplayKey(service))}
+                    {service.category}
                   </div>
                   <div className="h2" style={{ marginTop: 8 }}>
-                    {service.name}
+                    {service.title}
                   </div>
                 </div>
-                {priceLabel(service) ? <div className="v-chip">{priceLabel(service)}</div> : null}
+                <div className="v-chip">{service.price}</div>
               </div>
-              <div className="muted" style={{ marginTop: 10, lineHeight: 1.7 }}>
-                {shortBlurb(service)}
+              <div style={{ marginTop: 10, lineHeight: 1.7, color: "rgba(255,255,255,0.9)" }}>
+                {service.summary}
               </div>
             </Link>
           ))}
@@ -206,15 +178,15 @@ export default function PublicLanding() {
         <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
           <div className="h2">Why choose Vitality</div>
           <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
-            Vitality Institute pairs a premium patient experience with practical clinical workflows, so services feel approachable before login and organized after you become a patient.
+            Personalized care, physician oversight, and clear next steps are presented upfront so patients understand the value before ever logging in.
           </div>
         </div>
         <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
           <div className="h2">How it works</div>
           <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
-            1. Explore services.
+            1. Explore services and program pricing.
             <br />
-            2. Pick a preferred appointment time.
+            2. Choose a preferred appointment time.
             <br />
             3. Sign in only when you are ready to confirm.
           </div>
@@ -222,7 +194,7 @@ export default function PublicLanding() {
         <div id="download-app" className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
           <div className="h2">Download the app later</div>
           <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
-            After your account is active, the app becomes your home for messages, labs, follow-up, and visit visibility without changing this public entry flow.
+            After your account is active, the app becomes your home for messages, labs, visit updates, and direct access to your care team.
           </div>
         </div>
       </div>
@@ -265,8 +237,8 @@ export default function PublicLanding() {
             <div className="surface-light-helper" style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
               Phone
             </div>
-            <a href="tel:+15555550147" className="h2" style={{ display: "inline-block", marginTop: 8, textDecoration: "none", color: "#140f24" }}>
-              (555) 555-0147
+            <a href="tel:+19095004572" className="h2" style={{ display: "inline-block", marginTop: 8, textDecoration: "none", color: "#140f24" }}>
+              909-500-4572
             </a>
 
             <div className="surface-light-helper" style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", marginTop: 16 }}>
@@ -275,7 +247,7 @@ export default function PublicLanding() {
             <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.8 }}>
               Monday to Friday
               <br />
-              8:00 AM to 5:00 PM
+              10:00 AM to 4:00 PM
             </div>
           </div>
 

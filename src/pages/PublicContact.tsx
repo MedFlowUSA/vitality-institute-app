@@ -11,7 +11,7 @@ export default function PublicContact() {
   const [message, setMessage] = useState("");
 
   const bookingLink = useMemo(() => {
-    return serviceId ? `/book?serviceId=${encodeURIComponent(serviceId)}` : "/book";
+    return serviceId ? `/book?interest=${encodeURIComponent(serviceId)}` : "/book";
   }, [serviceId]);
 
   return (
@@ -20,13 +20,15 @@ export default function PublicContact() {
         <div className="card card-pad card-light surface-light" style={{ flex: "1 1 340px" }}>
           <div className="h2">Clinic Contact</div>
           <div className="surface-light-body" style={{ marginTop: 12, lineHeight: 1.8 }}>
-            Phone: (555) 555-0147
+            Vitality Institute of Redlands
+            <br />
+            Phone: 909-500-4572
             <br />
             Email: hello@vitalityinstitute.com
             <br />
-            Address: 1250 Vitality Avenue, Suite 200, Newport Beach, CA
+            Address: 1250 Vitality Avenue, Suite 200, Redlands, CA 92373
             <br />
-            Hours: Monday to Friday, 8:00 AM to 5:00 PM
+            Hours: Monday to Friday, 10:00 AM to 4:00 PM
           </div>
         </div>
 
@@ -94,7 +96,7 @@ export default function PublicContact() {
             >
               Email the Clinic
             </a>
-            <a className="btn btn-ghost" href="tel:+15555550147">
+            <a className="btn btn-ghost" href="tel:+19095004572">
               Call the Clinic
             </a>
           </div>
@@ -103,11 +105,11 @@ export default function PublicContact() {
         <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
           <div className="h2">Location Blocks</div>
           <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
-            Newport Beach
+            Redlands
             <br />
             1250 Vitality Avenue, Suite 200
             <br />
-            Monday to Friday, 8:00 AM to 5:00 PM
+            Monday to Friday, 10:00 AM to 4:00 PM
           </div>
           <div className="surface-light-helper" style={{ marginTop: 12 }}>
             More locations can be added here later without changing the public funnel structure.

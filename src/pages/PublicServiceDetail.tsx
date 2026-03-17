@@ -1,53 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
-import {
-  categoryAccent,
-  categoryIcon,
-  estimatedTiming,
-  idealFor,
-  loadCatalogServices,
-  priceLabel,
-  pricingUnitLabel,
-  serviceDetails,
-  serviceExpectations,
-  serviceOverview,
-  serviceSlug,
-  serviceDisplayKey,
-  shortBlurb,
-  type CatalogService,
-} from "../lib/services/catalog";
+import { getPublicOfferingBySlug } from "../lib/publicMarketingCatalog";
 
 export default function PublicServiceDetail() {
   const { slug } = useParams();
-  const [services, setServices] = useState<CatalogService[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const { services: rows } = await loadCatalogServices();
-        if (!cancelled) setServices(rows);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load service.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const service = useMemo(() => services.find((row) => serviceSlug(row) === slug) ?? null, [services, slug]);
+  const service = getPublicOfferingBySlug(slug);
 
   return (
     <PublicSiteLayout
-      title={service?.name ?? "Service Detail"}
+      title={service?.title ?? "Service Detail"}
       subtitle="Review treatment details, then either start booking or contact the clinic for help."
       rightAction={
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
@@ -55,26 +16,18 @@ export default function PublicServiceDetail() {
             Back to Services
           </Link>
           {service ? (
-            <Link to={`/book?serviceId=${encodeURIComponent(service.id)}`} className="btn btn-primary">
+            <Link to={`/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
               Book Now
             </Link>
           ) : null}
         </div>
       }
     >
-      {loading ? (
-        <div className="card card-pad">
-          <div className="muted">Loading service details...</div>
-        </div>
-      ) : error ? (
-        <div className="card card-pad">
-          <div style={{ color: "#fecaca" }}>{error}</div>
-        </div>
-      ) : !service ? (
+      {!service ? (
         <div className="card card-pad">
           <div className="h2">Service not found</div>
           <div className="muted" style={{ marginTop: 6 }}>
-            The service may be inactive or unavailable in this environment.
+            The public service offering may have changed or been removed.
           </div>
         </div>
       ) : (
@@ -82,40 +35,38 @@ export default function PublicServiceDetail() {
           <div
             className="card card-pad"
             style={{
-              background: `linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03)), ${categoryAccent(serviceDisplayKey(service))}`,
+              background: "linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05))",
             }}
           >
             <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
               <div>
                 <div style={{ fontSize: 12, color: "#C8B6FF", fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
-                  {categoryIcon(serviceDisplayKey(service))}
+                  {service.category}
                 </div>
                 <div className="h1" style={{ marginTop: 10 }}>
-                  {service.name}
+                  {service.title}
                 </div>
-                <div className="muted" style={{ marginTop: 10, lineHeight: 1.7, maxWidth: 760 }}>
-                  {shortBlurb(service)}
+                <div style={{ marginTop: 10, lineHeight: 1.7, maxWidth: 760, color: "rgba(255,255,255,0.92)" }}>
+                  {service.summary}
                 </div>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-                  <div className="v-chip">{serviceDisplayKey(service).replaceAll("_", " ")}</div>
-                  <div className="v-chip">{estimatedTiming(service)}</div>
-                  {service.requires_consult ? <div className="v-chip">Provider review may apply</div> : null}
+                  <div className="v-chip">{service.category}</div>
+                  {service.duration ? <div className="v-chip">{service.duration}</div> : null}
+                  <div className="v-chip">Medical evaluation may determine eligibility</div>
                 </div>
               </div>
-              {priceLabel(service) ? (
-                <div className="v-chip">
-                  <strong>{priceLabel(service)}</strong> {pricingUnitLabel(service.pricing_unit)}
-                </div>
-              ) : null}
+              <div className="v-chip">
+                <strong>{service.price}</strong>
+              </div>
             </div>
 
             <div className="space" />
 
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-              <Link to={`/book?serviceId=${encodeURIComponent(service.id)}`} className="btn btn-primary">
+              <Link to={`/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
                 Book Appointment
               </Link>
-              <Link to={`/contact?serviceId=${encodeURIComponent(service.id)}`} className="btn btn-ghost">
+              <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-ghost">
                 Contact Us
               </Link>
               <Link to="/access?mode=signup&next=/intake" className="btn btn-ghost">
@@ -130,14 +81,14 @@ export default function PublicServiceDetail() {
             <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
               <div className="h2">Overview</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                {serviceOverview(service)}
+                {service.overview}
               </div>
             </div>
 
             <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
               <div className="h2">Ideal For</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                {idealFor(service)}
+                {service.idealFor}
               </div>
             </div>
           </div>
@@ -148,22 +99,35 @@ export default function PublicServiceDetail() {
             <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
               <div className="h2">Service Details</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                {serviceDetails(service)}
+                {service.serviceDetails}
               </div>
             </div>
 
             <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
               <div className="h2">What To Expect</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                {serviceExpectations(service)}
+                {service.whatToExpect}
               </div>
-              <div className="surface-light-helper" style={{ marginTop: 10, fontSize: 13 }}>
-                Typical timing: {estimatedTiming(service)}
-              </div>
+              {service.duration ? <div className="surface-light-helper" style={{ marginTop: 10, fontSize: 13 }}>Typical timing: {service.duration}</div> : null}
             </div>
           </div>
 
           <div className="space" />
+
+          {service.faqNotes.length ? (
+            <>
+              <div className="card card-pad card-light surface-light">
+                <div className="h2">FAQ / Notes</div>
+                <div className="space" />
+                {service.faqNotes.map((note) => (
+                  <div key={note} className="surface-light-body" style={{ marginBottom: 10, lineHeight: 1.75 }}>
+                    • {note}
+                  </div>
+                ))}
+              </div>
+              <div className="space" />
+            </>
+          ) : null}
 
           <div className="card card-pad">
             <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
@@ -174,10 +138,10 @@ export default function PublicServiceDetail() {
                 </div>
               </div>
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                <Link to={`/book?serviceId=${encodeURIComponent(service.id)}`} className="btn btn-primary">
+                <Link to={`/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
                   Book Appointment
                 </Link>
-                <Link to={`/contact?serviceId=${encodeURIComponent(service.id)}`} className="btn btn-ghost">
+                <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-ghost">
                   Contact Us
                 </Link>
               </div>
