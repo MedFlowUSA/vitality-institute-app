@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
+import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
 import ProfileSummaryCard from "../components/vital-ai/ProfileSummaryCard";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
@@ -360,6 +361,10 @@ export default function ProviderVitalAiQueue() {
 
         <div className="space" />
 
+        <ProviderWorkspaceNav compact />
+
+        <div className="space" />
+
         <ProviderGuidePanel
           title={guide.title}
           description={guide.description}
@@ -375,7 +380,6 @@ export default function ProviderVitalAiQueue() {
               label: "Schedule In-Person Visit",
               onClick: () => setScheduleVisitType("in_person"),
             },
-            { label: "Back to Dashboard", to: "/provider" },
           ]}
         />
 

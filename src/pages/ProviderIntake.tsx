@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import DictationTextarea from "../components/DictationTextarea";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
+import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
@@ -371,6 +372,10 @@ export default function ProviderIntake() {
 
         <div className="space" />
 
+        <ProviderWorkspaceNav compact />
+
+        <div className="space" />
+
         <ProviderGuidePanel
           title={guide.title}
           description={guide.description}
@@ -378,7 +383,6 @@ export default function ProviderIntake() {
           nextAction={guide.nextAction}
           actions={[
             { label: "Open Queue", to: "/provider/queue", tone: "primary" },
-            { label: "Provider Dashboard", to: "/provider" },
             active ? { label: "Open Patient Center", to: `/provider/patients/${active.patient_id}` } : { label: "Vital AI Requests", to: "/provider/vital-ai" },
           ]}
         />

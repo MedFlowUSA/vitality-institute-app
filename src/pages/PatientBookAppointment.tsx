@@ -1,6 +1,6 @@
 // src/pages/PatientBookAppointment.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
@@ -21,6 +21,7 @@ type PatientRow = { id: string; profile_id: string; first_name: string | null; l
 export default function PatientBookAppointment() {
   const { user, signOut, resumeKey } = useAuth();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,6 +35,11 @@ export default function PatientBookAppointment() {
   const [serviceId, setServiceId] = useState("");
   const [startTimeLocal, setStartTimeLocal] = useState(""); // datetime-local
   const [notes, setNotes] = useState("");
+
+  const prefillLocationId = searchParams.get("locationId") ?? "";
+  const prefillServiceId = searchParams.get("serviceId") ?? "";
+  const prefillStart = searchParams.get("start") ?? "";
+  const prefillNotes = searchParams.get("notes") ?? "";
 
   const servicesForLocation = useMemo(() => {
     return services.filter((s) => s.location_id === locationId && (s.is_active ?? true));
@@ -49,7 +55,10 @@ export default function PatientBookAppointment() {
       setLoading(true);
 
       try {
-        if (!user?.id) throw new Error("Not signed in.");
+        if (!user?.id) {
+          nav(`/access?mode=login&next=${encodeURIComponent(`/patient/book${window.location.search}`)}`, { replace: true });
+          return;
+        }
 
         // 1) Resolve patient record (patients.profile_id = auth user id)
         const { data: p, error: pErr } = await supabase
@@ -75,7 +84,9 @@ export default function PatientBookAppointment() {
         setLocations((locs as LocationRow[]) ?? []);
 
         // default location
-        if ((locs as LocationRow[] | null)?.length) setLocationId((locs as LocationRow[])[0].id);
+        if ((locs as LocationRow[] | null)?.length) {
+          setLocationId(prefillLocationId || (locs as LocationRow[])[0].id);
+        }
 
         // 3) Services
         const { data: svcs, error: svcErr } = await supabase
@@ -85,6 +96,8 @@ export default function PatientBookAppointment() {
           .order("name");
         if (svcErr) throw svcErr;
         setServices((svcs as ServiceRow[]) ?? []);
+        if (prefillStart) setStartTimeLocal(prefillStart);
+        if (prefillNotes) setNotes(prefillNotes);
       } catch (e: any) {
         setErr(e?.message ?? "Failed to load booking.");
       } finally {
@@ -94,14 +107,23 @@ export default function PatientBookAppointment() {
 
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resumeKey, user?.id]);
+  }, [nav, prefillLocationId, prefillNotes, prefillStart, resumeKey, user?.id]);
 
   // when location changes, pick first service for that location
   useEffect(() => {
+    const selectedStillVisible = servicesForLocation.some((service) => service.id === serviceId);
+    if (selectedStillVisible) return;
+
+    const requestedStillVisible = servicesForLocation.some((service) => service.id === prefillServiceId);
+    if (requestedStillVisible && !serviceId) {
+      setServiceId(prefillServiceId);
+      return;
+    }
+
     const first = servicesForLocation[0];
     if (first?.id) setServiceId(first.id);
     else setServiceId("");
-  }, [servicesForLocation]);
+  }, [prefillServiceId, servicesForLocation]);
 
   const computeEndTimeIso = (startIso: string) => {
     const mins = selectedService?.duration_minutes ?? 30;

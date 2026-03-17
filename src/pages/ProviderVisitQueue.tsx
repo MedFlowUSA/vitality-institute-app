@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
+import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
 
 type VisitRow = {
   id: string;
@@ -54,6 +55,10 @@ export default function ProviderVisitQueue() {
           subtitle="Active patient visits"
           showKpis={false}
         />
+
+        <div className="space" />
+
+        <ProviderWorkspaceNav compact />
 
         <div className="space" />
 

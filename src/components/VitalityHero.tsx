@@ -42,6 +42,7 @@ export default function VitalityHero({
 }) {
   const nav = useNavigate();
   const { user, role } = useAuth();
+  const useLightPanels = role === "patient";
 
   const [kpis, setKpis] = useState<Kpis>({
     apptsToday: 0,
@@ -178,19 +179,19 @@ export default function VitalityHero({
       {canSeeKpis && (
         <>
           <div className="v-statgrid">
-            <div className="v-stat">
+            <div className={useLightPanels ? "v-stat v-stat-light surface-light" : "v-stat"}>
               <div className="k">Appointments Today</div>
               <div className="v">{kpis.apptsToday}</div>
             </div>
-            <div className="v-stat">
+            <div className={useLightPanels ? "v-stat v-stat-light surface-light" : "v-stat"}>
               <div className="k">Open Threads</div>
               <div className="v">{kpis.openThreads}</div>
             </div>
-            <div className="v-stat">
+            <div className={useLightPanels ? "v-stat v-stat-light surface-light" : "v-stat"}>
               <div className="k">Pending Intakes</div>
               <div className="v">{kpis.pendingIntakes}</div>
             </div>
-            <div className="v-stat">
+            <div className={useLightPanels ? "v-stat v-stat-light surface-light" : "v-stat"}>
               <div className="k">Labs Pending</div>
               <div className="v">{kpis.labsPending}</div>
             </div>
@@ -205,7 +206,10 @@ export default function VitalityHero({
       )}
 
       {activityItems && activityItems.length > 0 && (
-        <div className="card card-pad" style={{ marginTop: 14 }}>
+        <div
+          className={useLightPanels ? "card card-pad card-light surface-light" : "card card-pad"}
+          style={{ marginTop: 14 }}
+        >
           <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
             <div>
               <div className="h2">Recent Activity</div>
@@ -230,7 +234,7 @@ export default function VitalityHero({
           {activityItems.map((x, i) => (
             <div key={i} className="row" style={{ justifyContent: "space-between", gap: 10, padding: "10px 0" }}>
               <div>
-                <div style={{ fontWeight: 650 }}>{x.m}</div>
+                <div style={{ fontWeight: 700, color: useLightPanels ? "#1f1633" : undefined }}>{x.m}</div>
                 <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                   {x.s}
                 </div>

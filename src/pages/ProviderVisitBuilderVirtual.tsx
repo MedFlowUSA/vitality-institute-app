@@ -371,7 +371,6 @@ export default function ProviderVisitBuilderVirtual() {
               tone: "primary",
             },
             { label: "Open Queue", to: "/provider/queue" },
-            { label: "Provider Dashboard", to: "/provider" },
           ]}
         />
 

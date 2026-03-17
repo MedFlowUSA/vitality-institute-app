@@ -29,7 +29,7 @@ export default function IntakeStepRenderer({
     <div>
       <div className="h2">{step.title}</div>
       {step.description ? (
-        <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, color: "rgba(226,232,240,0.84)" }}>
+        <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
           {step.description}
         </div>
       ) : null}
@@ -56,11 +56,11 @@ export default function IntakeStepRenderer({
                     border: "1px solid rgba(255,255,255,0.12)",
                   }}
                 >
-                  <div className="muted" style={{ marginBottom: 6, fontSize: 12, color: "rgba(226,232,240,0.84)" }}>
+                  <div className="muted" style={{ marginBottom: 6, fontSize: 12 }}>
                     Uploaded to secure intake files
                   </div>
                   {currentFiles.map((file) => (
-                    <div key={file.id} style={{ fontSize: 13, marginBottom: 4, color: "#F8FAFC" }}>
+                    <div key={file.id} style={{ fontSize: 13, marginBottom: 4, color: "inherit" }}>
                       {file.filename} <span className="muted">({file.category})</span>
                     </div>
                   ))}
@@ -89,7 +89,7 @@ export default function IntakeStepRenderer({
                     border: "1px solid rgba(255,255,255,0.12)",
                   }}
                 >
-                  <div className="muted" style={{ marginBottom: 6, fontSize: 12, color: "rgba(226,232,240,0.84)" }}>
+                  <div className="muted" style={{ marginBottom: 6, fontSize: 12 }}>
                     Uploaded wound image
                   </div>
                   {currentFiles.map((file) => (
@@ -109,7 +109,7 @@ export default function IntakeStepRenderer({
                           }}
                         />
                       ) : null}
-                      <div style={{ fontSize: 13, color: "#F8FAFC" }}>
+                      <div style={{ fontSize: 13, color: "inherit" }}>
                         {file.filename} <span className="muted">({file.category})</span>
                       </div>
                       <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>

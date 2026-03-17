@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import VitalityHero from "../components/VitalityHero";
 import SystemStatusBar from "../components/SystemStatusBar";
 import { auditWrite } from "../lib/audit";
+import { ensureLegacyAppointmentThread } from "../lib/messaging/legacyChat";
 import { analyzeWoundProgression } from "../lib/woundProgression";
 import { analyzeWoundRisk } from "../lib/woundRiskAlerts";
 
@@ -379,36 +380,13 @@ export default function ProviderCommandCenter() {
   const messagePatient = async (appt: ApptRow) => {
     setErr(null);
     try {
-      const { data: existing, error: findErr } = await supabase
-        .from("chat_threads")
-        .select("id")
-        .eq("appointment_id", appt.id)
-        .maybeSingle();
-
-      if (findErr) throw findErr;
-
-      let threadId = existing?.id;
-
-      if (!threadId) {
-        const { data: created, error: createErr } = await supabase
-          .from("chat_threads")
-          .insert([
-            {
-              location_id: appt.location_id,
-              patient_id: appt.patient_id,
-              appointment_id: appt.id,
-              status: "open",
-              subject: "Appointment message",
-            },
-          ])
-          .select("id")
-          .maybeSingle();
-
-        if (createErr) throw createErr;
-        threadId = created?.id ?? "";
-      }
-
-      if (!threadId) throw new Error("Could not create message thread.");
+      if (!user?.id) throw new Error("User not found.");
+      const threadId = await ensureLegacyAppointmentThread({
+        appointmentId: appt.id,
+        patientCandidateId: appt.patient_id,
+        locationId: appt.location_id,
+        title: "Appointment conversation",
+      });
       nav(`/provider/chat?threadId=${threadId}`);
     } catch (e: any) {
       setErr(e?.message ?? "Failed to open chat thread.");

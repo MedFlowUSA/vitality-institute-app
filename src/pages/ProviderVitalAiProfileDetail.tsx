@@ -126,7 +126,6 @@ export default function ProviderVitalAiProfileDetail() {
           nextAction={guide.nextAction}
           actions={[
             { label: "Back to Queue", to: "/provider/vital-ai", tone: "primary" },
-            { label: "Provider Dashboard", to: "/provider" },
           ]}
         />
 

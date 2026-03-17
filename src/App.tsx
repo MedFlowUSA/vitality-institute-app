@@ -4,12 +4,16 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthProvider";
 import { supabase } from "./lib/supabase";
 
-import SplashVideo from "./components/SplashVideo";
 import AppStatusFooter from "./components/AppStatusFooter";
 
 import AuthCallback from "./pages/AuthCallback";
 
 import Login from "./pages/Login";
+import PublicLanding from "./pages/PublicLanding";
+import PublicServices from "./pages/PublicServices";
+import PublicServiceDetail from "./pages/PublicServiceDetail";
+import PublicContact from "./pages/PublicContact";
+import PublicBook from "./pages/PublicBook";
 import AdminHome from "./pages/AdminHome";
 import AdminStaffManagement from "./pages/AdminStaffManagement";
 
@@ -95,12 +99,6 @@ const PROVIDER_ROLES = [
   "billing",
   "front_desk",
 ] as const;
-
-const SPLASH_SESSION_KEY = "vitality_splash_seen";
-
-const PUBLIC_SPLASH_URL =
-  "https://cmrkvgcbbhjnmwjruuwa.supabase.co/storage/v1/object/public/app-assets/splash.mp4";
-const DEV_SPLASH_VERSION = import.meta.env.DEV ? String(Date.now()) : "";
 
 function roleTroubleshootMessage(roleError?: string | null) {
   let msg = "Finalizing profile...\n\n";
@@ -234,18 +232,17 @@ function PatientEntryRouter() {
 }
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem(SPLASH_SESSION_KEY));
-
-  const splashSrc = DEV_SPLASH_VERSION ? `${PUBLIC_SPLASH_URL}?v=${DEV_SPLASH_VERSION}` : PUBLIC_SPLASH_URL;
-
   return (
-    <>
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Login />} />
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+            <Route path="/" element={<PublicLanding />} />
+            <Route path="/services" element={<PublicServices />} />
+            <Route path="/services/:id" element={<PublicServiceDetail />} />
+            <Route path="/contact" element={<PublicContact />} />
+            <Route path="/book" element={<PublicBook />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/login" element={<Login />} />
             <Route path="/login/reset-password" element={<ResetPassword />} />
             <Route path="/app" element={<Gate />} />
 
@@ -551,22 +548,11 @@ export default function App() {
             />
 
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+        </Routes>
 
-          <AppStatusFooter />
-        </AuthProvider>
-      </BrowserRouter>
-
-      <SplashVideo
-        show={showSplash}
-        src={splashSrc}
-        maxMs={3200}
-        onFinish={() => {
-          sessionStorage.setItem(SPLASH_SESSION_KEY, "1");
-          setShowSplash(false);
-        }}
-      />
-    </>
+        <AppStatusFooter />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 

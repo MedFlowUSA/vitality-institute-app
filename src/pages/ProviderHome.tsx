@@ -1,11 +1,13 @@
 // src/pages/ProviderHome.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
+import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
+import { ensureLegacyAppointmentThread } from "../lib/messaging/legacyChat";
 import { buildProviderHomeGuide } from "../lib/provider/providerGuide";
 import { getVirtualVisitState } from "../lib/virtualVisits";
 
@@ -40,15 +42,9 @@ type ProviderCounts = {
   woundIntakesPending: number;
 };
 
-type NavItem = {
-  label: string;
-  to: string;
-};
-
 export default function ProviderHome() {
   const { user, role, signOut, activeLocationId, setActiveLocationId, resumeKey } = useAuth();
   const navigate = useNavigate();
-  const routerLocation = useLocation();
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [services, setServices] = useState<ServiceRow[]>([]);
@@ -72,19 +68,6 @@ export default function ProviderHome() {
 
   const didInit = useRef(false);
   const isAdmin = useMemo(() => role === "super_admin" || role === "location_admin", [role]);
-
-  const navItems = useMemo<NavItem[]>(
-    () => [
-      { label: "Queue", to: "/provider/queue" },
-      { label: "Intake Review", to: "/provider/intake" },
-      { label: "Command Center", to: "/provider/command" },
-      { label: "Referrals", to: "/provider/referrals" },
-      { label: "Messages", to: "/provider/chat" },
-      { label: "Labs", to: "/provider/labs" },
-      { label: "Patient Center", to: "/provider/patients" },
-    ],
-    []
-  );
 
   const locName = useMemo(() => {
     const map = new Map(locations.map((item) => [item.id, item.name]));
@@ -408,49 +391,18 @@ export default function ProviderHome() {
   const messagePatient = async (appt: ApptRow) => {
     setErr(null);
     if (!user) return;
+    try {
+      const threadId = await ensureLegacyAppointmentThread({
+        appointmentId: appt.id,
+        patientCandidateId: appt.patient_id,
+        locationId: appt.location_id,
+        title: "Appointment conversation",
+      });
 
-    const { data: existing, error: findErr } = await supabase
-      .from("chat_threads")
-      .select("id")
-      .eq("appointment_id", appt.id)
-      .maybeSingle();
-
-    if (findErr) {
-      setErr(findErr.message);
-      return;
+      navigate(`/provider/chat?threadId=${threadId}`);
+    } catch (error: any) {
+      setErr(error?.message ?? "Could not open conversation.");
     }
-
-    let threadId = existing?.id;
-
-    if (!threadId) {
-      const { data: created, error: createErr } = await supabase
-        .from("chat_threads")
-        .insert([
-          {
-            location_id: appt.location_id,
-            patient_id: appt.patient_id,
-            appointment_id: appt.id,
-            status: "open",
-            subject: "Appointment message",
-          },
-        ])
-        .select("id")
-        .maybeSingle();
-
-      if (createErr) {
-        setErr(createErr.message);
-        return;
-      }
-
-      threadId = created?.id ?? "";
-    }
-
-    if (!threadId) {
-      setErr("Could not create message thread.");
-      return;
-    }
-
-    navigate(`/provider/chat?threadId=${threadId}`);
   };
 
   const startVisit = async (appt: ApptRow) => {
@@ -513,47 +465,6 @@ export default function ProviderHome() {
           {note}
         </div>
       ) : null}
-    </div>
-  );
-
-  const WorkflowCard = ({
-    title,
-    description,
-    actions,
-  }: {
-    title: string;
-    description: string;
-    actions: Array<{ label: string; to: string; tone?: "primary" | "ghost" }>;
-  }) => (
-    <div
-      className="card card-pad"
-      style={{
-        background: "rgba(255,255,255,0.92)",
-        border: "1px solid rgba(184,164,255,0.2)",
-        display: "grid",
-        gap: 12,
-      }}
-    >
-      <div>
-        <div className="h2" style={{ margin: 0 }}>
-          {title}
-        </div>
-        <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
-          {description}
-        </div>
-      </div>
-      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-        {actions.map((action) => (
-          <button
-            key={action.to}
-            className={action.tone === "primary" ? "btn btn-primary" : "btn btn-ghost"}
-            type="button"
-            onClick={() => navigate(action.to)}
-          >
-            {action.label}
-          </button>
-        ))}
-      </div>
     </div>
   );
 
@@ -642,26 +553,18 @@ export default function ProviderHome() {
               </div>
             </div>
 
-            <div style={{ flex: "2 1 480px", minWidth: 280 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(216,204,255,.76)", marginBottom: 8 }}>Primary Navigation</div>
-              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                {navItems.map((item) => {
-                  const isActive = routerLocation.pathname === item.to;
-                  return (
-                    <button
-                      key={item.to}
-                      type="button"
-                      className={isActive ? "btn btn-primary" : "btn btn-ghost"}
-                      onClick={() => navigate(item.to)}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
+            <div style={{ flex: "1 1 320px", minWidth: 280 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(216,204,255,.76)", marginBottom: 8 }}>Daily Focus</div>
+              <div style={{ color: "rgba(233,226,255,.82)", lineHeight: 1.7 }}>
+                Use the queue for active visit work, intake review for submitted forms, and virtual visits for same-day telehealth readiness.
               </div>
             </div>
           </div>
         </div>
+
+        <div className="space" />
+
+        <ProviderWorkspaceNav compact />
 
         <div className="space" />
 
@@ -670,12 +573,7 @@ export default function ProviderHome() {
           description={guide.description}
           workflowState={guide.workflowState}
           nextAction={guide.nextAction}
-          actions={[
-            { label: "Open Queue", to: "/provider/queue", tone: "primary" },
-            { label: "Review Intake", to: "/provider/intake" },
-            { label: "Vital AI Requests", to: "/provider/vital-ai" },
-            { label: "Patient Center", to: "/provider/patients" },
-          ]}
+          actions={[]}
         />
 
         <div className="space" />
@@ -722,47 +620,8 @@ export default function ProviderHome() {
           <StatCard label="Completed Today" value={countsLoading ? "..." : counts.completedToday} />
         </div>
 
-        <div className="space" />
-
-        <div
-          className="grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-            gap: 12,
-          }}
-        >
-          <WorkflowCard
-            title="Flow Control"
-            description="Start with queue and command views when you need the fastest operational path through today's workload."
-            actions={[
-              { label: "Open Queue", to: "/provider/queue", tone: "primary" },
-              { label: "Command Center", to: "/provider/command" },
-            ]}
-          />
-          <WorkflowCard
-            title="Clinical Review"
-            description="Move through intake review, referrals, and labs without jumping between overlapping headers or duplicate launch areas."
-            actions={[
-              { label: "Intake Review", to: "/provider/intake", tone: "primary" },
-              { label: "Vital AI Requests", to: "/provider/vital-ai" },
-              { label: "Referrals", to: "/provider/referrals" },
-              { label: "Labs", to: "/provider/labs" },
-            ]}
-          />
-          <WorkflowCard
-            title="Patient Follow-up"
-            description="Open the patient center or message threads when you need chart context, communication, and next-step coordination."
-            actions={[
-              { label: "Patient Center", to: "/provider/patients", tone: "primary" },
-              { label: "Messages", to: "/provider/chat" },
-            ]}
-          />
-        </div>
-
-        <div className="space" />
-
         <div className="card card-pad">
+          <div id="virtual-visits" />
           <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div>
               <div className="h2">Today's Virtual Visits</div>
@@ -770,8 +629,8 @@ export default function ProviderHome() {
                 Join scheduled virtual visits, update readiness, and jump into the patient chart without leaving the dashboard.
               </div>
             </div>
-            <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/command")}>
-              Command Center
+            <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/visit-builder")}>
+              Visit Builder
             </button>
           </div>
 

@@ -8,6 +8,7 @@ import VitalityHero from "../components/VitalityHero";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
+import { countLegacyOpenThreadsForPatient, ensureLegacyAppointmentThread } from "../lib/messaging/legacyChat";
 import { getVirtualVisitState } from "../lib/virtualVisits";
 
 type LocationRow = { id: string; name: string; city: string | null; state: string | null };
@@ -422,6 +423,7 @@ function alertCardStyle(tone: "info" | "warning" | "success") {
     return {
       background: "rgba(245,158,11,.12)",
       border: "1px solid rgba(245,158,11,.28)",
+      color: "#1f1633",
     };
   }
 
@@ -429,12 +431,14 @@ function alertCardStyle(tone: "info" | "warning" | "success") {
     return {
       background: "rgba(34,197,94,.12)",
       border: "1px solid rgba(34,197,94,.28)",
+      color: "#1f1633",
     };
   }
 
   return {
     background: "rgba(59,130,246,.12)",
     border: "1px solid rgba(59,130,246,.28)",
+    color: "#1f1633",
   };
 }
 
@@ -449,6 +453,7 @@ function nextStepCardStyle(tone: "info" | "warning" | "success") {
     return {
       background: "linear-gradient(135deg, rgba(245,158,11,.16), rgba(245,158,11,.08))",
       border: "1px solid rgba(245,158,11,.28)",
+      color: "#1f1633",
     };
   }
 
@@ -456,12 +461,14 @@ function nextStepCardStyle(tone: "info" | "warning" | "success") {
     return {
       background: "linear-gradient(135deg, rgba(34,197,94,.16), rgba(34,197,94,.08))",
       border: "1px solid rgba(34,197,94,.28)",
+      color: "#1f1633",
     };
   }
 
   return {
     background: "linear-gradient(135deg, rgba(59,130,246,.16), rgba(59,130,246,.08))",
     border: "1px solid rgba(59,130,246,.28)",
+    color: "#1f1633",
   };
 }
 
@@ -1149,13 +1156,7 @@ export default function PatientHome() {
       setNextAppointment((nextAppt as ApptRow) ?? null);
 
       // UNREAD MESSAGES
-      const { data: threads } = await supabase
-        .from("chat_threads")
-        .select("id,status")
-        .eq("patient_id", user.id)
-        .eq("status", "open");
-
-      setUnreadThreads(threads?.length ?? 0);
+      setUnreadThreads(await countLegacyOpenThreadsForPatient(user.id));
 
     } catch (e) {
       console.error("Dashboard load error", e);
@@ -1643,37 +1644,17 @@ export default function PatientHome() {
   };
   const messageFromAppointment = async (appt: ApptRow) => {
     if (!user) return;
-
-    const { data: existing, error: exErr } = await supabase
-      .from("chat_threads")
-      .select("id")
-      .eq("appointment_id", appt.id)
-      .maybeSingle();
-    if (exErr) return alert(exErr.message);
-
-    let threadId = existing?.id;
-
-    if (!threadId) {
-      const subject = `Appointment - ${new Date(appt.start_time).toLocaleString()}`;
-      const { data: created, error: crErr } = await supabase
-        .from("chat_threads")
-        .insert([
-          {
-            location_id: appt.location_id,
-            patient_id: user.id,
-            appointment_id: appt.id,
-            subject,
-            status: "open",
-          },
-        ])
-        .select("id")
-        .maybeSingle();
-
-      if (crErr) return alert(crErr.message);
-      threadId = created?.id ?? "";
+    try {
+      const threadId = await ensureLegacyAppointmentThread({
+        appointmentId: appt.id,
+        patientCandidateId: user.id,
+        locationId: appt.location_id,
+        title: `Appointment - ${new Date(appt.start_time).toLocaleString()}`,
+      });
+      navigate(`/patient/chat?threadId=${threadId}`);
+    } catch (error: any) {
+      alert(error?.message ?? "Failed to open conversation.");
     }
-
-    if (threadId) navigate(`/patient/chat?threadId=${threadId}`);
   };
 
   const uploadFilesToAppointment = async (appt: ApptRow) => {
@@ -1944,9 +1925,9 @@ export default function PatientHome() {
                   ...alertCardStyle(alert.tone),
                 }}
               >
-                <div style={{ fontWeight: 800 }}>{alert.title}</div>
+                <div style={{ fontWeight: 800, color: "#140f24" }}>{alert.title}</div>
 
-                <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                <div className="muted" style={{ marginTop: 8, lineHeight: 1.6, color: "#475569" }}>
                   {alert.message}
                 </div>
 
@@ -1975,8 +1956,8 @@ export default function PatientHome() {
                 <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
                   Recommended Next Step
                 </div>
-                <div className="h2">{recommendedNextStep.title}</div>
-                <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                <div className="h2" style={{ color: "#140f24" }}>{recommendedNextStep.title}</div>
+                <div className="muted" style={{ marginTop: 8, lineHeight: 1.7, color: "#475569" }}>
                   {recommendedNextStep.message}
                 </div>
               </div>
@@ -2299,10 +2280,8 @@ export default function PatientHome() {
 
           {selectedServiceSummary ? (
             <div
-              className="card card-pad"
+              className="card card-pad card-light"
               style={{
-                background: "linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.03))",
-                border: "1px solid rgba(255,255,255,0.10)",
                 marginBottom: 16,
               }}
             >
@@ -2483,7 +2462,7 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <div className="card card-pad card-light">
                 <div className="h2">Optional: Upload Wound Photos</div>
                 <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
                   These will be attached to your appointment request so the clinical team can review before your visit.
@@ -2510,7 +2489,7 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.04)" }}>
+              <div className="card card-pad card-light">
                 <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: 800 }}>Ready to request your appointment?</div>
@@ -2699,16 +2678,16 @@ export default function PatientHome() {
                 ) : null}
               </div>
 
-              <div className="card card-pad" style={{ background: "rgba(255,255,255,.04)" }}>
+              <div className="card card-pad card-light">
                 <div className="muted">Summary</div>
-                <div style={{ marginTop: 8, lineHeight: 1.7 }}>
+                <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
                   {patientSafePlan.summary || "Your provider has created a care plan for you."}
                 </div>
 
                 <div className="space" />
 
                 <div className="muted">Instructions</div>
-                <div style={{ marginTop: 8, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
                   {patientSafePlan.patient_instructions ||
                     "Your provider has not added patient instructions yet."}
                 </div>
@@ -2789,22 +2768,22 @@ export default function PatientHome() {
             </div>
           ) : (
             <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-              <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+              <div className="card card-pad card-light" style={{ flex: "1 1 220px" }}>
                 <div className="muted">Recent Results</div>
-                <div style={{ fontWeight: 900, fontSize: 28, marginTop: 6 }}>
+                <div style={{ fontWeight: 900, fontSize: 28, marginTop: 6, color: "#140F24" }}>
                   {recentLabs.length}
                 </div>
               </div>
 
-              <div className="card card-pad" style={{ flex: "2 1 420px" }}>
+              <div className="card card-pad card-light" style={{ flex: "2 1 420px" }}>
                 <div className="muted">Latest Result</div>
-                <div style={{ fontWeight: 800, marginTop: 8 }}>
+                <div style={{ fontWeight: 800, marginTop: 8, color: "#140F24" }}>
                   {recentLabs[0]?.lab_name ?? "Lab Result"}
                 </div>
                 <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
                   {new Date(recentLabs[0]?.collected_at ?? recentLabs[0]?.created_at).toLocaleString()}
                 </div>
-                <div style={{ marginTop: 10, lineHeight: 1.7 }}>
+                <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
                   {recentLabs[0]?.result_summary ?? "Result summary available in the Labs section."}
                 </div>
               </div>
@@ -2863,15 +2842,15 @@ export default function PatientHome() {
                     ) : null}
                   </div>
 
-                  <div className="card card-pad" style={{ flex: 1, background: "rgba(255,255,255,.04)" }}>
+                  <div className="card card-pad card-light" style={{ flex: 1 }}>
                     <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                      <div style={{ fontWeight: 800 }}>{item.title}</div>
+                      <div style={{ fontWeight: 800, color: "#140F24" }}>{item.title}</div>
                       <div className="muted" style={{ fontSize: 12 }}>
                         {new Date(item.date).toLocaleString()}
                       </div>
                     </div>
 
-                    <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                    <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.6 }}>
                       {item.detail}
                     </div>
                   </div>
@@ -2902,12 +2881,11 @@ export default function PatientHome() {
               {patientFiles.map((file) => (
                 <div
                   key={file.id}
-                  className="card card-pad"
-                  style={{ background: "rgba(255,255,255,.04)" }}
+                  className="card card-pad card-light"
                 >
                     <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                       <div>
-                        <div style={{ fontWeight: 700 }}>
+                        <div style={{ fontWeight: 700, color: "#140F24" }}>
                           {documentDisplayTitle(file)}
                         </div>
 
@@ -2953,7 +2931,7 @@ export default function PatientHome() {
                 right: 0,
                 width: "min(520px, 92vw)",
                 height: "100vh",
-                background: "rgba(20,20,28,0.97)",
+                background: "linear-gradient(180deg, rgba(18,14,32,0.98), rgba(14,11,25,0.98))",
                 borderLeft: "1px solid rgba(255,255,255,.10)",
                 boxShadow: "-20px 0 50px rgba(0,0,0,0.35)",
                 zIndex: 81,
@@ -2991,37 +2969,37 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad card-light surface-light">
                 <div className="muted">Service</div>
-                <div style={{ fontWeight: 800, marginTop: 6 }}>
+                <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>
                   {svcName(selectedAppointment.service_id)}
                 </div>
               </div>
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad card-light surface-light">
                 <div className="muted">Location</div>
-                <div style={{ fontWeight: 800, marginTop: 6 }}>
+                <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>
                   {locName(selectedAppointment.location_id)}
                 </div>
               </div>
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad card-light surface-light">
                 <div className="muted">Date & Time</div>
-                <div style={{ fontWeight: 800, marginTop: 6 }}>
+                <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>
                   {new Date(selectedAppointment.start_time).toLocaleString()}
                 </div>
               </div>
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad card-light surface-light">
                 <div className="muted">Visit Type</div>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
-                  <div style={{ fontWeight: 800 }}>
+                  <div style={{ fontWeight: 800, color: "#140F24" }}>
                     {getVirtualVisitState(selectedAppointment).isVirtual ? "Virtual" : "In Person"}
                   </div>
                   <VirtualVisitBadge appointment={selectedAppointment} />
@@ -3046,9 +3024,9 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.04)" }}>
+              <div className="card card-pad card-light surface-light">
                 <div className="muted">Intake Guidance</div>
-                <div style={{ marginTop: 8, lineHeight: 1.7 }}>
+                <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
                   {(() => {
                     const svc = serviceById(selectedAppointment.service_id);
                     const key = serviceTypeKey(svc?.name ?? null, svc?.category ?? null);
@@ -3064,16 +3042,16 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad card-light surface-light">
                 <div className="muted">Notes</div>
-                <div style={{ marginTop: 8, lineHeight: 1.7 }}>
+                <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
                   {selectedAppointment.notes || "No appointment notes were added."}
                 </div>
               </div>
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad card-light surface-light">
                 <div className="h2">Intake Status</div>
                 <div className="space" />
 
@@ -3104,7 +3082,7 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad card-light surface-light">
                 <div className="h2">Visit Record</div>
                 <div className="space" />
 
@@ -3146,16 +3124,16 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad card-light surface-light">
                 <div style={{ fontWeight: 800 }}>What can you do next?</div>
-                <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
                   You can message the clinic about this appointment, review your treatments, or continue browsing services.
                 </div>
               </div>
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad card-light surface-light">
                 <div className="h2">Upload Additional Files</div>
                 <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
                   Add wound photos or supporting images to this appointment so the clinic can review them before or after follow-up.
@@ -3193,7 +3171,7 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad card-light">
                 <div className="h2">Attached Files</div>
                 <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
                   Review images and files already attached to this appointment.
@@ -3214,8 +3192,7 @@ export default function PatientHome() {
                       return (
                         <div
                           key={file.id}
-                          className="card card-pad"
-                          style={{ background: "rgba(255,255,255,0.04)" }}
+                          className="card card-pad card-light surface-light"
                         >
                           {isImage && url ? (
                             <img
@@ -3232,7 +3209,7 @@ export default function PatientHome() {
                             />
                           ) : null}
 
-                          <div style={{ fontWeight: 800 }}>{file.filename}</div>
+                          <div style={{ fontWeight: 800, color: "#140F24" }}>{file.filename}</div>
 
                           <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
                             {file.category ?? "file"} • {new Date(file.created_at).toLocaleString()}
@@ -3365,34 +3342,34 @@ export default function PatientHome() {
               <div className="space" />
 
               <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-                <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                <div className="card card-pad card-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Service</div>
-                  <div style={{ fontWeight: 800, marginTop: 6 }}>{bookingSuccess.serviceName}</div>
+                  <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>{bookingSuccess.serviceName}</div>
                 </div>
 
-                <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                <div className="card card-pad card-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Location</div>
-                  <div style={{ fontWeight: 800, marginTop: 6 }}>{bookingSuccess.locationName}</div>
+                  <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>{bookingSuccess.locationName}</div>
                 </div>
 
-                <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                <div className="card card-pad card-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Requested Time</div>
-                  <div style={{ fontWeight: 800, marginTop: 6 }}>
+                  <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>
                     {new Date(bookingSuccess.slotIso).toLocaleString()}
                   </div>
                 </div>
 
-                <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                <div className="card card-pad card-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Appointment ID</div>
-                  <div style={{ fontWeight: 800, marginTop: 6 }}>{bookingSuccess.appointmentId}</div>
+                  <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>{bookingSuccess.appointmentId}</div>
                 </div>
               </div>
 
               <div className="space" />
 
-              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.05)" }}>
+              <div className="card card-pad card-light">
                 <div style={{ fontWeight: 800 }}>What happens next?</div>
-                <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
                   Your request is now in the clinic queue. You can message the clinic through the portal, review your appointments below, or continue browsing services.
                 </div>
               </div>

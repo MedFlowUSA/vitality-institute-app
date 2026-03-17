@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import DictationTextarea from "../components/DictationTextarea";
 import RouteHeader from "../components/RouteHeader";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
+import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
 import VitalityHero from "../components/VitalityHero";
 import SystemStatusBar from "../components/SystemStatusBar";
 import InsightRibbon from "../components/InsightRibbon";
@@ -1220,6 +1221,10 @@ export default function ProviderPatientCenter() {
           }
           showKpis={true}
         />
+
+        <div className="space" />
+
+        <ProviderWorkspaceNav compact />
 
         <SystemStatusBar />
         <div className="space" />

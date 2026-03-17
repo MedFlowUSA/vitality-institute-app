@@ -11,7 +11,7 @@ export default function QuestionRenderer({
   onChange: (value: unknown) => void;
 }) {
   const label = (
-    <div style={{ marginBottom: 6, color: "#F8FAFC", fontSize: 13, fontWeight: 800 }}>
+    <div style={{ marginBottom: 6, color: "inherit", fontSize: 13, fontWeight: 800 }}>
       {question.label}
       {question.required ? " *" : ""}
     </div>
@@ -125,7 +125,7 @@ export default function QuestionRenderer({
               No
             </button>
           </div>
-          <div className="muted" style={{ marginTop: 8, fontSize: 12, color: "rgba(226,232,240,0.78)" }}>
+          <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
             Choose Yes or No to continue.
           </div>
         </div>

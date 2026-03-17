@@ -535,7 +535,6 @@ export default function PatientServices() {
             />
 
             <div
-              className="surface-light"
               style={{
                 position: "fixed",
                 top: 0,
@@ -605,7 +604,7 @@ export default function PatientServices() {
               <div className="space" />
 
               <div
-                className="card card-pad card-light"
+                className="card card-pad card-light surface-light"
                 style={{
                   background: "linear-gradient(135deg, rgba(255,255,255,0.97), rgba(245,241,255,0.94))",
                   border: "1px solid rgba(184,164,255,0.22)",
@@ -624,7 +623,7 @@ export default function PatientServices() {
 
               <div className="space" />
 
-              <div className="card card-pad card-light">
+              <div className="card card-pad card-light surface-light">
                 <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Overview</div>
                 <div className="surface-light-body" style={{ lineHeight: 1.7 }}>
                   {shortBlurb(selectedService)}
@@ -633,7 +632,7 @@ export default function PatientServices() {
 
               <div className="space" />
 
-              <div className="card card-pad card-light">
+              <div className="card card-pad card-light surface-light">
                 <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Ideal For</div>
                 <div className="surface-light-body" style={{ lineHeight: 1.7 }}>
                   {idealFor(selectedService)}
@@ -642,7 +641,7 @@ export default function PatientServices() {
 
               <div className="space" />
 
-              <div className="card card-pad card-light">
+              <div className="card card-pad card-light surface-light">
                 <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Service Details</div>
                 <div className="surface-light-body" style={{ lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
                   {selectedService.description?.trim() ||
@@ -652,7 +651,7 @@ export default function PatientServices() {
 
               <div className="space" />
 
-              <div className="card card-pad card-light">
+              <div className="card card-pad card-light surface-light">
                 <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>What To Expect</div>
                 <div className="surface-light-body" style={{ lineHeight: 1.7 }}>
                   Your care team will review your goals, health history, and treatment needs to determine the most appropriate next step. Certain treatments may require consultation, provider approval, or a custom care plan before treatment is finalized.

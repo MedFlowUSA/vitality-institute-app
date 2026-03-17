@@ -79,12 +79,7 @@ export default function VitalAiSessionComplete() {
           <>
             <div className="space" />
             <div
-              className="card card-pad"
-              style={{
-                background: "linear-gradient(135deg, rgba(245,240,255,0.96), rgba(234,226,255,0.94))",
-                border: "1px solid rgba(184,164,255,0.34)",
-                boxShadow: "0 16px 38px rgba(17,24,39,0.16)",
-              }}
+              className="card card-pad card-light"
             >
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "#5B4E86" }}>
                 Vital AI Guidance
