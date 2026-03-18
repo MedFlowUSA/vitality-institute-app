@@ -94,7 +94,7 @@ export default function VitalAiSessionReview() {
       <div className="shell">
         <RouteHeader
           title="Review Intake"
-          subtitle="Confirm your answers, move back to edit, or return to your dashboard without getting stranded in the flow."
+          subtitle="Review your answers before you submit."
           backTo={sessionId ? `/intake/session/${sessionId}` : "/intake"}
           homeTo="/patient"
         />
@@ -103,7 +103,7 @@ export default function VitalAiSessionReview() {
 
         <VitalityHero
           title="Review Vital AI Intake"
-          subtitle="Confirm your answers before submitting them to the Vitality team."
+          subtitle="Confirm your answers, then submit them to the Vitality team."
           secondaryCta={{ label: "Back to Session", to: sessionId ? `/intake/session/${sessionId}` : "/intake" }}
           showKpis={false}
         />

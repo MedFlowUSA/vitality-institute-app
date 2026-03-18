@@ -102,16 +102,6 @@ export default function ProviderHome() {
     [appointments]
   );
 
-  const summaryItems = useMemo(
-    () => [
-      { label: "Role", value: role ?? "-" },
-      { label: "Active Location", value: locName(activeLocationId) },
-      { label: "Today", value: countsLoading ? "..." : `${counts.apptsToday} appointments` },
-      { label: "Pending Intake", value: countsLoading ? "..." : `${counts.woundIntakesPending} awaiting review` },
-    ],
-    [activeLocationId, counts, countsLoading, locName, role]
-  );
-
   const fmtDateTime = (iso: string) =>
     new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
@@ -493,10 +483,10 @@ export default function ProviderHome() {
                 Provider Dashboard
               </div>
               <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900, color: "#FAF7FF", lineHeight: 1.04 }}>
-                Your clinical command center for the day.
+                Focus your day from one provider workspace.
               </div>
               <div style={{ marginTop: 10, maxWidth: 760, color: "rgba(233,226,255,.8)", lineHeight: 1.7 }}>
-                Manage your location, queue, intake reviews, patients, referrals, messages, labs, and command tools from one unified workspace.
+                Queue, patients, intake review, referrals, and virtual visits stay one click away.
               </div>
             </div>
 
@@ -553,10 +543,13 @@ export default function ProviderHome() {
               </div>
             </div>
 
-            <div style={{ flex: "1 1 320px", minWidth: 280 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(216,204,255,.76)", marginBottom: 8 }}>Daily Focus</div>
-              <div style={{ color: "rgba(233,226,255,.82)", lineHeight: 1.7 }}>
-                Use the queue for active visit work, intake review for submitted forms, and virtual visits for same-day telehealth readiness.
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", flex: "1 1 320px", minWidth: 280 }}>
+              <div className="v-chip">Role: {role ?? "-"}</div>
+              <div className="v-chip">
+                Today: {countsLoading ? "..." : `${counts.apptsToday} appointments`}
+              </div>
+              <div className="v-chip">
+                Pending intake: {countsLoading ? "..." : counts.woundIntakesPending}
               </div>
             </div>
           </div>
@@ -578,37 +571,6 @@ export default function ProviderHome() {
 
         <div className="space" />
 
-        <div
-          className="card card-pad"
-          style={{
-            background: "rgba(255,255,255,0.92)",
-            border: "1px solid rgba(184,164,255,0.2)",
-          }}
-        >
-          <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-            {summaryItems.map((item) => (
-              <div
-                key={item.label}
-                style={{
-                  flex: "1 1 180px",
-                  minWidth: 160,
-                  padding: "12px 14px",
-                  borderRadius: 16,
-                  border: "1px solid rgba(184,164,255,0.2)",
-                  background: "rgba(250,247,255,0.92)",
-                }}
-              >
-                <div className="muted" style={{ fontSize: 12 }}>
-                  {item.label}
-                </div>
-                <div style={{ marginTop: 6, fontWeight: 800, color: "#241B3D" }}>{item.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="space" />
-
         <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
           <StatCard
             label="Appointments Today"
@@ -626,7 +588,7 @@ export default function ProviderHome() {
             <div>
               <div className="h2">Today's Virtual Visits</div>
               <div className="muted" style={{ marginTop: 6 }}>
-                Join scheduled virtual visits, update readiness, and jump into the patient chart without leaving the dashboard.
+                Join, update readiness, and open the chart from one place.
               </div>
             </div>
             <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/visit-builder")}>
@@ -717,7 +679,7 @@ export default function ProviderHome() {
               <div className="muted" style={{ marginTop: 6 }}>
                 {activeLocationId
                   ? `Appointments scoped to ${locName(activeLocationId)}.`
-                  : "Select an active location to load queue data for the provider portal."}
+                  : "Select an active location to load queue data."}
               </div>
             </div>
             <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/queue")}>

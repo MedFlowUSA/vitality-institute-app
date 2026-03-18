@@ -345,7 +345,7 @@ export default function ProviderVitalAiQueue() {
       <div className="shell">
         <RouteHeader
           title="Vital AI Requests"
-          subtitle="Open the request queue, return to the dashboard, or move back without relying on browser controls."
+          subtitle="Review submitted requests and schedule the next step."
           backTo="/provider"
           homeTo="/provider"
         />
@@ -354,7 +354,7 @@ export default function ProviderVitalAiQueue() {
 
         <VitalityHero
           title="Vital AI Requests"
-          subtitle="Review submitted Vital AI intakes and convert approved requests into real scheduled visits."
+          subtitle="Review Vital AI intakes and convert approved requests into scheduled visits."
           secondaryCta={{ label: "Back", to: "/provider" }}
           showKpis={false}
         />

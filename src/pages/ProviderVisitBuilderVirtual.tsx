@@ -331,7 +331,7 @@ export default function ProviderVisitBuilderVirtual() {
       <div className="shell">
         <RouteHeader
           title="Visit Builder"
-          subtitle="Use the shared navigation to get back to the queue or dashboard while keeping appointment setup in view."
+          subtitle="Set up the visit, then continue into the chart."
           backTo="/provider/queue"
           homeTo="/provider"
           rightAction={
@@ -345,7 +345,7 @@ export default function ProviderVisitBuilderVirtual() {
 
         <VitalityHero
           title="Visit Builder"
-          subtitle="Create visit • add wound assessment • continue to chart"
+          subtitle="Create the visit, add assessment details, and continue to chart."
           secondaryCta={{ label: "Back", to: "/provider/queue" }}
           rightActions={null}
           showKpis={false}

@@ -234,7 +234,7 @@ export default function PatientBooking() {
       <div className="shell">
         <RouteHeader
           title="Book Appointment"
-          subtitle="Return to your dashboard or back out of booking without depending on browser navigation."
+          subtitle="Choose a service, time, and next step."
           backTo="/patient"
           homeTo="/patient"
           rightAction={
@@ -248,7 +248,7 @@ export default function PatientBooking() {
 
         <VitalityHero
           title="Book Appointment"
-          subtitle="Select service • pick time • complete intake"
+          subtitle="Select your service, pick a time, and continue to intake."
           secondaryCta={{ label: "Back", to: "/patient" }}
           rightActions={null}
           showKpis={false}

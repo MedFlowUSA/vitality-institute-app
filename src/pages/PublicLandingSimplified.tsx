@@ -7,7 +7,6 @@ export default function PublicLandingSimplified() {
     PUBLIC_OFFERINGS.find((item) => item.slug === "glp1-weight-optimization-consultation"),
     PUBLIC_OFFERINGS.find((item) => item.slug === "womens-hormone-balance-consultation"),
     PUBLIC_OFFERINGS.find((item) => item.slug === "botox-consultation"),
-    PUBLIC_OFFERINGS.find((item) => item.slug === "peptide-therapy-consultation"),
   ].filter((item): item is PublicOffering => Boolean(item));
 
   return (
@@ -19,7 +18,7 @@ export default function PublicLandingSimplified() {
         <div
           className="card card-pad card-light surface-light"
           style={{
-            flex: "1 1 620px",
+            flex: "1 1 700px",
             background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,241,255,0.96))",
           }}
         >
@@ -38,10 +37,7 @@ export default function PublicLandingSimplified() {
             Modern wellness, aesthetics, and medical care - all in one place.
           </div>
           <div className="surface-light-body" style={{ marginTop: 12, lineHeight: 1.75, maxWidth: 760 }}>
-            Feel better, look better, and stay on track with personalized care, seamless booking, and direct access to your care team.
-          </div>
-          <div className="surface-light-helper" style={{ marginTop: 12, maxWidth: 680 }}>
-            Explore services, start booking online, or use Vital AI if you want help choosing the most appropriate next step.
+            Personalized care, seamless booking, and direct access to the Vitality team without extra steps.
           </div>
 
           <div className="space" />
@@ -57,28 +53,31 @@ export default function PublicLandingSimplified() {
               Explore Services
             </Link>
           </div>
+
+          <div className="space" />
+
+          <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+            <div className="v-chip">Provider-led care</div>
+            <div className="v-chip">Clear pricing paths</div>
+            <div className="v-chip">Booking or Vital AI intake</div>
+          </div>
         </div>
 
-        <div className="card card-pad card-light surface-light" style={{ flex: "1 1 280px" }}>
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 900,
-              color: "var(--v-helper-dark)",
-              letterSpacing: ".12em",
-              textTransform: "uppercase",
-            }}
-          >
-            Download App
-          </div>
-          <div className="h2" style={{ marginTop: 10 }}>
-            Stay connected after your visit
-          </div>
+        <div className="card card-pad card-light surface-light" style={{ flex: "1 1 240px" }}>
+          <div className="h2">Quick Contact</div>
           <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
-            Once your account is active, the app becomes your place for messages, labs, visit updates, and direct access to your care team.
+            Call the clinic or start online now, then use the app for messages, labs, and follow-up after your account is active.
           </div>
-          <div className="surface-light-helper" style={{ marginTop: 12, fontSize: 13 }}>
-            App download links can be connected later without changing the public booking or intake experience.
+          <a href="tel:+19095004572" className="h2" style={{ display: "inline-block", marginTop: 14, textDecoration: "none", color: "#140f24" }}>
+            909-500-4572
+          </a>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+            <Link to="/contact" className="btn btn-ghost">
+              Contact
+            </Link>
+            <Link to="/book" className="btn btn-primary">
+              Book Now
+            </Link>
           </div>
         </div>
       </div>
@@ -90,7 +89,7 @@ export default function PublicLandingSimplified() {
           <div>
             <div className="h2">Featured Care Paths</div>
             <div className="muted" style={{ marginTop: 4 }}>
-              A quick look at some of the most common ways patients get started with Vitality.
+              A fast look at common ways patients get started.
             </div>
           </div>
           <Link to="/services" className="btn btn-ghost">
@@ -131,47 +130,6 @@ export default function PublicLandingSimplified() {
               </div>
             </Link>
           ))}
-        </div>
-      </div>
-
-      <div className="space" />
-
-      <div className="row" style={{ gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
-        <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
-          <div className="h2">Why Vitality</div>
-          <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
-            Personalized care that blends medical oversight, modern wellness, and a polished patient experience.
-          </div>
-        </div>
-        <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
-          <div className="h2">Provider-led care</div>
-          <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
-            Consults, follow-up, labs, and treatment planning stay grounded in clinical review rather than guesswork.
-          </div>
-        </div>
-        <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
-          <div className="h2">Clear next steps</div>
-          <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
-            Book online, contact the clinic directly, or start with Vital AI if you want help choosing the right path.
-          </div>
-        </div>
-      </div>
-
-      <div className="space" />
-
-      <div className="card card-pad card-light surface-light">
-        <div className="row" style={{ gap: 16, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ flex: "1 1 240px" }}>
-            <div className="h2">How It Works</div>
-            <div className="surface-light-helper" style={{ marginTop: 6 }}>
-              A clear path from exploration to care.
-            </div>
-          </div>
-          <div className="row" style={{ gap: 12, flexWrap: "wrap", flex: "2 1 640px" }}>
-            <div className="v-chip">1. Explore services</div>
-            <div className="v-chip">2. Choose your next step</div>
-            <div className="v-chip">3. Book or speak with the clinic</div>
-          </div>
         </div>
       </div>
 
@@ -224,7 +182,7 @@ export default function PublicLandingSimplified() {
               Next Step
             </div>
             <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.8 }}>
-              Call the clinic, browse services, or start booking online before signing in.
+              Browse services, start booking online, or reach the clinic directly before signing in.
             </div>
             <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
               <Link to="/contact" className="btn btn-ghost">

@@ -1106,3 +1106,62 @@ textarea.input::placeholder {
 .public-shell .card * {
   -webkit-text-fill-color: initial;
 }
+
+.card-light,
+.surface-light,
+.public-shell .card,
+a.card,
+button.card {
+  color: var(--v-text-dark);
+}
+
+.card-light :is(div, span, p, label, strong, small, li, dt, dd, td, th, a),
+.surface-light :is(div, span, p, label, strong, small, li, dt, dd, td, th, a),
+.public-shell .card :is(div, span, p, label, strong, small, li, dt, dd, td, th, a),
+a.card :is(div, span, p, label, strong, small, li, dt, dd, td, th, a),
+button.card :is(div, span, p, label, strong, small, li, dt, dd, td, th, a) {
+  color: var(--v-text-dark) !important;
+}
+
+.card-light :is(.muted, .sub),
+.surface-light :is(.muted, .sub),
+.public-shell .card :is(.muted, .sub),
+a.card .muted,
+button.card .muted {
+  color: var(--v-muted-dark) !important;
+}
+
+.card-light .surface-light-body,
+.surface-light .surface-light-body,
+.public-shell .surface-light-body,
+.card-light .surface-light-helper,
+.surface-light .surface-light-helper,
+.public-shell .surface-light-helper {
+  color: var(--v-body-dark) !important;
+}
+
+.card-light :is(.h1, .h2, .title),
+.surface-light :is(.h1, .h2, .title),
+.public-shell .card :is(.h1, .h2, .title),
+a.card :is(.h1, .h2, .title),
+button.card :is(.h1, .h2, .title) {
+  color: var(--v-heading-dark) !important;
+}
+
+.card-light .btn-primary,
+.card-light .btn-primary *,
+.surface-light .btn-primary,
+.surface-light .btn-primary *,
+.public-shell .btn-primary,
+.public-shell .btn-primary * {
+  color: #ffffff !important;
+}
+
+.card-light .btn-ghost,
+.card-light .btn-ghost *,
+.surface-light .btn-ghost,
+.surface-light .btn-ghost *,
+.public-shell .btn-ghost,
+.public-shell .btn-ghost * {
+  color: var(--v-text-dark) !important;
+}

@@ -1845,7 +1845,7 @@ export default function PatientHome() {
 
         <VitalityHero
           title="Vitality Institute"
-          subtitle="Patient Portal - Scheduling - Treatments - Messaging - Labs - Intake"
+          subtitle="Your portal for appointments, treatments, messages, labs, and guided intake."
           primaryCta={{ label: "Book Appointment", onClick: scrollToBooking }}
           secondaryCta={{ label: "View Appointments", onClick: scrollToAppointments }}
           rightActions={
@@ -1853,26 +1853,14 @@ export default function PatientHome() {
               <button className="btn btn-primary" {...quickBtnProps} onClick={() => navigate("/intake")}>
                 Intake
               </button>
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/treatments")}>
-                Treatments
-              </button>
               <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/chat")}>
                 Messages
-              </button>
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/labs")}>
-                Labs
               </button>
               <button className="btn btn-ghost" onClick={signOut} type="button">
                 Sign out
               </button>
             </>
           }
-          activityItems={[
-            { t: "Just now", m: "Request appointments instantly", s: "Scheduling" },
-            { t: "Today", m: "View current + past treatments", s: "Treatments" },
-            { t: "Anytime", m: "Message the clinic securely", s: "Messaging" },
-            { t: "Guided", m: "Start or resume Vital AI intake", s: "Vital AI" },
-          ]}
         />
 
         <div className="space" />
@@ -2100,7 +2088,7 @@ export default function PatientHome() {
               </div>
               <div className="h1">Care Access</div>
               <div className="muted" style={{ marginTop: 6 }}>
-                Book care, continue your intake form, review visits, and stay in touch with the clinic.
+                Jump straight to the part of your care journey you need right now.
               </div>
 
               <div className="space" />
@@ -2161,7 +2149,7 @@ export default function PatientHome() {
               </div>
               <div className="h2" style={{ marginTop: 8 }}>Browse Care Options</div>
               <div className="muted" style={{ marginTop: 4 }}>
-                Tap a service card to explore details, compare options, or book when you are ready.
+                Open a service card for details, pricing, and booking.
               </div>
             </div>
 

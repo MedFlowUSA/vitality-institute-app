@@ -349,7 +349,7 @@ export default function ProviderIntake() {
       <div className="shell">
         <RouteHeader
           title="Intake Review"
-          subtitle="Move between the provider dashboard and review queue without relying on browser navigation."
+          subtitle="Review and work submitted wound intakes."
           backTo="/provider"
           homeTo="/provider"
           rightAction={
@@ -363,7 +363,7 @@ export default function ProviderIntake() {
 
         <VitalityHero
           title="Vitality Institute"
-          subtitle="Wound Care Intake Review • Submitted → Approved → Locked"
+          subtitle="Review wound care intakes and move them through approval."
           secondaryCta={{ label: "Back", to: "/provider" }}
           primaryCta={{ label: "Queue", to: "/provider/queue" }}
           rightActions={null}

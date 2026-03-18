@@ -203,7 +203,7 @@ export default function VitalAiSession() {
       <div className="shell">
         <RouteHeader
           title={pathway?.name ?? "Vital AI Session"}
-          subtitle="Use the shared navigation to move back a step or return home without losing your place."
+          subtitle="Complete each step and your draft saves automatically."
           backTo="/intake"
           homeTo="/patient"
         />
@@ -212,7 +212,7 @@ export default function VitalAiSession() {
 
         <VitalityHero
           title={pathway?.name ?? "Vital AI Intake"}
-          subtitle="Complete your intake in steps. Your draft is saved automatically."
+          subtitle="Work through the intake step by step."
           secondaryCta={{ label: "Back to Intake Home", to: "/intake" }}
           showKpis={false}
         />

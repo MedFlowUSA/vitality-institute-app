@@ -76,7 +76,7 @@ export default function VitalAiIntakeHome() {
       <div className="shell">
         <RouteHeader
           title="Vital AI Intake"
-          subtitle="Move between intake, your dashboard, and saved drafts without relying on browser navigation."
+          subtitle="Start a new intake or resume where you left off."
           backTo="/patient"
           homeTo="/patient"
         />
@@ -85,7 +85,7 @@ export default function VitalAiIntakeHome() {
 
         <VitalityHero
           title="Vital AI"
-          subtitle="Start or resume your intake so our care team can prepare for your visit with the right information ahead of time."
+          subtitle="Start or resume intake so your care team has the right details before your visit."
           secondaryCta={{ label: "Back", to: "/patient" }}
           showKpis={false}
         />

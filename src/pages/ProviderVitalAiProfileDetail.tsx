@@ -108,14 +108,14 @@ export default function ProviderVitalAiProfileDetail() {
       <div className="shell">
         <RouteHeader
           title="Vital AI Provider Review"
-          subtitle="Move back to the request queue or provider dashboard without losing access to this intake review."
+          subtitle="Review one intake profile and decide the next step."
           backTo="/provider/vital-ai"
           homeTo="/provider"
         />
 
         <div className="space" />
 
-        <VitalityHero title="Vital AI Profile Detail" subtitle="Phase 1 provider review of intake-generated clinical summaries." secondaryCta={{ label: "Back", to: "/provider/vital-ai" }} showKpis={false} />
+        <VitalityHero title="Vital AI Profile Detail" subtitle="Provider review of the submitted intake summary and visit readiness." secondaryCta={{ label: "Back", to: "/provider/vital-ai" }} showKpis={false} />
 
         <div className="space" />
 

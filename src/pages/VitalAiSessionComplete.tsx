@@ -44,7 +44,7 @@ export default function VitalAiSessionComplete() {
       <div className="shell">
         <RouteHeader
           title="Intake Complete"
-          subtitle="Your submission is in place. Use the shared navigation to return home or back through the intake area."
+          subtitle="Your submission is complete."
           backTo="/intake"
           homeTo="/patient"
         />

@@ -172,7 +172,6 @@ export default function PatientServices() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [showAllLocations, setShowAllLocations] = useState(true);
-  const [dataSource, setDataSource] = useState<string>("");
   const [selectedService, setSelectedService] = useState<ServiceRow | null>(null);
 
   const visibleServices = useMemo(() => {
@@ -207,7 +206,6 @@ export default function PatientServices() {
     const load = async () => {
       setLoading(true);
       setErr(null);
-      setDataSource("");
 
       try {
         const selectCols =
@@ -222,7 +220,6 @@ export default function PatientServices() {
 
         if (!displayRes.error && displayRes.data) {
           setServices((displayRes.data as ServiceRow[]) ?? []);
-          setDataSource("services_display");
           return;
         }
 
@@ -241,7 +238,6 @@ export default function PatientServices() {
         }
 
         setServices((rawRes.data as ServiceRow[]) ?? []);
-        setDataSource("services");
       } catch (e: any) {
         setErr(e?.message ?? "Failed to load services.");
       } finally {
@@ -280,7 +276,7 @@ export default function PatientServices() {
       <div className="shell">
         <VitalityHero
           title="Vitality Institute"
-          subtitle="Browse services, compare options, and book the right treatment with confidence."
+          subtitle="Explore personalized treatments, compare options, and choose the right next step with confidence."
           secondaryCta={{ label: "Back", to: "/patient" }}
           rightActions={
             <button className="btn btn-ghost" onClick={signOut} type="button">
@@ -301,23 +297,23 @@ export default function PatientServices() {
               flexWrap: "wrap",
               alignItems: "center",
             }}
-          >
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#CFC3F5", textTransform: "uppercase", letterSpacing: ".08em" }}>
-                Treatment Guide
+            >
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#CFC3F5", textTransform: "uppercase", letterSpacing: ".08em" }}>
+                  Vitality Treatment Guide
+                </div>
+                <div className="h2" style={{ marginTop: 8 }}>Services & Pricing</div>
+                <div className="muted" style={{ marginTop: 4 }}>
+                  Explore consultations, injectables, IV therapy, wound care, and wellness services. Open any card to review details or continue to booking.
+                </div>
               </div>
-              <div className="h2" style={{ marginTop: 8 }}>Services & Pricing</div>
-              <div className="muted" style={{ marginTop: 4 }}>
-                Explore consultations, injectables, IV therapy, wound care, and wellness options. Tap a service card to open details or book.
-              </div>
-            </div>
 
             <button
               type="button"
               className={showAllLocations ? "btn btn-ghost" : "btn btn-primary"}
               onClick={() => setShowAllLocations((v) => !v)}
             >
-              {showAllLocations ? "Showing All Locations" : "Showing My Location"}
+              {showAllLocations ? "Show My Location" : "Show All Locations"}
             </button>
           </div>
 
@@ -329,10 +325,8 @@ export default function PatientServices() {
           {!loading && !err && (
             <>
               <div className="muted" style={{ marginBottom: 12, fontSize: 12 }}>
-                Loaded: <strong>{services.length}</strong> services • Showing:{" "}
-                <strong>{visibleServices.length}</strong>
-                {activeLocationId ? ` • Active location: ${activeLocationId}` : " • No active location filter"}
-                {dataSource ? ` • Source: ${dataSource}` : ""}
+                Showing <strong>{visibleServices.length}</strong> of <strong>{services.length}</strong> available services
+                {activeLocationId && !showAllLocations ? " for your selected location" : " across Vitality Institute"}
               </div>
 
               {grouped.length > 0 && (
@@ -356,7 +350,7 @@ export default function PatientServices() {
               )}
 
               {grouped.length === 0 ? (
-                <div className="muted">No services found.</div>
+                <div className="muted">No services are available right now. Please check back soon or contact the Vitality team for help with scheduling.</div>
               ) : (
                 grouped.map((group) => (
                   <div key={group.key} id={`svc-cat-${group.key}`} style={{ marginBottom: 24 }}>
