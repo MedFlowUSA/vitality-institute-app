@@ -6,19 +6,19 @@ const howToBegin = [
     title: "Request a Visit",
     body: "Choose your preferred service, location, and time. Our team will review your request and confirm the right next step.",
     to: "/book",
-    label: "Request Visit",
+    helper: "Best when you already know the type of care you want.",
   },
   {
     title: "Start with Vital AI",
     body: "Begin with guided intake if you want help being routed to the right service or want wound concerns reviewed early.",
     to: "/vital-ai",
-    label: "Start with Vital AI",
+    helper: "A guided starting point when you want help choosing the right path.",
   },
   {
     title: "Sign In",
     body: "Return to your portal to continue intake, follow-up, scheduling, or existing care plans.",
     to: "/login",
-    label: "Sign In",
+    helper: "For returning patients continuing an existing flow.",
   },
 ];
 
@@ -110,7 +110,12 @@ export default function PublicLandingSimplified() {
 
         <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
           {howToBegin.map((item) => (
-            <div key={item.title} className="card card-pad card-light surface-light" style={{ flex: "1 1 220px", minWidth: 220 }}>
+            <Link
+              key={item.title}
+              to={item.to}
+              className="card card-pad card-light surface-light"
+              style={{ flex: "1 1 220px", minWidth: 220, textDecoration: "none" }}
+            >
               <div
                 style={{
                   fontSize: 12,
@@ -125,12 +130,10 @@ export default function PublicLandingSimplified() {
               <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
                 {item.body}
               </div>
-              <div style={{ marginTop: 14 }}>
-                <Link to={item.to} className="btn btn-ghost">
-                  {item.label}
-                </Link>
+              <div className="surface-light-helper" style={{ marginTop: 12, lineHeight: 1.6 }}>
+                {item.helper}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>
@@ -262,15 +265,15 @@ export default function PublicLandingSimplified() {
         <div className="space" />
 
         <div className="surface-light-helper" style={{ lineHeight: 1.7 }}>
-          Ready to begin? Request a visit online, start with Vital AI, or call the clinic for help choosing the right path.
+          Questions before you begin? Call the clinic or use the contact page for help.
         </div>
         <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-          <Link to="/book" className="btn btn-primary">
-            Request Visit
-          </Link>
           <Link to="/contact" className="btn btn-ghost">
             Contact Page
           </Link>
+          <a href="tel:+19095004572" className="btn btn-primary" style={{ textDecoration: "none" }}>
+            Call the Clinic
+          </a>
         </div>
       </div>
     </PublicSiteLayout>
