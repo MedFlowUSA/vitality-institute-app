@@ -77,7 +77,7 @@ export default function PublicContact() {
             <br />
             Email: hello@vitalityinstitute.com
             <br />
-            Address: 1250 Vitality Avenue, Suite 200, Redlands, CA 92373
+            Address: 411 W. State Street, Suite B, Redlands, CA 92373
             <br />
             Hours: Monday to Friday, 10:00 AM to 4:00 PM
           </div>
@@ -173,7 +173,7 @@ export default function PublicContact() {
           <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
             Redlands
             <br />
-            1250 Vitality Avenue, Suite 200
+            411 W. State Street, Suite B
             <br />
             Monday to Friday, 10:00 AM to 4:00 PM
           </div>

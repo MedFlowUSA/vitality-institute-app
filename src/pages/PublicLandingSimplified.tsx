@@ -4,21 +4,18 @@ import PublicSiteLayout from "../components/public/PublicSiteLayout";
 const howToBegin = [
   {
     title: "Request a Visit",
-    body: "Choose your preferred service, location, and time. Our team will review your request and confirm the right next step.",
+    body: "Choose your preferred service, location, and time.",
     to: "/book",
-    helper: "Best when you already know the type of care you want.",
   },
   {
     title: "Start with Vital AI",
-    body: "Begin with guided intake if you want help being routed to the right service or want wound concerns reviewed early.",
+    body: "Get guided intake before scheduling is finalized.",
     to: "/vital-ai",
-    helper: "A guided starting point when you want help choosing the right path.",
   },
   {
     title: "Sign In",
-    body: "Return to your portal to continue intake, follow-up, scheduling, or existing care plans.",
+    body: "Continue intake, follow-up, or existing care.",
     to: "/login",
-    helper: "For returning patients continuing an existing flow.",
   },
 ];
 
@@ -26,28 +23,28 @@ const featuredServices = [
   {
     title: "Wound Care",
     category: "Clinical Priority",
-    summary: "Urgency-aware review for wounds that are slow to heal, worsening, draining, or raising infection concern.",
+    summary: "Early review for wounds that are worsening, draining, or slow to heal.",
     to: "/vital-ai",
     cta: "Start Wound Review",
   },
   {
     title: "GLP-1 / Weight Optimization",
     category: "Medical Weight Care",
-    summary: "Provider-led consultations and medically guided plans for patients seeking structured weight optimization.",
+    summary: "Medical weight care with provider-led evaluation and follow-up.",
     to: "/services/glp1-weight-optimization-consultation",
     cta: "View Service",
   },
   {
     title: "Hormone Optimization",
     category: "Hormone Health",
-    summary: "Thoughtful evaluation and follow-up planning for men and women exploring energy, symptoms, and balance.",
+    summary: "Personalized hormone care for symptoms, energy, and long-term balance.",
     to: "/services/testosterone-optimization-consultation",
     cta: "View Service",
   },
   {
     title: "IV / Advanced Therapies",
     category: "Advanced Wellness",
-    summary: "Premium infusion and therapy options designed to support recovery, performance, and overall vitality.",
+    summary: "Advanced therapies designed to support recovery, performance, and vitality.",
     to: "/services/nad-infusion",
     cta: "View Service",
   },
@@ -74,10 +71,10 @@ export default function PublicLandingSimplified() {
           Provider-Led Care in Redlands
         </div>
         <div className="h1" style={{ marginTop: 10, maxWidth: 760 }}>
-          Wound healing, wellness, and advanced therapies with calmer guided next steps.
+          Provider-led care for wound healing, wellness, and advanced therapies.
         </div>
         <div className="surface-light-body" style={{ marginTop: 12, lineHeight: 1.75, maxWidth: 720 }}>
-          Vitality Institute offers medically guided care for wound concerns, weight optimization, hormone health, and advanced wellness therapies. Start with a visit request or let Vital AI guide the right path for you.
+          Explore personalized care, request a visit, or begin with guided intake so our team can help you take the right next step.
         </div>
 
         <div className="space" />
@@ -93,20 +90,13 @@ export default function PublicLandingSimplified() {
 
         <div className="space" />
 
-        <div className="surface-light-helper" style={{ lineHeight: 1.7 }}>
-          Every public request is reviewed by the clinic so scheduling, urgency, and follow-up can be guided appropriately.
-        </div>
+        <div className="surface-light-helper" style={{ lineHeight: 1.7 }}>Every public request is reviewed by the clinic.</div>
       </div>
 
       <div className="space" />
 
       <div className="card card-pad">
         <div className="h2">How to Begin</div>
-        <div className="muted" style={{ marginTop: 6 }}>
-          Choose the starting point that fits where you are today.
-        </div>
-
-        <div className="space" />
 
         <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
           {howToBegin.map((item) => (
@@ -129,9 +119,6 @@ export default function PublicLandingSimplified() {
               </div>
               <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
                 {item.body}
-              </div>
-              <div className="surface-light-helper" style={{ marginTop: 12, lineHeight: 1.6 }}>
-                {item.helper}
               </div>
             </Link>
           ))}
@@ -161,10 +148,7 @@ export default function PublicLandingSimplified() {
           Concerned about a wound that is worsening, draining, or slow to heal?
         </div>
         <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75, maxWidth: 720 }}>
-          Start with wound-focused intake so the clinic can review symptoms, urgency, photos, and next-step needs as early as possible.
-        </div>
-        <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
-          A coordinator may follow up promptly, and provider review may be needed depending on severity, infection concern, or history.
+          Start with wound-focused intake so the clinic can review urgency, photos, and next-step needs early.
         </div>
         <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 16 }}>
           <Link to="/vital-ai" className="btn btn-primary">
@@ -182,9 +166,6 @@ export default function PublicLandingSimplified() {
         <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <div>
             <div className="h2">Featured Services</div>
-            <div className="muted" style={{ marginTop: 6 }}>
-              A short preview of common ways patients begin care with us.
-            </div>
           </div>
           <Link to="/services" className="btn btn-ghost">
             View All Services
@@ -233,7 +214,7 @@ export default function PublicLandingSimplified() {
         <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
           Vitality Institute of Redlands
           <br />
-          1250 Vitality Avenue, Suite 200
+          411 W. State Street, Suite B
           <br />
           Redlands, CA 92373
         </div>

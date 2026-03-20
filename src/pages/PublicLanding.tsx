@@ -227,7 +227,7 @@ export default function PublicLanding() {
               Vitality Institute of Redlands
             </div>
             <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
-              1250 Vitality Avenue, Suite 200
+              411 W. State Street, Suite B
               <br />
               Redlands, CA 92373
             </div>
