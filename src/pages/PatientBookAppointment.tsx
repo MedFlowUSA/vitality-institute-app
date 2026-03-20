@@ -1,7 +1,7 @@
 // src/pages/PatientBookAppointment.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "../auth/AuthProvider";
+import { useAuth, type AppRole } from "../auth/AuthProvider";
 import { clearPublicBookingDraft, getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, buildCurrentPath } from "../lib/routeFlow";
 import { supabase } from "../lib/supabase";
@@ -20,6 +20,12 @@ type ServiceRow = {
 
 type PatientRow = { id: string; profile_id: string; first_name: string | null; last_name: string | null };
 
+function getHomeRouteForRole(role: AppRole | null) {
+  if (role === "super_admin" || role === "location_admin") return "/admin";
+  if (role && role !== "patient") return "/provider";
+  return "/patient";
+}
+
 function getBookingErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   if (!message) return "We couldn't load booking details right now. Please try again.";
@@ -30,7 +36,7 @@ function getBookingErrorMessage(error: unknown) {
 }
 
 export default function PatientBookAppointment() {
-  const { user, signOut, resumeKey } = useAuth();
+  const { user, role, signOut, resumeKey } = useAuth();
   const nav = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -38,6 +44,7 @@ export default function PatientBookAppointment() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [roleMismatch, setRoleMismatch] = useState<AppRole | null>(null);
 
   const [patient, setPatient] = useState<PatientRow | null>(null);
   const [locations, setLocations] = useState<LocationRow[]>([]);
@@ -81,6 +88,21 @@ export default function PatientBookAppointment() {
           nav(buildAuthRoute({ mode: "login", next: buildCurrentPath(location.pathname, location.search) }), { replace: true });
           return;
         }
+
+        if (role && role !== "patient") {
+          setRoleMismatch(role);
+          setPatient(null);
+          setLocations([]);
+          setServices([]);
+          setLocationId("");
+          setServiceId("");
+          setStartTimeLocal("");
+          setNotes("");
+          setErr(null);
+          return;
+        }
+
+        setRoleMismatch(null);
 
         // 1) Resolve patient record (patients.profile_id = auth user id)
         const { data: p, error: pErr } = await supabase
@@ -139,10 +161,11 @@ export default function PatientBookAppointment() {
 
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, location.search, nav, prefillLocationId, prefillNotes, prefillServiceId, prefillStart, resumeKey, user?.id]);
+  }, [location.pathname, location.search, nav, prefillLocationId, prefillNotes, prefillServiceId, prefillStart, resumeKey, role, user?.id]);
 
   // when location changes, pick first service for that location
   useEffect(() => {
+    if (roleMismatch) return;
     const selectedStillVisible = servicesForLocation.some((service) => service.id === serviceId);
     if (selectedStillVisible) return;
 
@@ -155,9 +178,10 @@ export default function PatientBookAppointment() {
     const first = servicesForLocation[0];
     if (first?.id) setServiceId(first.id);
     else setServiceId("");
-  }, [prefillServiceId, serviceId, servicesForLocation]);
+  }, [prefillServiceId, roleMismatch, serviceId, servicesForLocation]);
 
   useEffect(() => {
+    if (roleMismatch) return;
     if (loading) return;
     if (!renderedLocationId) return;
     if (servicesForLocation.length === 0) {
@@ -173,17 +197,19 @@ export default function PatientBookAppointment() {
       if (current.includes("No services are available") || current.includes("Choose a service")) return null;
       return current;
     });
-  }, [loading, renderedLocationId, renderedServiceId, servicesForLocation.length]);
+  }, [loading, renderedLocationId, renderedServiceId, roleMismatch, servicesForLocation.length]);
 
   useEffect(() => {
+    if (roleMismatch) return;
     setErr((current) => {
       if (!current) return current;
       if (!renderedLocationId || !renderedServiceId || !startTimeLocal) return current;
       return null;
     });
-  }, [renderedLocationId, renderedServiceId, startTimeLocal]);
+  }, [renderedLocationId, renderedServiceId, roleMismatch, startTimeLocal]);
 
   useEffect(() => {
+    if (roleMismatch) return;
     const locationName = locations.find((location) => location.id === renderedLocationId)?.name ?? storedDraft?.locationName;
     const serviceName = servicesForLocation.find((service) => service.id === renderedServiceId)?.name ?? storedDraft?.serviceName;
     const requestId = getRequestIdForBookingSelection(storedDraft, {
@@ -201,7 +227,7 @@ export default function PatientBookAppointment() {
       serviceName,
       requestId,
     });
-  }, [locations, notes, renderedLocationId, renderedServiceId, servicesForLocation, startTimeLocal, storedDraft, storedDraft?.locationName, storedDraft?.serviceName]);
+  }, [locations, notes, renderedLocationId, renderedServiceId, roleMismatch, servicesForLocation, startTimeLocal, storedDraft, storedDraft?.locationName, storedDraft?.serviceName]);
 
   const computeEndTimeIso = (startIso: string) => {
     const mins = selectedService?.duration_minutes ?? 30;
@@ -219,6 +245,7 @@ export default function PatientBookAppointment() {
   const createAppointment = async () => {
     setErr(null);
 
+    if (roleMismatch) return;
     if (!user?.id) return setErr("Not signed in.");
     if (!patient?.id) return setErr("No patient record linked to this login.");
     if (!renderedLocationId) return setErr("Select a location.");
@@ -288,13 +315,32 @@ export default function PatientBookAppointment() {
         <VitalityHero
           title="Vitality Institute"
           subtitle="Book your appointment, then continue into intake."
-          secondaryCta={{ label: "Back", to: "/patient" }}
+          secondaryCta={{ label: roleMismatch ? "Back to Dashboard" : "Back", to: getHomeRouteForRole(roleMismatch ?? role) }}
           rightActions={null}
           showKpis={false}
         />
 
         <div className="space" />
 
+        {roleMismatch ? (
+          <div className="card card-pad">
+            <div className="h2">Patient Booking Only</div>
+            <div className="muted" style={{ marginTop: 6, lineHeight: 1.7 }}>
+              This booking flow is for patients. You are signed in as a {roleMismatch.replace("_", " ")}.
+            </div>
+
+            <div className="space" />
+
+            <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+              <button className="btn btn-primary" type="button" onClick={() => nav(getHomeRouteForRole(roleMismatch), { replace: true })}>
+                Go to Dashboard
+              </button>
+              <button className="btn btn-ghost" onClick={signOut} type="button">
+                Sign in as Different User
+              </button>
+            </div>
+          </div>
+        ) : (
         <div className="card card-pad">
           <div className="h2">Book Appointment</div>
           <div className="muted" style={{ marginTop: 6 }}>
@@ -362,6 +408,7 @@ export default function PatientBookAppointment() {
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   );

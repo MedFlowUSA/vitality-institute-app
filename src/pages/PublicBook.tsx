@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth } from "../auth/AuthProvider";
+import { useAuth, type AppRole } from "../auth/AuthProvider";
 import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { createBookingRequest } from "../lib/bookingRequests";
@@ -9,8 +9,14 @@ import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBook
 import { buildAuthRoute, buildOnboardingRoute } from "../lib/routeFlow";
 import { loadCatalogLocations, loadCatalogServices, matchCatalogServiceFromInterest, type CatalogLocation, type CatalogService } from "../lib/services/catalog";
 
+function getHomeRouteForRole(role: AppRole | null) {
+  if (role === "super_admin" || role === "location_admin") return "/admin";
+  if (role && role !== "patient") return "/provider";
+  return "/patient";
+}
+
 export default function PublicBook() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const selectedInterestSlug = searchParams.get("interest") ?? "";
@@ -215,8 +221,13 @@ export default function PublicBook() {
       `&start=${encodeURIComponent(startTimeLocal)}` +
       `&notes=${encodeURIComponent(notes)}`;
 
-    if (user?.id) {
+    if (user?.id && role === "patient") {
       navigate(nextPath);
+      return;
+    }
+
+    if (user?.id && role && role !== "patient") {
+      navigate(getHomeRouteForRole(role), { replace: true });
       return;
     }
 
