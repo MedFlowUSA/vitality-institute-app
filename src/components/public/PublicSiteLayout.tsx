@@ -12,9 +12,9 @@ type Props = {
 
 const navItems = [
   { to: "/", label: "Home" },
-  { to: "/services", label: "Services" },
-  { to: "/book", label: "Book" },
-  { to: "/contact", label: "Contact" },
+  { to: "/services", label: "Explore Services" },
+  { to: "/book", label: "Request Visit" },
+  { to: "/vital-ai", label: "Start with Vital AI" },
   { to: "/login", label: "Sign In" },
 ];
 

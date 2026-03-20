@@ -3,6 +3,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
+import {
+  guidedGhostButtonStyle,
+  guidedPanelSoftStyle,
+  guidedPanelStyle,
+  guidedPrimaryButtonStyle,
+} from "../components/vital-ai/guidedIntakeStyles";
 import ReviewSummary from "../components/vital-ai/ReviewSummary";
 import { useAuth } from "../auth/AuthProvider";
 import { loadVitalAiPathwayById } from "../lib/vitalAi/pathways";
@@ -111,11 +117,11 @@ export default function VitalAiSessionReview() {
         <div className="space" />
 
         {loading ? (
-          <div className="card card-pad" style={{ background: "rgba(8,15,28,0.98)", border: "1px solid rgba(255,255,255,0.14)" }}>
+          <div className="card card-pad" style={guidedPanelStyle}>
             <div className="muted" style={{ color: "rgba(226,232,240,0.82)" }}>Loading review...</div>
           </div>
         ) : !pathway || !session ? (
-          <div className="card card-pad" style={{ background: "rgba(8,15,28,0.98)", border: "1px solid rgba(255,255,255,0.14)" }}>
+          <div className="card card-pad" style={guidedPanelStyle}>
             <div className="muted" style={{ color: "rgba(226,232,240,0.82)" }}>This intake review is unavailable.</div>
           </div>
         ) : (
@@ -137,12 +143,21 @@ export default function VitalAiSessionReview() {
 
             <div className="space" />
 
-            <div className="card card-pad" style={{ background: "rgba(8,15,28,0.98)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 14px 34px rgba(0,0,0,0.22)" }}>
+            <div className="card card-pad" style={guidedPanelStyle}>
+              <div className="card card-pad" style={{ ...guidedPanelSoftStyle, marginBottom: 14 }}>
+                <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                  <div>
+                    <div className="muted" style={{ fontSize: 12 }}>Final Check</div>
+                    <div style={{ marginTop: 6, fontWeight: 800 }}>Submit only after you are comfortable with every answer and upload.</div>
+                  </div>
+                  <div className="v-chip">Pathway: {pathway.name}</div>
+                </div>
+              </div>
               <div className="row" style={{ justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                <button className="btn btn-ghost" type="button" onClick={() => navigate(`/intake/session/${session.id}`)} style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.18)", color: "#F8FAFC", minHeight: 48, padding: "12px 16px" }}>
+                <button className="btn btn-ghost" type="button" onClick={() => navigate(`/intake/session/${session.id}`)} style={{ ...guidedGhostButtonStyle, minHeight: 48, padding: "12px 16px" }}>
                   Edit Answers
                 </button>
-                <button className="btn btn-primary" type="button" onClick={handleSubmit} disabled={submitting} style={{ background: "linear-gradient(135deg, #C8B6FF, #8B7CFF)", color: "#140F24", border: "1px solid rgba(184,164,255,0.42)", minHeight: 48, padding: "12px 18px", fontWeight: 900, boxShadow: "0 14px 30px rgba(139,124,255,0.22)" }}>
+                <button className="btn btn-primary" type="button" onClick={handleSubmit} disabled={submitting} style={{ ...guidedPrimaryButtonStyle, minHeight: 48, padding: "12px 18px" }}>
                   {submitting ? "Submitting..." : "Submit Intake"}
                 </button>
               </div>

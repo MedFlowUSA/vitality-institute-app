@@ -1,24 +1,43 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
+import { createBookingRequest } from "../lib/bookingRequests";
 import { getPublicOfferingBySlug } from "../lib/publicMarketingCatalog";
-import { readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
-import { loadCatalogLocations, loadCatalogServices, type CatalogLocation, type CatalogService } from "../lib/services/catalog";
+import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
+import { buildAuthRoute, buildOnboardingRoute } from "../lib/routeFlow";
+import { loadCatalogLocations, loadCatalogServices, matchCatalogServiceFromInterest, type CatalogLocation, type CatalogService } from "../lib/services/catalog";
 
 export default function PublicBook() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const selectedInterestSlug = searchParams.get("interest") ?? "";
-  const selectedInterest = getPublicOfferingBySlug(selectedInterestSlug);
+  const selectedInterest =
+    getPublicOfferingBySlug(selectedInterestSlug) ?? {
+      slug: "",
+      title: "",
+      category: "",
+      summary: "",
+      price: "",
+      overview: "",
+      idealFor: "",
+      serviceDetails: "",
+      whatToExpect: "",
+      faqNotes: [],
+    };
+  const hasSelectedInterest = !!selectedInterest.slug;
 
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [servicePrompt, setServicePrompt] = useState<string | null>(null);
+  const [interestMessage, setInterestMessage] = useState<string | null>(null);
   const [locations, setLocations] = useState<CatalogLocation[]>([]);
   const [services, setServices] = useState<CatalogService[]>([]);
 
-  const draft = readPublicBookingDraft();
+  const draft = useMemo(() => readPublicBookingDraft(), []);
   const [locationId, setLocationId] = useState(searchParams.get("locationId") ?? draft?.locationId ?? "");
   const [serviceId, setServiceId] = useState(searchParams.get("serviceId") ?? draft?.serviceId ?? "");
   const [startTimeLocal, setStartTimeLocal] = useState(searchParams.get("start") ?? draft?.startTimeLocal ?? "");
@@ -34,8 +53,8 @@ export default function PublicBook() {
         setLocations(locationRows);
         setServices(serviceResult.services);
         if (!locationId && locationRows[0]?.id) setLocationId(locationRows[0].id);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load public booking.");
+      } catch {
+        if (!cancelled) setError("Booking options are temporarily unavailable. Please try again in a moment.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -44,30 +63,142 @@ export default function PublicBook() {
     return () => {
       cancelled = true;
     };
-  }, [locationId]);
+  }, []);
+
+  const renderedLocationId = useMemo(() => {
+    return locations.some((location) => location.id === locationId) ? locationId : "";
+  }, [locationId, locations]);
 
   const servicesForLocation = useMemo(() => {
-    return services.filter((service) => !locationId || service.location_id === locationId);
-  }, [services, locationId]);
+    if (!renderedLocationId) return [];
+    return services.filter((service) => service.location_id === renderedLocationId);
+  }, [renderedLocationId, services]);
 
-  useEffect(() => {
-    if (!serviceId && servicesForLocation[0]?.id) {
-      setServiceId(servicesForLocation[0].id);
-    }
+  const renderedServiceId = useMemo(() => {
+    return servicesForLocation.some((service) => service.id === serviceId) ? serviceId : "";
   }, [serviceId, servicesForLocation]);
 
+  const selectedLocation = useMemo(() => {
+    return locations.find((location) => location.id === renderedLocationId) ?? null;
+  }, [locations, renderedLocationId]);
+
+  const selectedServiceRow = useMemo(() => {
+    return servicesForLocation.find((service) => service.id === renderedServiceId) ?? null;
+  }, [renderedServiceId, servicesForLocation]);
+
+  const matchedInterestService = useMemo(() => {
+    return matchCatalogServiceFromInterest({
+      interest: selectedInterestSlug,
+      offeringTitle: selectedInterest?.title ?? null,
+      services,
+    });
+  }, [selectedInterest?.title, selectedInterestSlug, services]);
+
   useEffect(() => {
-    savePublicBookingDraft({ locationId, serviceId, startTimeLocal, notes });
+    if (loading || locations.length === 0) return;
+
+    const nextLocationId =
+      (locationId && locations.some((location) => location.id === locationId) ? locationId : "") ||
+      (matchedInterestService?.service.location_id && locations.some((location) => location.id === matchedInterestService.service.location_id)
+        ? matchedInterestService.service.location_id
+        : "") ||
+      locations[0]?.id ||
+      "";
+
+    if (nextLocationId !== locationId) {
+      setLocationId(nextLocationId);
+      return;
+    }
+
+    const nextServices = services.filter((service) => service.location_id === nextLocationId);
+    const nextServiceId =
+      (serviceId && nextServices.some((service) => service.id === serviceId) ? serviceId : "") ||
+      (matchedInterestService?.service.id && nextServices.some((service) => service.id === matchedInterestService.service.id)
+        ? matchedInterestService.service.id
+        : "") ||
+      (draft?.serviceId && nextServices.some((service) => service.id === draft.serviceId) ? draft.serviceId : "") ||
+      nextServices[0]?.id ||
+      "";
+
+    if (nextServiceId !== serviceId) {
+      setServiceId(nextServiceId);
+    }
+  }, [draft?.serviceId, loading, locationId, locations, matchedInterestService?.service.id, matchedInterestService?.service.location_id, serviceId, services]);
+
+  useEffect(() => {
+    if (!selectedInterestSlug) {
+      setInterestMessage(null);
+      return;
+    }
+    if (services.length === 0 || loading) return;
+
+    if (!matchedInterestService?.service) {
+      setInterestMessage("We couldn't match that link to a specific service, so choose the option that fits best below.");
+      return;
+    }
+
+    const matchedService = matchedInterestService.service;
+    if (matchedService.location_id && matchedService.location_id !== locationId) {
+      setLocationId(matchedService.location_id);
+    }
+    if (serviceId !== matchedService.id) {
+      setServiceId(matchedService.id);
+    }
+
+    setInterestMessage(
+      matchedInterestService.confidence === "exact"
+        ? `We selected ${matchedService.name} from your link.`
+        : `We selected the closest available service: ${matchedService.name}.`
+    );
+  }, [loading, locationId, matchedInterestService, selectedInterestSlug, serviceId, services.length]);
+
+  useEffect(() => {
+    setError(null);
+    setServicePrompt(null);
   }, [locationId, notes, serviceId, startTimeLocal]);
 
-  const confirmBooking = () => {
-    if (!locationId || !serviceId || !startTimeLocal) {
+  useEffect(() => {
+    if (loading) return;
+    if (!renderedLocationId) return;
+    if (servicesForLocation.length === 0) {
+      setServicePrompt("No services are available for this location right now. Please choose another location.");
+      return;
+    }
+    if (!renderedServiceId) {
+      setServicePrompt("Choose a service to continue.");
+      return;
+    }
+    setServicePrompt(null);
+  }, [loading, renderedLocationId, renderedServiceId, servicesForLocation.length]);
+
+  useEffect(() => {
+    const requestId = getRequestIdForBookingSelection(draft, {
+      locationId: renderedLocationId,
+      serviceId: renderedServiceId,
+      startTimeLocal,
+      notes,
+    });
+
+    savePublicBookingDraft({
+      locationId: renderedLocationId,
+      serviceId: renderedServiceId,
+      startTimeLocal,
+      notes,
+      locationName: selectedLocation?.name ?? draft?.locationName,
+      serviceName: selectedServiceRow?.name ?? draft?.serviceName,
+      requestId,
+    });
+  }, [draft, draft?.locationName, draft?.serviceName, notes, renderedLocationId, renderedServiceId, selectedLocation?.name, selectedServiceRow?.name, startTimeLocal]);
+
+  const confirmBooking = async () => {
+    if (loading || submitting) return;
+
+    if (!renderedLocationId || !renderedServiceId || !startTimeLocal) {
       setError("Select a location, service, and date/time before continuing.");
       return;
     }
 
-    const chosenService = services.find((service) => service.id === serviceId);
-    if (!chosenService) {
+    if (!selectedServiceRow) {
       setError("That service is no longer available. Please choose another option.");
       return;
     }
@@ -79,8 +210,8 @@ export default function PublicBook() {
     }
 
     const nextPath =
-      `/patient/book?locationId=${encodeURIComponent(locationId)}` +
-      `&serviceId=${encodeURIComponent(serviceId)}` +
+      `/patient/book?locationId=${encodeURIComponent(renderedLocationId)}` +
+      `&serviceId=${encodeURIComponent(renderedServiceId)}` +
       `&start=${encodeURIComponent(startTimeLocal)}` +
       `&notes=${encodeURIComponent(notes)}`;
 
@@ -89,16 +220,62 @@ export default function PublicBook() {
       return;
     }
 
-    navigate(`/access?mode=login&next=${encodeURIComponent(nextPath)}`);
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const request = await createBookingRequest({
+        locationId: renderedLocationId,
+        serviceId: renderedServiceId,
+        requestedStart: start.toISOString(),
+        notes,
+        source: selectedInterestSlug ? `public_booking_interest:${selectedInterestSlug}` : "public_booking_flow",
+      });
+
+      savePublicBookingDraft({
+        locationId: renderedLocationId,
+        serviceId: renderedServiceId,
+        startTimeLocal,
+        notes,
+        locationName: selectedLocation?.name ?? draft?.locationName,
+        serviceName: selectedServiceRow.name,
+        requestId: request.id,
+      });
+
+      const onboardingPath = buildOnboardingRoute({ next: "/intake", handoff: "booking_request" });
+      navigate(buildAuthRoute({ mode: "signup", next: onboardingPath, handoff: "booking_request" }));
+    } catch {
+      setError("We couldn't save your visit request right now. Please try again or contact the clinic for help.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <PublicSiteLayout title="Start Booking" subtitle="Choose a service and preferred time now. Sign-in is only required when you confirm the appointment.">
+    <PublicSiteLayout
+      title={user?.id ? "Book Your Visit" : "Request Your Visit"}
+      subtitle={
+        user?.id
+          ? "Choose your service, location, and preferred time, then continue into intake."
+          : "Choose your preferred location, service, and time to begin intake. Our team will review and confirm your appointment."
+      }
+    >
       <div className="card card-pad">
-        <div className="h2">Public Booking Entry</div>
+        <div className="h2">{user?.id ? "Continue Your Booking" : "Start Your Visit Request"}</div>
         <div className="muted" style={{ marginTop: 4 }}>
-          Select the basics first. You will sign in only when you are ready to confirm the appointment.
+          {user?.id
+            ? "We’ll carry your visit details straight into booking and intake."
+            : "Start with the essentials first. We’ll save your preferred visit details, then guide you into account setup and intake."}
         </div>
+
+        {interestMessage ? (
+          <>
+            <div className="space" />
+            <div className="card card-pad card-light surface-light" style={{ marginBottom: 0 }}>
+              <div className="surface-light-helper">{interestMessage}</div>
+            </div>
+          </>
+        ) : null}
 
         {error ? (
           <>
@@ -114,7 +291,7 @@ export default function PublicBook() {
           </>
         ) : (
           <>
-            {selectedInterest ? (
+            {false ? (
               <>
                 <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
                   <div className="h2">Selected Program Interest</div>
@@ -122,25 +299,51 @@ export default function PublicBook() {
                     <strong>{selectedInterest.title}</strong> — {selectedInterest.price}
                   </div>
                   <div className="surface-light-helper" style={{ marginTop: 8 }}>
-                    This public pricing item may map to a consultation, monthly program, or package. Choose the best booking option below and the clinic can confirm the exact next step after review.
+                    This public pricing item may map to a consultation, monthly program, or package. Choose the best-fit visit request below and the clinic will confirm the exact next step after review.
                   </div>
                 </div>
               </>
             ) : null}
 
+            {hasSelectedInterest ? (
+              <div style={{ marginBottom: 14 }}>
+                <PublicFlowStatusCard
+                  eyebrow="Selected Interest"
+                  title={selectedInterest.title}
+                  body="This public pricing item may map to a consultation, monthly program, or package. We'll use it to guide the closest visit request and intake path."
+                  detail={`Current pricing reference: ${selectedInterest.price}. Final scheduling, provider review, and treatment fit are always confirmed by the clinic.`}
+                />
+              </div>
+            ) : null}
+
             <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
               <div className="h2">How this works</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                Pick your service and preferred time now. We save that draft in this browser, and you only sign in when you are ready to confirm the booking.
+                {user?.id
+                  ? "Choose your service and preferred time now, then continue into a guided intake before your visit."
+                  : "Choose your service and preferred time now. We’ll save your request, then guide you through account setup and intake while the clinic reviews availability."}
               </div>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <PublicFlowStatusCard
+                eyebrow="Next Step"
+                title={user?.id ? "Intake follows this booking step" : "Clinic review follows this request"}
+                body={
+                  user?.id
+                    ? "After you continue, you'll move into intake so the care team has the right context before the visit is finalized."
+                    : "After you continue, your request is saved for review while you move through account setup and intake."
+                }
+                detail="A coordinator may follow up to confirm scheduling and next steps. Provider review may be required depending on the concern or service selected."
+              />
             </div>
 
             <div className="space" />
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 220px" }}>
                 <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Location</div>
-                <select className="input" value={locationId} onChange={(event) => setLocationId(event.target.value)}>
-                  <option value="">Select...</option>
+                <select className="input" value={renderedLocationId} onChange={(event) => setLocationId(event.target.value)}>
+                  <option value="">Select location...</option>
                   {locations.map((location) => (
                     <option key={location.id} value={location.id}>
                       {location.name ?? location.id}
@@ -151,7 +354,7 @@ export default function PublicBook() {
 
               <div style={{ flex: "2 1 320px" }}>
                 <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Service</div>
-                <select className="input" value={serviceId} onChange={(event) => setServiceId(event.target.value)}>
+                <select className="input" value={renderedServiceId} onChange={(event) => setServiceId(event.target.value)} disabled={!renderedLocationId || servicesForLocation.length === 0}>
                   <option value="">Select service...</option>
                   {servicesForLocation.map((service) => (
                     <option key={service.id} value={service.id}>
@@ -159,11 +362,21 @@ export default function PublicBook() {
                     </option>
                   ))}
                 </select>
+                {servicePrompt ? (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                    {servicePrompt}
+                  </div>
+                ) : null}
               </div>
 
               <div style={{ flex: "1 1 240px" }}>
                 <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Preferred time</div>
                 <input className="input" type="datetime-local" value={startTimeLocal} onChange={(event) => setStartTimeLocal(event.target.value)} />
+                {!startTimeLocal ? (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                    Choose a preferred time to continue.
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -183,13 +396,30 @@ export default function PublicBook() {
             <div className="space" />
 
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-primary" onClick={confirmBooking}>
-                {user?.id ? "Continue to Confirm Booking" : "Sign In to Confirm"}
+              <button type="button" className="btn btn-primary" onClick={() => void confirmBooking()} disabled={submitting}>
+                {submitting ? "Saving Request..." : "Continue to Intake"}
               </button>
               <Link to="/contact" className="btn btn-ghost">
                 Need help first?
               </Link>
             </div>
+
+            <div className="space" />
+
+            <PublicFlowStatusCard
+              eyebrow="What Happens Next"
+              title={user?.id ? "The clinic will use your intake to finalize the visit" : "Your request is saved before scheduling is finalized"}
+              body={
+                user?.id
+                  ? "Continue into intake so the clinic has the right details before confirming the visit plan."
+                  : "Your request is saved first, then account setup and intake help our team review the right next step for scheduling."
+              }
+              detail="Guest requests do not create a confirmed appointment. Wound-care concerns may prompt faster coordinator outreach and additional provider review."
+              actions={[
+                { label: "Start with Vital AI", to: "/vital-ai", variant: "ghost" },
+                { label: "Explore Services", to: "/services", variant: "ghost" },
+              ]}
+            />
           </>
         )}
       </div>

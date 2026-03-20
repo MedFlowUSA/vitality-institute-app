@@ -9,7 +9,7 @@ export default function PublicServiceDetail() {
   return (
     <PublicSiteLayout
       title={service?.title ?? "Service Detail"}
-      subtitle="Review treatment details, then either start booking or contact the clinic for help."
+      subtitle="Review the service, then choose the clearest public next step before scheduling is finalized."
       rightAction={
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
           <Link to="/services" className="btn btn-ghost">
@@ -17,9 +17,12 @@ export default function PublicServiceDetail() {
           </Link>
           {service ? (
             <Link to={`/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
-              Book Now
+              Request Visit
             </Link>
           ) : null}
+          <Link to="/login" className="btn btn-ghost">
+            Sign In
+          </Link>
         </div>
       }
     >
@@ -40,7 +43,7 @@ export default function PublicServiceDetail() {
           >
             <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
               <div>
-                <div style={{ fontSize: 12, color: "#C8B6FF", fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
+                <div style={{ fontSize: 12, color: "var(--v-helper-dark)", fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
                   {service.category}
                 </div>
                 <div className="h1" style={{ marginTop: 10 }}>
@@ -62,9 +65,19 @@ export default function PublicServiceDetail() {
 
             <div className="space" />
 
+            <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
+              <div className="h2">Choosing the right next step</div>
+              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
+                Request a visit if you are ready to move forward with this service. Start with Vital AI if you want guided routing first, or contact the clinic if you want help deciding.
+              </div>
+              <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
+                Public requests are reviewed by the clinic before scheduling details, treatment fit, and provider follow-up are finalized.
+              </div>
+            </div>
+
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
               <Link to={`/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
-                Book Appointment
+                Request Visit
               </Link>
               <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-ghost">
                 Contact Us
@@ -134,12 +147,18 @@ export default function PublicServiceDetail() {
               <div>
                 <div className="h2">Ready to move forward?</div>
                 <div className="muted" style={{ marginTop: 6 }}>
-                  Start booking now, contact the clinic, or begin with a guided Vital AI intake.
+                  Request a visit, contact the clinic, or begin with guided Vital AI intake if you want help being routed first.
                 </div>
               </div>
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                 <Link to={`/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
-                  Book Appointment
+                  Request Visit
+                </Link>
+                <Link to="/vital-ai" className="btn btn-ghost">
+                  Start with Vital AI
+                </Link>
+                <Link to="/login" className="btn btn-ghost">
+                  Sign In
                 </Link>
                 <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-ghost">
                   Contact Us

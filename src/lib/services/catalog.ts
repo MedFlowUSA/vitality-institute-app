@@ -85,6 +85,73 @@ export function serviceSlug(service: Pick<CatalogService, "name">) {
     .replace(/^-+|-+$/g, "");
 }
 
+function normalizeServiceText(value: string | null | undefined) {
+  return (value ?? "")
+    .toLowerCase()
+    .replace(/\+/g, " plus ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function scoreAliasMatch(service: CatalogService, alias: string) {
+  const normalizedAlias = normalizeServiceText(alias);
+  if (!normalizedAlias) return 0;
+
+  const normalizedName = normalizeServiceText(service.name);
+  const normalizedSlug = normalizeServiceText(serviceSlug(service));
+
+  if (normalizedAlias === normalizedName) return 120;
+  if (normalizedAlias === normalizedSlug) return 118;
+  if (normalizedName.includes(normalizedAlias)) return 96;
+  if (normalizedSlug.includes(normalizedAlias)) return 94;
+  if (normalizedAlias.includes(normalizedName) && normalizedName.length >= 8) return 88;
+
+  const aliasTokens = normalizedAlias.split(" ").filter(Boolean);
+  const nameTokens = new Set(normalizedName.split(" ").filter(Boolean));
+  const overlap = aliasTokens.filter((token) => nameTokens.has(token)).length;
+  if (overlap === 0) return 0;
+
+  const ratio = overlap / aliasTokens.length;
+  if (ratio === 1) return 84 + overlap;
+  if (ratio >= 0.75) return 74 + overlap;
+  if (ratio >= 0.5) return 60 + overlap;
+  return 0;
+}
+
+export type CatalogInterestMatch = {
+  service: CatalogService;
+  confidence: "exact" | "close";
+  score: number;
+};
+
+export function matchCatalogServiceFromInterest(args: {
+  interest?: string | null;
+  offeringTitle?: string | null;
+  services: CatalogService[];
+}) {
+  const aliases = [args.interest ?? "", args.offeringTitle ?? ""]
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (aliases.length === 0 || args.services.length === 0) return null;
+
+  let best: CatalogInterestMatch | null = null;
+  for (const service of args.services) {
+    const score = aliases.reduce((max, alias) => Math.max(max, scoreAliasMatch(service, alias)), 0);
+    if (score < 60) continue;
+    if (!best || score > best.score) {
+      best = {
+        service,
+        score,
+        confidence: score >= 96 ? "exact" : "close",
+      };
+    }
+  }
+
+  return best;
+}
+
 export function categoryAccent(cat: string | null) {
   switch (cat) {
     case "iv_therapy":

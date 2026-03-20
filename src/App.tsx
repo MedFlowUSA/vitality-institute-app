@@ -18,6 +18,7 @@ import PublicVitalAiLite from "./pages/PublicVitalAiLite";
 import AdminHome from "./pages/AdminHome";
 import AdminStaffManagement from "./pages/AdminStaffManagement";
 import AdminInquiries from "./pages/AdminInquiries";
+import AdminBookingRequests from "./pages/AdminBookingRequests";
 
 import PatientAuth from "./pages/PatientAuth";
 import PatientHome from "./pages/PatientHome";
@@ -289,6 +290,14 @@ export default function App() {
               element={
                 <RequireRole allow={[...PROVIDER_ROLES]}>
                   <AdminInquiries />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/admin/booking-requests"
+              element={
+                <RequireRole allow={[...PROVIDER_ROLES]}>
+                  <AdminBookingRequests />
                 </RequireRole>
               }
             />

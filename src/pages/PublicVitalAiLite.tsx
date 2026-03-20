@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../auth/AuthProvider";
+import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import {
   buildPublicVitalAiSummary,
@@ -9,7 +11,8 @@ import {
   type PublicVitalAiAnswers,
   type PublicVitalAiPathway,
 } from "../lib/publicVitalAiLite";
-import { supabase } from "../lib/supabase";
+import { readPublicBookingDraft } from "../lib/publicBookingDraft";
+import { submitPublicVitalAiRequest } from "../lib/publicVitalAiSubmission";
 import { loadCatalogLocations, type CatalogLocation } from "../lib/services/catalog";
 
 type StepKey = "pathway" | "questions" | "contact" | "review" | "success";
@@ -21,15 +24,22 @@ const CONTACT_METHODS = [
 ] as const;
 
 export default function PublicVitalAiLite() {
+  const { user } = useAuth();
   const [step, setStep] = useState<StepKey>("pathway");
-  const [pathway, setPathway] = useState<PublicVitalAiPathway>("wound_care");
+  const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
+  const [pathway, setPathway] = useState<PublicVitalAiPathway>(() => {
+    const serviceLabel = `${bookingDraft?.serviceName ?? ""} ${bookingDraft?.notes ?? ""}`.toLowerCase();
+    if (serviceLabel.includes("wound")) return "wound_care";
+    if (serviceLabel.includes("glp") || serviceLabel.includes("weight")) return "glp1_weight_loss";
+    return "wound_care";
+  });
   const [answers, setAnswers] = useState<PublicVitalAiAnswers>({});
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [preferredContactMethod, setPreferredContactMethod] = useState<"phone" | "email" | "either">("email");
-  const [preferredLocationId, setPreferredLocationId] = useState("");
+  const [preferredLocationId, setPreferredLocationId] = useState(bookingDraft?.locationId ?? "");
   const [locations, setLocations] = useState<CatalogLocation[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -47,7 +57,9 @@ export default function PublicVitalAiLite() {
         const rows = await loadCatalogLocations();
         if (cancelled) return;
         setLocations(rows);
-        if (!preferredLocationId && rows[0]?.id) setPreferredLocationId(rows[0].id);
+        if (!preferredLocationId && (bookingDraft?.locationId || rows[0]?.id)) {
+          setPreferredLocationId(bookingDraft?.locationId ?? rows[0].id);
+        }
       } finally {
         if (!cancelled) setLoadingLocations(false);
       }
@@ -56,7 +68,7 @@ export default function PublicVitalAiLite() {
     return () => {
       cancelled = true;
     };
-  }, [preferredLocationId]);
+  }, [bookingDraft?.locationId, preferredLocationId]);
 
   function updateAnswer(key: keyof PublicVitalAiAnswers, value: string) {
     setAnswers((current) => ({ ...current, [key]: value }));
@@ -93,31 +105,26 @@ export default function PublicVitalAiLite() {
     setSubmitError(null);
     try {
       const summary = buildPublicVitalAiSummary(pathway, answers);
-      const { data, error } = await supabase
-        .from("public_vital_ai_submissions")
-        .insert([
-          {
-            pathway,
-            status: "new",
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-            phone: phone.trim() || null,
-            email: email.trim() || null,
-            preferred_contact_method: preferredContactMethod,
-            preferred_location_id: preferredLocationId || null,
-            answers_json: answers,
-            summary,
-            source: "public_vital_ai_lite",
-          },
-        ])
-        .select("id")
-        .single();
-
-      if (error) throw error;
-      setSubmissionId((data as { id: string } | null)?.id ?? null);
+      const data = await submitPublicVitalAiRequest({
+        pathway,
+        answers,
+        firstName,
+        lastName,
+        phone,
+        email,
+        preferredContactMethod,
+        preferredLocationId,
+        summary,
+      });
+      setSubmissionId(data.id ?? null);
       setStep("success");
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : "Unable to submit Vital AI right now.");
+      console.error("[Public Vital AI] submit failed", {
+        pathway,
+        bookingRequestId: bookingDraft?.requestId ?? null,
+        error: e,
+      });
+      setSubmitError("We couldn't send your request right now. Please try again or contact the clinic for help.");
     } finally {
       setSubmitting(false);
     }
@@ -151,6 +158,31 @@ export default function PublicVitalAiLite() {
       </div>
 
       <div className="space" />
+
+      {user?.id ? (
+        <>
+          <PublicFlowStatusCard
+            eyebrow="Signed In"
+            title="Prefer the full guided intake?"
+            body="Your full Vital AI intake is available in the patient portal if you want the richer workflow with saved sessions, uploads, and provider review routing."
+            detail="This public version is still useful for a lightweight request, but the full portal experience keeps more of your progress and care context together."
+            actions={[{ label: "Open Full Intake", to: "/intake" }]}
+          />
+          <div className="space" />
+        </>
+      ) : null}
+
+      {bookingDraft?.requestId || bookingDraft?.serviceId || bookingDraft?.locationId ? (
+        <>
+          <PublicFlowStatusCard
+            eyebrow="Saved Visit Context"
+            title="Your request details will stay connected"
+            body={`${bookingDraft?.serviceName || "Your selected service"} at ${bookingDraft?.locationName || "your preferred location"}${bookingDraft?.startTimeLocal ? ` with a preferred time of ${new Date(bookingDraft.startTimeLocal).toLocaleString()}` : ""} will be included with this request.`}
+            detail={bookingDraft?.notes ? `Visit note: ${bookingDraft.notes}` : "This helps our team review the request and coordinate the right next step."}
+          />
+          <div className="space" />
+        </>
+      ) : null}
 
       <div className="card card-pad card-light surface-light">
         <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
@@ -383,7 +415,7 @@ export default function PublicVitalAiLite() {
         <div className="card card-pad card-light surface-light">
           <div className="h2">Review your Vital AI Lite request</div>
           <div className="surface-light-helper" style={{ marginTop: 6 }}>
-            Review the basics before submitting. The clinic will use this for intake guidance and provider prep.
+            Review the basics before submitting. The clinic will use this for intake guidance, follow-up, and provider prep.
           </div>
           <div className="space" />
           <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
@@ -402,6 +434,11 @@ export default function PublicVitalAiLite() {
               <div className="surface-light-helper" style={{ marginTop: 6 }}>
                 Contact by {preferredContactMethod}. Location: {locations.find((location) => location.id === preferredLocationId)?.name ?? "Not provided"}.
               </div>
+              {bookingDraft?.requestId ? (
+                <div className="surface-light-helper" style={{ marginTop: 6 }}>
+                  Linked to visit request {bookingDraft.requestId}.
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="space" />
@@ -432,26 +469,20 @@ export default function PublicVitalAiLite() {
       ) : null}
 
       {step === "success" ? (
-        <div className="card card-pad card-light surface-light">
-          <div className="h2">Request received</div>
-          <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
-            {pathwayDef.successNote} A team member can follow up by {preferredContactMethod === "either" ? "phone or email" : preferredContactMethod}.
-          </div>
-          <div className="surface-light-helper" style={{ marginTop: 12 }}>
-            Reference: {submissionId ?? "submitted"}. Final recommendations and treatment decisions are always determined by medical evaluation.
-          </div>
-          <div className="space" />
-          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            <Link to="/book" className="btn btn-primary">
-              Continue to Booking
-            </Link>
-            <Link to="/contact" className="btn btn-ghost">
-              Contact the Clinic
-            </Link>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => {
+        <PublicFlowStatusCard
+          tone="success"
+          eyebrow="Request Received"
+          title="Thank you - our team will review your request"
+          body={`${pathwayDef.successNote} A coordinator may follow up by ${preferredContactMethod === "either" ? "phone or email" : preferredContactMethod} to confirm scheduling and next steps.`}
+          detail={`Reference: ${submissionId ?? "submitted"}.${bookingDraft?.requestId ? ` Linked visit request: ${bookingDraft.requestId}.` : ""} Final recommendations and treatment decisions are always determined by medical evaluation.`}
+          actions={[
+            { label: "Explore Services", to: "/services" },
+            { label: "Request Booking", to: "/book", variant: "ghost" },
+            { label: "Contact the Clinic", to: "/contact", variant: "ghost" },
+            {
+              label: "Start Another",
+              variant: "ghost",
+              onClick: () => {
                 setAnswers({});
                 setFirstName("");
                 setLastName("");
@@ -461,26 +492,22 @@ export default function PublicVitalAiLite() {
                 setStep("pathway");
                 setSubmissionId(null);
                 setSubmitError(null);
-              }}
-            >
-              Start Another
-            </button>
-          </div>
-        </div>
+              },
+            },
+          ]}
+        />
       ) : null}
 
       <div className="space" />
 
-      <div className="card card-pad card-light surface-light">
-        <div className="h2">What happens next?</div>
-        <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
-          1. Choose a care direction and answer a few short questions.
-          <br />
-          2. Send your contact details so the clinic can review your request.
-          <br />
-          3. The team can follow up, help with booking, or guide the next intake step based on clinical review.
-        </div>
-      </div>
+      <PublicFlowStatusCard
+        eyebrow="What Happens Next"
+        title="A calm, guided next step for the clinic and for you"
+        body="Choose a care direction, answer a few short questions, and send your contact details so the clinic can review your request and route you appropriately."
+        detail={pathway === "wound_care"
+          ? "For wound-care concerns, your answers help the team understand urgency, infection concerns, and whether faster follow-up or additional review is needed."
+          : "Depending on your concern, a coordinator may help with scheduling first or a provider may review the request before the next visit step is confirmed."}
+      />
     </PublicSiteLayout>
   );
 }

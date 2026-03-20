@@ -1,3 +1,5 @@
+import { guidedHelperStyle, guidedPanelSoftStyle } from "./guidedIntakeStyles";
+
 export default function FileUploadField({
   label,
   required,
@@ -26,7 +28,7 @@ export default function FileUploadField({
         style={{
           display: "block",
           cursor: uploading ? "not-allowed" : "pointer",
-          background: "rgba(255,255,255,0.05)",
+          ...guidedPanelSoftStyle,
           border: "1px dashed rgba(200,182,255,0.32)",
         }}
       >
@@ -47,7 +49,7 @@ export default function FileUploadField({
           {helper ?? "Select a file to upload."}
         </div>
       </label>
-      <div className="muted" style={{ marginTop: 6, fontSize: 12, color: "rgba(226,232,240,0.8)" }}>
+      <div className="muted" style={{ marginTop: 6, fontSize: 12, ...guidedHelperStyle }}>
         {uploading ? "Uploading..." : helper ?? "Choose a file to upload."}
       </div>
     </div>

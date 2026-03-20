@@ -1180,7 +1180,7 @@ export default function ProviderPatientCenter() {
       <div className="shell">
         <RouteHeader
           title="Provider Patient Center"
-          subtitle="Move back to the provider workspace or patient list while keeping chart navigation consistent on mobile."
+          subtitle="Review the chart, visits, plan, labs, notes, and files."
           backTo="/provider/patients"
           homeTo="/provider"
           rightAction={

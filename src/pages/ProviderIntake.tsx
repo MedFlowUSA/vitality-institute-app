@@ -396,9 +396,16 @@ export default function ProviderIntake() {
           {!loading && (
             <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
               {/* LEFT LIST */}
-              <div className="card card-pad" style={{ flex: "1 1 360px", minWidth: 320 }}>
+              <div className="card card-pad card-light surface-light" style={{ flex: "1 1 360px", minWidth: 320 }}>
                 <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <div className="h2">Wound Submissions</div>
+                  <div>
+                    <div className="muted" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em" }}>Incoming Queue</div>
+                    <div className="h2" style={{ marginTop: 6 }}>Wound Submissions</div>
+                  </div>
+                </div>
+
+                <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                  Review urgent wound history, status, and uploads before moving the intake into approval or lock.
                 </div>
 
                 <div className="space" />
@@ -458,8 +465,19 @@ export default function ProviderIntake() {
                       <button
                         key={r.id}
                         type="button"
-                        className={activeBtn ? "btn btn-primary" : "btn btn-ghost"}
-                        style={{ width: "100%", justifyContent: "space-between", marginBottom: 8 }}
+                        className="card card-pad card-light surface-light"
+                        style={{
+                          width: "100%",
+                          justifyContent: "space-between",
+                          marginBottom: 8,
+                          textAlign: "left",
+                          cursor: "pointer",
+                          border: activeBtn ? "1px solid rgba(124,58,237,0.38)" : "1px solid rgba(184,164,255,0.16)",
+                          background: activeBtn
+                            ? "linear-gradient(135deg, rgba(232,224,255,0.98), rgba(245,240,255,0.96))"
+                            : "linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,245,255,0.94))",
+                          boxShadow: activeBtn ? "0 16px 34px rgba(139,124,255,0.14)" : "0 10px 24px rgba(15,23,42,0.06)",
+                        }}
                         onClick={() => setActiveId(r.id)}
                       >
                         <span style={{ textAlign: "left" }}>
@@ -478,7 +496,7 @@ export default function ProviderIntake() {
               </div>
 
               {/* RIGHT DETAIL */}
-              <div className="card card-pad" style={{ flex: "2 1 680px", minWidth: 320 }}>
+              <div className="card card-pad card-light surface-light" style={{ flex: "2 1 680px", minWidth: 320 }}>
                 {!active ? (
                   <div className="muted">Select a submission.</div>
                 ) : (

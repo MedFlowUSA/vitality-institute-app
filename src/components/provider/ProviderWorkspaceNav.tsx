@@ -44,7 +44,7 @@ export default function ProviderWorkspaceNav({
 
   return (
     <div
-      className="card card-pad"
+      className="card card-pad card-light surface-light"
       style={{
         background: "rgba(255,255,255,0.94)",
         border: "1px solid rgba(184,164,255,0.22)",

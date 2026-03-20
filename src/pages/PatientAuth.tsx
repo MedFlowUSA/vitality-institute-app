@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { readPublicBookingDraft } from "../lib/publicBookingDraft";
+import { normalizeRedirectTarget } from "../lib/routeFlow";
 import { getAuthRedirectUrl, supabase } from "../lib/supabase";
 
 type Mode = "login" | "signup" | "magic";
@@ -12,7 +14,7 @@ function normalizeMode(value: string | null): Mode {
 }
 
 function normalizeNextPath(value: string | null, pathname: string) {
-  if (value && value.startsWith("/") && !value.startsWith("//")) return value;
+  if (value) return normalizeRedirectTarget(value, pathname.startsWith("/patient") ? "/patient" : "/");
   if (pathname.startsWith("/patient")) return "/patient";
   return "/";
 }
@@ -27,6 +29,8 @@ export default function PatientAuth() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
+  const handoff = searchParams.get("handoff");
 
   const nextPath = useMemo(() => {
     return normalizeNextPath(searchParams.get("next"), location.pathname);
@@ -214,6 +218,24 @@ export default function PatientAuth() {
 
             <div style={{ height: 22 }} />
 
+            {handoff === "booking_request" && bookingDraft?.requestId ? (
+              <div style={contextCardStyle}>
+                <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", color: "#C8B6FF" }}>
+                  Visit Request Saved
+                </div>
+                <div style={{ marginTop: 8, fontSize: 18, fontWeight: 800, color: "#F8FAFC" }}>
+                  Continue to account setup and intake
+                </div>
+                <div style={{ marginTop: 8, color: "rgba(226,232,240,0.78)", lineHeight: 1.7 }}>
+                  Your request for {bookingDraft.serviceName || "your selected service"}{bookingDraft.locationName ? ` at ${bookingDraft.locationName}` : ""} has been saved.
+                  Create or access your account to continue intake so our team can review next steps.
+                </div>
+                <div style={{ marginTop: 10, color: "rgba(226,232,240,0.62)", fontSize: 12, lineHeight: 1.6 }}>
+                  Reference: {bookingDraft.requestId}. A coordinator may follow up to confirm scheduling, and provider review may be required depending on your concern.
+                </div>
+              </div>
+            ) : null}
+
             {err ? <div style={errorStyle}>{err}</div> : null}
             {msg ? <div style={messageStyle}>{msg}</div> : null}
 
@@ -316,5 +338,14 @@ const messageStyle: React.CSSProperties = {
   border: "1px solid rgba(16,185,129,0.22)",
   borderRadius: 16,
   padding: 12,
+  marginBottom: 12,
+};
+
+const contextCardStyle: React.CSSProperties = {
+  color: "#F8FAFC",
+  background: "linear-gradient(135deg, rgba(200,182,255,0.14), rgba(139,124,255,0.12))",
+  border: "1px solid rgba(184,164,255,0.22)",
+  borderRadius: 20,
+  padding: 16,
   marginBottom: 12,
 };

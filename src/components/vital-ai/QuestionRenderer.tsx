@@ -1,5 +1,6 @@
 import type { IntakeQuestion } from "../../lib/vitalAi/types";
 import DictationTextarea from "../DictationTextarea";
+import { guidedPanelSoftStyle } from "./guidedIntakeStyles";
 
 export default function QuestionRenderer({
   question,
@@ -40,8 +41,13 @@ export default function QuestionRenderer({
 
   if (question.type === "textarea") {
     return (
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 4 }}>
         {label}
+        {question.helpText ? (
+          <div className="muted" style={{ marginBottom: 8, fontSize: 12, lineHeight: 1.5 }}>
+            {question.helpText}
+          </div>
+        ) : null}
         <DictationTextarea
           value={typeof value === "string" ? value : ""}
           onChange={(nextValue) => onChange(nextValue)}
@@ -55,8 +61,13 @@ export default function QuestionRenderer({
 
   if (question.type === "select") {
     return (
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: 4 }}>
           {label}
+          {question.helpText ? (
+            <div className="muted" style={{ marginBottom: 8, fontSize: 12, lineHeight: 1.5 }}>
+              {question.helpText}
+            </div>
+          ) : null}
           <select
             className="input"
             style={selectStyle}
@@ -82,13 +93,17 @@ export default function QuestionRenderer({
     return (
       <div style={{ marginBottom: 16 }}>
         {label}
+        {question.helpText ? (
+          <div className="muted" style={{ marginBottom: 8, fontSize: 12, lineHeight: 1.5 }}>
+            {question.helpText}
+          </div>
+        ) : null}
         <div
           className="card card-pad"
           role="radiogroup"
           aria-label={question.label}
           style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.14)",
+            ...guidedPanelSoftStyle,
           }}
         >
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
@@ -138,6 +153,11 @@ export default function QuestionRenderer({
   return (
     <div style={{ marginBottom: 16 }}>
       {label}
+      {question.helpText ? (
+        <div className="muted" style={{ marginBottom: 8, fontSize: 12, lineHeight: 1.5 }}>
+          {question.helpText}
+        </div>
+      ) : null}
       <input
         className="input"
         type={inputType}

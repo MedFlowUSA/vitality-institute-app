@@ -30,7 +30,7 @@ export default function ProviderGuidePanel({
 
   return (
     <div
-      className="card card-pad"
+      className="card card-pad card-light surface-light"
       style={{
         background: "linear-gradient(135deg, rgba(245,240,255,0.96), rgba(236,229,255,0.94))",
         border: "1px solid rgba(184,164,255,0.28)",
@@ -56,7 +56,7 @@ export default function ProviderGuidePanel({
         <>
           <div className="space" />
 
-          <div style={{ lineHeight: 1.7, color: "#3E355C" }}>{description}</div>
+          <div className="surface-light-body" style={{ lineHeight: 1.7 }}>{description}</div>
 
           {(workflowState || nextAction) ? (
             <>
@@ -76,7 +76,7 @@ export default function ProviderGuidePanel({
                     <div className="muted" style={{ fontSize: 12 }}>
                       Workflow State
                     </div>
-                    <div style={{ marginTop: 6, fontWeight: 800, color: "#241B3D" }}>{workflowState}</div>
+                    <div style={{ marginTop: 6, fontWeight: 800 }}>{workflowState}</div>
                   </div>
                 ) : null}
 
@@ -94,7 +94,7 @@ export default function ProviderGuidePanel({
                     <div className="muted" style={{ fontSize: 12 }}>
                       Recommended Next Action
                     </div>
-                    <div style={{ marginTop: 6, fontWeight: 800, color: "#241B3D" }}>{nextAction}</div>
+                    <div style={{ marginTop: 6, fontWeight: 800 }}>{nextAction}</div>
                   </div>
                 ) : null}
               </div>

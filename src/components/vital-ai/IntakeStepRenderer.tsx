@@ -2,6 +2,7 @@ import type { VitalAiFileRow, IntakeQuestion, IntakeStep } from "../../lib/vital
 import FileUploadField from "./FileUploadField";
 import ImageUploadField from "./ImageUploadField";
 import QuestionRenderer from "./QuestionRenderer";
+import { guidedPanelSoftStyle, guidedQuestionCardStyle } from "./guidedIntakeStyles";
 
 function filesForCategory(files: VitalAiFileRow[], category?: string) {
   if (!category) return [];
@@ -27,20 +28,23 @@ export default function IntakeStepRenderer({
 }) {
   return (
     <div>
-      <div className="h2">{step.title}</div>
-      {step.description ? (
-        <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
-          {step.description}
+      <div className="card card-pad" style={{ ...guidedPanelSoftStyle, marginBottom: 14 }}>
+        <div className="muted" style={{ fontSize: 12, letterSpacing: ".08em", textTransform: "uppercase" }}>
+          Current Section
         </div>
-      ) : null}
-
-      <div className="space" />
+        <div className="h2" style={{ marginTop: 8 }}>{step.title}</div>
+        {step.description ? (
+          <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
+            {step.description}
+          </div>
+        ) : null}
+      </div>
 
       {step.questions.map((question) => {
         if (question.type === "file") {
           const currentFiles = filesForCategory(files, question.category);
           return (
-            <div key={question.key}>
+            <div key={question.key} className="card card-pad" style={guidedQuestionCardStyle}>
               <FileUploadField
                 label={question.label}
                 required={question.required}
@@ -51,9 +55,7 @@ export default function IntakeStepRenderer({
                 <div
                   className="card card-pad"
                   style={{
-                    marginBottom: 14,
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
+                    ...guidedPanelSoftStyle,
                   }}
                 >
                   <div className="muted" style={{ marginBottom: 6, fontSize: 12 }}>
@@ -73,7 +75,7 @@ export default function IntakeStepRenderer({
         if (question.type === "image") {
           const currentFiles = filesForCategory(files, question.category);
           return (
-            <div key={question.key}>
+            <div key={question.key} className="card card-pad" style={guidedQuestionCardStyle}>
               <ImageUploadField
                 label={question.label}
                 required={question.required}
@@ -84,9 +86,7 @@ export default function IntakeStepRenderer({
                 <div
                   className="card card-pad"
                   style={{
-                    marginBottom: 14,
-                    background: "rgba(255,255,255,0.06)",
-                    border: "1px solid rgba(255,255,255,0.12)",
+                    ...guidedPanelSoftStyle,
                   }}
                 >
                   <div className="muted" style={{ marginBottom: 6, fontSize: 12 }}>

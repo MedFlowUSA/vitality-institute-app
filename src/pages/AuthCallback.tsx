@@ -1,12 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { normalizeRedirectTarget } from "../lib/routeFlow";
 import { supabase } from "../lib/supabase";
-
-function sanitizeNextPath(value: string | null) {
-  if (!value || !value.startsWith("/")) return "/";
-  if (value.startsWith("//")) return "/";
-  return value;
-}
 
 export default function AuthCallback() {
   const navigate = useNavigate();
@@ -20,7 +15,7 @@ export default function AuthCallback() {
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
         const type = url.searchParams.get("type");
-        const next = sanitizeNextPath(url.searchParams.get("next"));
+        const next = normalizeRedirectTarget(url.searchParams.get("next"), "/");
 
         if (code) {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);

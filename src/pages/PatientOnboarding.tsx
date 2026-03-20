@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { readPublicBookingDraft } from "../lib/publicBookingDraft";
+import { buildAuthRoute, normalizeRedirectTarget } from "../lib/routeFlow";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 
@@ -9,6 +11,10 @@ type LocationRow = { id: string; name: string; city: string | null; state: strin
 export default function PatientOnboarding() {
   const { user, loading: authLoading } = useAuth();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextPath = useMemo(() => normalizeRedirectTarget(searchParams.get("next"), "/patient"), [searchParams]);
+  const handoff = searchParams.get("handoff");
+  const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,7 +40,7 @@ export default function PatientOnboarding() {
       if (authLoading) return;
 
       if (!user?.id) {
-        nav("/patient/auth", { replace: true });
+        nav(buildAuthRoute({ mode: "login", next: nextPath, handoff }), { replace: true });
         return;
       }
 
@@ -51,7 +57,7 @@ export default function PatientOnboarding() {
         if (exErr) throw exErr;
 
         if (existing?.id) {
-          nav("/patient", { replace: true });
+          nav(nextPath, { replace: true });
           return;
         }
 
@@ -81,7 +87,7 @@ export default function PatientOnboarding() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, user?.id, nav, user?.email]);
+  }, [authLoading, handoff, nextPath, user?.id, nav, user?.email]);
 
   const save = async () => {
     if (!user?.id) return;
@@ -126,7 +132,7 @@ export default function PatientOnboarding() {
 
       if (dErr) throw dErr;
 
-      nav("/patient", { replace: true });
+      nav(nextPath, { replace: true });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to save onboarding.";
       setErr(message);
@@ -155,6 +161,23 @@ export default function PatientOnboarding() {
         <div className="space" />
 
         <div className="card card-pad" style={{ maxWidth: 760, margin: "0 auto" }}>
+          {handoff === "booking_request" && bookingDraft?.requestId ? (
+            <>
+              <div
+                className="card card-pad card-light surface-light"
+                style={{ marginBottom: 14 }}
+              >
+                <div className="h2">Your visit request is already saved</div>
+                <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
+                  Finish your profile so we can continue into intake and keep your request connected to the right patient account.
+                </div>
+                <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
+                  Reference: {bookingDraft.requestId}. {bookingDraft.serviceName || "Your selected service"}{bookingDraft.locationName ? ` at ${bookingDraft.locationName}` : ""} is waiting for clinic review, and a coordinator may follow up to confirm next steps.
+                </div>
+              </div>
+            </>
+          ) : null}
+
           {err ? <div style={{ color: "crimson", marginBottom: 10 }}>{err}</div> : null}
 
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
@@ -226,7 +249,7 @@ export default function PatientOnboarding() {
           <div className="space" />
 
           <div className="muted" style={{ fontSize: 12 }}>
-            This creates your patient profile so you can submit intake forms, request visits, and message the clinic.
+            This creates your patient profile so you can continue into guided intake, request visits, and message the clinic.
           </div>
         </div>
       </div>

@@ -1,4 +1,12 @@
 import type { IntakeStep } from "../../lib/vitalAi/types";
+import {
+  guidedGhostButtonStyle,
+  guidedHelperStyle,
+  guidedMutedStyle,
+  guidedPanelSoftStyle,
+  guidedPanelStyle,
+  guidedPrimaryButtonStyle,
+} from "./guidedIntakeStyles";
 
 export default function IntakeFlowShell({
   title,
@@ -29,6 +37,10 @@ export default function IntakeFlowShell({
   saveStateLabel?: string;
   headerAside?: React.ReactNode;
 }) {
+  const totalSteps = steps.length;
+  const currentStep = totalSteps === 0 ? 0 : activeIndex + 1;
+  const progress = totalSteps === 0 ? 0 : Math.round((currentStep / totalSteps) * 100);
+
   return (
     <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
       <div
@@ -36,16 +48,40 @@ export default function IntakeFlowShell({
         style={{
           flex: "0 0 280px",
           minWidth: 240,
-          background: "rgba(7,13,25,0.96)",
-          border: "1px solid rgba(200,182,255,0.18)",
+          ...guidedPanelStyle,
+          position: "sticky",
+          top: 16,
         }}
       >
-        <div className="h2">{title}</div>
+        <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <div className="h2">{title}</div>
+          <div className="v-chip">Step {currentStep} of {totalSteps}</div>
+        </div>
         {subtitle ? (
-          <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, color: "rgba(226,232,240,0.84)" }}>
+          <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, ...guidedMutedStyle }}>
             {subtitle}
           </div>
         ) : null}
+
+        <div className="space" />
+
+        <div className="card card-pad" style={{ ...guidedPanelSoftStyle, padding: 12 }}>
+          <div className="row" style={{ justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+            <div className="muted" style={{ fontSize: 12, ...guidedHelperStyle }}>Progress</div>
+            <div style={{ fontWeight: 800 }}>{progress}%</div>
+          </div>
+          <div style={{ marginTop: 8, height: 8, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+            <div
+              style={{
+                width: `${progress}%`,
+                height: "100%",
+                borderRadius: 999,
+                background: "linear-gradient(90deg, #C8B6FF, #8B7CFF)",
+                boxShadow: "0 0 18px rgba(139,124,255,0.35)",
+              }}
+            />
+          </div>
+        </div>
 
         {headerAside ? (
           <>
@@ -64,16 +100,19 @@ export default function IntakeFlowShell({
               className="card card-pad"
               style={{
                 marginBottom: 10,
-                background: active ? "linear-gradient(135deg, rgba(200,182,255,0.24), rgba(139,124,255,0.16))" : "rgba(255,255,255,0.06)",
+                background: active ? "linear-gradient(135deg, rgba(200,182,255,0.24), rgba(139,124,255,0.16))" : guidedPanelSoftStyle.background,
                 border: active ? "1px solid rgba(200,182,255,0.42)" : "1px solid rgba(255,255,255,0.12)",
                 boxShadow: active ? "0 10px 24px rgba(139,124,255,0.16)" : "none",
               }}
             >
-              <div style={{ fontWeight: 800, color: "#F8FAFC" }}>
-                {index + 1}. {step.title}
+              <div className="row" style={{ justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                <div style={{ fontWeight: 800, color: "#F8FAFC" }}>
+                  {index + 1}. {step.title}
+                </div>
+                {active ? <div className="v-chip">Current</div> : null}
               </div>
               {step.description ? (
-                <div className="muted" style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5, color: "rgba(226,232,240,0.78)" }}>
+                <div className="muted" style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5, ...guidedHelperStyle }}>
                   {step.description}
                 </div>
               ) : null}
@@ -88,8 +127,7 @@ export default function IntakeFlowShell({
               className="card card-pad"
               style={{
                 fontSize: 12,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.12)",
+                ...guidedPanelSoftStyle,
                 color: "#F8FAFC",
               }}
             >
@@ -104,10 +142,19 @@ export default function IntakeFlowShell({
         style={{
           flex: "1 1 720px",
           minWidth: 320,
-          background: "rgba(8,15,28,0.98)",
-          border: "1px solid rgba(255,255,255,0.12)",
+          ...guidedPanelStyle,
         }}
       >
+        <div className="card card-pad" style={{ ...guidedPanelSoftStyle, marginBottom: 14 }}>
+          <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <div>
+              <div className="muted" style={{ fontSize: 12, ...guidedHelperStyle }}>Guided Intake</div>
+              <div style={{ marginTop: 6, fontWeight: 800 }}>Answer only what is needed for this section.</div>
+            </div>
+            <div className="v-chip">Current section: {steps[activeIndex]?.title ?? "Intake"}</div>
+          </div>
+        </div>
+
         {children}
 
         <div className="space" />
@@ -119,9 +166,7 @@ export default function IntakeFlowShell({
             onClick={onBack}
             disabled={disableBack}
             style={{
-              background: "rgba(255,255,255,0.10)",
-              border: "1px solid rgba(255,255,255,0.18)",
-              color: "#F8FAFC",
+              ...guidedGhostButtonStyle,
               opacity: disableBack ? 0.55 : 1,
             }}
           >
@@ -135,10 +180,7 @@ export default function IntakeFlowShell({
               onClick={onReview}
               disabled={disableNext}
               style={{
-                background: "linear-gradient(135deg, #C8B6FF, #8B7CFF)",
-                color: "#140F24",
-                border: "1px solid rgba(184,164,255,0.38)",
-                boxShadow: "0 14px 28px rgba(139,124,255,0.22)",
+                ...guidedPrimaryButtonStyle,
                 opacity: disableNext ? 0.55 : 1,
               }}
             >
@@ -151,10 +193,7 @@ export default function IntakeFlowShell({
               onClick={onNext}
               disabled={disableNext}
               style={{
-                background: "linear-gradient(135deg, #C8B6FF, #8B7CFF)",
-                color: "#140F24",
-                border: "1px solid rgba(184,164,255,0.38)",
-                boxShadow: "0 14px 28px rgba(139,124,255,0.22)",
+                ...guidedPrimaryButtonStyle,
                 opacity: disableNext ? 0.55 : 1,
               }}
             >
