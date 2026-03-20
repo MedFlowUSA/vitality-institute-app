@@ -11,10 +11,7 @@ type Props = {
 };
 
 const navItems = [
-  { to: "/", label: "Home" },
-  { to: "/services", label: "Explore Services" },
-  { to: "/book", label: "Request Visit" },
-  { to: "/vital-ai", label: "Start with Vital AI" },
+  { to: "/services", label: "Services" },
   { to: "/login", label: "Sign In" },
 ];
 
@@ -66,20 +63,26 @@ export default function PublicSiteLayout({ title, subtitle, children, rightActio
 
           <div className="space" />
 
-          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <div className="row" style={{ gap: 14, flexWrap: "wrap", alignItems: "center" }}>
             {showBack ? (
               <button type="button" className="btn btn-ghost" onClick={handleBack}>
                 Back
               </button>
             ) : null}
             {navItems.map((item) => {
-              const active =
-                item.to === "/"
-                  ? location.pathname === "/"
-                  : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+              const active = location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
 
               return (
-                <Link key={item.to} to={item.to} className={active ? "btn btn-primary" : "btn btn-ghost"} style={{ textDecoration: "none" }}>
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  style={{
+                    textDecoration: "none",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: active ? "#ffffff" : "rgba(255,255,255,0.84)",
+                  }}
+                >
                   {item.label}
                 </Link>
               );
