@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
 import {
@@ -14,13 +14,21 @@ import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistan
 import { useAuth } from "../auth/AuthProvider";
 import { clearPublicBookingDraft, readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { supabase } from "../lib/supabase";
+import {
+  getGenderPathwayGuidance,
+  personalizePathwaysByGender,
+  readStoredIntakeGender,
+  saveStoredIntakeGender,
+  type IntakeGender,
+} from "../lib/vitalAi/genderPreferences";
 import { loadVitalAiPathways } from "../lib/vitalAi/pathways";
-import { createVitalAiSession, resolveCurrentPatient } from "../lib/vitalAi/submission";
+import { createVitalAiSession, resolveCurrentPatient, saveVitalAiResponses } from "../lib/vitalAi/submission";
 import type { PatientRecord, VitalAiPathwayRow, VitalAiSessionRow } from "../lib/vitalAi/types";
 
 export default function VitalAiIntakeHome() {
   const { user, resumeKey } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [busySlug, setBusySlug] = useState<string | null>(null);
@@ -28,18 +36,37 @@ export default function VitalAiIntakeHome() {
   const [pathways, setPathways] = useState<VitalAiPathwayRow[]>([]);
   const [patient, setPatient] = useState<PatientRecord | null>(null);
   const [drafts, setDrafts] = useState<VitalAiSessionRow[]>([]);
+  const [intakeGender, setIntakeGender] = useState<IntakeGender | "">(() => readStoredIntakeGender());
   const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
+  const requestedPathway = searchParams.get("pathway");
 
-  const prioritizedPathways = [...pathways].sort((a, b) => {
-    const rank = (slug: string) => {
-      const key = slug.toLowerCase();
-      if (key.includes("general") || key.includes("consult")) return 0;
-      if (key.includes("wound")) return 1;
-      return 2;
-    };
+  const prioritizedPathways = useMemo(() => {
+    const baseline = [...pathways].sort((a, b) => {
+      const rank = (slug: string) => {
+        const key = slug.toLowerCase();
+        if (key.includes("general") || key.includes("consult")) return 0;
+        if (key.includes("wound")) return 1;
+        return 2;
+      };
 
-    return rank(a.slug) - rank(b.slug) || a.name.localeCompare(b.name);
-  });
+      return rank(a.slug) - rank(b.slug) || a.name.localeCompare(b.name);
+    });
+
+    const personalized = personalizePathwaysByGender(baseline, intakeGender);
+    if (!requestedPathway) return personalized;
+
+    const requestedIndex = personalized.findIndex((pathway) => pathway.slug.toLowerCase().includes(requestedPathway.toLowerCase()));
+    if (requestedIndex <= 0) return personalized;
+
+    const next = [...personalized];
+    const [requested] = next.splice(requestedIndex, 1);
+    next.unshift(requested);
+    return next;
+  }, [intakeGender, pathways, requestedPathway]);
+
+  useEffect(() => {
+    saveStoredIntakeGender(intakeGender);
+  }, [intakeGender]);
 
   const load = async () => {
     if (!user?.id) return;
@@ -83,6 +110,9 @@ export default function VitalAiIntakeHome() {
 
     try {
       const session = await createVitalAiSession({ pathway, patient, profileId: user.id });
+      if (intakeGender) {
+        await saveVitalAiResponses(session.id, { patient_gender: intakeGender });
+      }
       clearPublicBookingDraft();
       navigate(`/intake/session/${session.id}`, { replace: true });
     } catch (e: any) {
@@ -195,6 +225,36 @@ export default function VitalAiIntakeHome() {
         <div className="space" />
 
         <div className="card card-pad" style={guidedPanelStyle}>
+          <div className="h2" style={{ color: "#F8FAFC" }}>Before You Begin</div>
+          <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, ...guidedMutedStyle }}>
+            We use this to personalize hormone-related recommendations while keeping all other intake logic unchanged.
+          </div>
+
+          <div className="space" />
+
+          <div className="muted" style={{ fontSize: 12, ...guidedHelperStyle }}>
+            Gender
+          </div>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+            {(["Male", "Female", "Prefer not to say"] as IntakeGender[]).map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={intakeGender === option ? "btn btn-primary" : "btn btn-secondary"}
+                onClick={() => setIntakeGender(option)}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+          <div className="muted" style={{ marginTop: 10, fontSize: 12, ...guidedHelperStyle }}>
+            {getGenderPathwayGuidance(intakeGender)}
+          </div>
+        </div>
+
+        <div className="space" />
+
+        <div className="card card-pad" style={guidedPanelStyle}>
           <div className="h2" style={{ color: "#F8FAFC" }}>Choose Your Intake Pathway</div>
           <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, ...guidedMutedStyle }}>
             Start with the pathway that best matches the patient concern. Wound care stays front and center for urgent wound history, infection screening, and photo upload.
@@ -221,7 +281,7 @@ export default function VitalAiIntakeHome() {
             drafts.map((draft) => (
               <button
                 key={draft.id}
-                className="btn btn-ghost"
+                className="btn btn-secondary"
                 type="button"
                 style={{ width: "100%", justifyContent: "space-between", marginBottom: 8, textAlign: "left", ...guidedPanelSoftStyle, color: "#F8FAFC", minHeight: 64 }}
                 onClick={() => navigate(`/intake/session/${draft.id}`)}

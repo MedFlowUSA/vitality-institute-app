@@ -21,6 +21,8 @@ export type CatalogLocation = {
   name: string | null;
 };
 
+export type IntakeOnlyPathway = "glp1" | "peptides" | "wellness";
+
 const DISPLAY_SELECT =
   "id,name,description,category,service_group,location_id,requires_consult,pricing_unit,duration_minutes,visit_type,price_marketing_cents,price_regular_cents";
 
@@ -75,6 +77,45 @@ export function categoryIcon(cat: string | null) {
 
 export function serviceDisplayKey(service: Pick<CatalogService, "category" | "service_group">) {
   return service.category ?? service.service_group ?? "other";
+}
+
+function normalizeCategoryText(value: string | null | undefined) {
+  return (value ?? "").toLowerCase();
+}
+
+export function getServiceTypeKey(service: Pick<CatalogService, "name" | "category" | "service_group">) {
+  const name = normalizeCategoryText(service.name);
+  const category = normalizeCategoryText(service.category ?? service.service_group);
+
+  if (category.includes("wound") || name.includes("wound")) return "wound_care";
+  if (category.includes("glp") || name.includes("glp")) return "glp1";
+  if (category.includes("hrt") || name.includes("hormone")) return "hrt";
+  if (category.includes("trt") || name.includes("testosterone")) return "trt";
+  if (category.includes("peptide") || name.includes("peptide")) return "peptides";
+  if (category.includes("botox") || category.includes("inject") || name.includes("botox")) return "injectables";
+  if (category.includes("iv") || name.includes("iv drip") || name.includes("nad+")) return "iv_therapy";
+
+  return "general";
+}
+
+export function getIntakeOnlyPathwayForService(service: Pick<CatalogService, "name" | "category" | "service_group">): IntakeOnlyPathway | null {
+  const key = getServiceTypeKey(service);
+
+  if (key === "glp1") return "glp1";
+  if (key === "peptides") return "peptides";
+  if (key === "hrt" || key === "trt") return "wellness";
+
+  return null;
+}
+
+export function getPublicVitalAiPathwayParam(service: Pick<CatalogService, "name" | "category" | "service_group">) {
+  const key = getServiceTypeKey(service);
+
+  if (key === "wound_care") return "wound_care";
+  if (key === "glp1") return "glp1_weight_loss";
+  if (key === "peptides" || key === "hrt" || key === "trt") return "general_consult";
+
+  return "general_consult";
 }
 
 export function serviceSlug(service: Pick<CatalogService, "name">) {

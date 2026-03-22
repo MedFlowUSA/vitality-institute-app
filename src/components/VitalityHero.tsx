@@ -163,7 +163,7 @@ export default function VitalityHero({
 
         <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {secondaryCta && (
-            <button className="btn btn-ghost" type="button" onClick={() => go(secondaryCta.to, secondaryCta.onClick)}>
+            <button className="btn btn-secondary" type="button" onClick={() => go(secondaryCta.to, secondaryCta.onClick)}>
               {secondaryCta.label}
             </button>
           )}
@@ -219,7 +219,7 @@ export default function VitalityHero({
 
               <div className="space" />
 
-              <button className="btn btn-ghost" type="button" onClick={() => nav("/patient/treatments")}>
+              <button className="btn btn-secondary" type="button" onClick={() => nav("/patient/treatments")}>
                 Treatments
               </button>
             </div>

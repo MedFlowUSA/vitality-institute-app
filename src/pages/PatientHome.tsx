@@ -933,7 +933,7 @@ export default function PatientHome() {
         key: "secondary",
         label: vitalAiHeroState.secondary.label,
         onClick: vitalAiHeroState.secondary.onClick,
-        className: "btn btn-ghost",
+        className: "btn btn-secondary",
       },
     ];
 
@@ -1829,7 +1829,7 @@ export default function PatientHome() {
             avatarCircular
           >
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-              <button className="btn btn-ghost" type="button" onClick={() => navigate("/intake")}>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/intake")}>
                 Intake
               </button>
               {vitalAiHeroActions.map((action) => (
@@ -1853,10 +1853,10 @@ export default function PatientHome() {
               <button className="btn btn-primary" {...quickBtnProps} onClick={() => navigate("/intake")}>
                 Intake
               </button>
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/chat")}>
+              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/chat")}>
                 Messages
               </button>
-              <button className="btn btn-ghost" onClick={signOut} type="button">
+              <button className="btn btn-secondary" onClick={signOut} type="button">
                 Sign out
               </button>
             </>
@@ -1922,7 +1922,7 @@ export default function PatientHome() {
                 {alert.ctaLabel && alert.ctaAction ? (
                   <>
                     <div className="space" />
-                    <button className="btn btn-ghost" type="button" onClick={alert.ctaAction}>
+                    <button className="btn btn-secondary" type="button" onClick={alert.ctaAction}>
                       {alert.ctaLabel}
                     </button>
                   </>
@@ -1984,7 +1984,7 @@ export default function PatientHome() {
             </div>
 
             <button
-              className="btn btn-ghost"
+              className="btn btn-secondary"
               type="button"
               onClick={() => navigate("/patient/treatments")}
             >
@@ -2116,23 +2116,23 @@ export default function PatientHome() {
                 Continue Intake Form
               </button>
 
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={scrollToBooking}>
+              <button className="btn btn-secondary" {...quickBtnProps} onClick={scrollToBooking}>
                 Book Appointment
               </button>
 
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/services")}>
+              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/services")}>
                 Browse Services
               </button>
 
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={scrollToAppointments}>
+              <button className="btn btn-secondary" {...quickBtnProps} onClick={scrollToAppointments}>
                 My Appointments
               </button>
 
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/chat")}>
+              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/chat")}>
                 Message Clinic
               </button>
 
-              <button className="btn btn-ghost" {...quickBtnProps} onClick={() => navigate("/patient/treatments")}>
+              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/treatments")}>
                 Open My Chart
               </button>
             </div>
@@ -2154,7 +2154,7 @@ export default function PatientHome() {
             </div>
 
             <button
-              className="btn btn-ghost"
+              className="btn btn-secondary"
               type="button"
               onClick={() => navigate("/patient/services")}
             >

@@ -4,8 +4,8 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, type AppRole } from "../auth/AuthProvider";
 import { clearPublicBookingDraft, getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, buildCurrentPath } from "../lib/routeFlow";
+import { getIntakeOnlyPathwayForService } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
-import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
 
 type LocationRow = { id: string; name: string };
@@ -28,11 +28,14 @@ function getHomeRouteForRole(role: AppRole | null) {
 
 function getBookingErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
-  if (!message) return "We couldn't load booking details right now. Please try again.";
+  if (!message) return "Something went wrong. Please try again.";
   if (message.toLowerCase().includes("row-level security") || message.toLowerCase().includes("permission")) {
-    return "We couldn't finalize the appointment from your portal right now. Please try again or contact the clinic for help.";
+    return "Something went wrong. Please try again.";
   }
-  return message;
+  if (message.toLowerCase().includes("couldn't load booking details")) {
+    return "Something went wrong. Please try again.";
+  }
+  return "Something went wrong. Please try again.";
 }
 
 export default function PatientBookAppointment() {
@@ -77,6 +80,20 @@ export default function PatientBookAppointment() {
   const selectedService = useMemo(() => {
     return servicesForLocation.find((s) => s.id === renderedServiceId) ?? null;
   }, [renderedServiceId, servicesForLocation]);
+
+  const intakeOnlyPathway = useMemo(() => {
+    return selectedService
+      ? getIntakeOnlyPathwayForService({
+          name: selectedService.name,
+          category: selectedService.visit_type,
+          service_group: null,
+        })
+      : null;
+  }, [selectedService]);
+
+  const hasValidBookingSelection = Boolean(renderedLocationId && renderedServiceId && startTimeLocal && selectedService);
+  const hasRenderableFormState = loading || Boolean(renderedLocationId && servicesForLocation.length > 0) || locations.length === 0;
+  const ctaDisabled = saving || loading || (!intakeOnlyPathway && (!hasValidBookingSelection || !!err));
 
   useEffect(() => {
     const load = async () => {
@@ -137,14 +154,18 @@ export default function PatientBookAppointment() {
         const serviceRows = (svcs as ServiceRow[]) ?? [];
         setServices(serviceRows);
         const locationRows = (locs as LocationRow[]) ?? [];
+        const preferredService =
+          prefillServiceId && serviceRows.some((service) => service.id === prefillServiceId)
+            ? serviceRows.find((service) => service.id === prefillServiceId) ?? null
+            : null;
         const resolvedLocationId =
           (prefillLocationId && locationRows.some((location) => location.id === prefillLocationId) ? prefillLocationId : "") ||
+          preferredService?.location_id ||
           locationRows[0]?.id ||
           "";
         const resolvedServices = serviceRows.filter((service) => service.location_id === resolvedLocationId && (service.is_active ?? true));
         const resolvedServiceId =
           (prefillServiceId && resolvedServices.some((service) => service.id === prefillServiceId) ? prefillServiceId : "") ||
-          resolvedServices[0]?.id ||
           "";
 
         setLocationId(resolvedLocationId);
@@ -163,7 +184,6 @@ export default function PatientBookAppointment() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, location.search, nav, prefillLocationId, prefillNotes, prefillServiceId, prefillStart, resumeKey, role, user?.id]);
 
-  // when location changes, pick first service for that location
   useEffect(() => {
     if (roleMismatch) return;
     const selectedStillVisible = servicesForLocation.some((service) => service.id === serviceId);
@@ -175,38 +195,49 @@ export default function PatientBookAppointment() {
       return;
     }
 
-    const first = servicesForLocation[0];
-    if (first?.id) setServiceId(first.id);
-    else setServiceId("");
+    setServiceId("");
   }, [prefillServiceId, roleMismatch, serviceId, servicesForLocation]);
 
   useEffect(() => {
     if (roleMismatch) return;
     if (loading) return;
-    if (!renderedLocationId) return;
+    if (!renderedLocationId) {
+      setErr("Please select a service and time to continue");
+      return;
+    }
     if (servicesForLocation.length === 0) {
-      setErr("No services are available for this location right now. Please choose another location.");
+      setErr("Something went wrong. Please try again.");
       return;
     }
     if (!renderedServiceId) {
-      setErr("Choose a service to continue.");
+      setErr("Please select a service and time to continue");
+      return;
+    }
+    if (!startTimeLocal && !intakeOnlyPathway) {
+      setErr("Please select a service and time to continue");
       return;
     }
     setErr((current) => {
       if (!current) return null;
-      if (current.includes("No services are available") || current.includes("Choose a service")) return null;
+      if (
+        current === "Please select a service and time to continue" ||
+        current === "Something went wrong. Please try again."
+      ) {
+        return null;
+      }
       return current;
     });
-  }, [loading, renderedLocationId, renderedServiceId, roleMismatch, servicesForLocation.length]);
+  }, [intakeOnlyPathway, loading, renderedLocationId, renderedServiceId, roleMismatch, servicesForLocation.length, startTimeLocal]);
 
   useEffect(() => {
     if (roleMismatch) return;
     setErr((current) => {
       if (!current) return current;
-      if (!renderedLocationId || !renderedServiceId || !startTimeLocal) return current;
+      if (!renderedLocationId || !renderedServiceId || !selectedService) return current;
+      if (!intakeOnlyPathway && !startTimeLocal) return current;
       return null;
     });
-  }, [renderedLocationId, renderedServiceId, roleMismatch, startTimeLocal]);
+  }, [intakeOnlyPathway, renderedLocationId, renderedServiceId, roleMismatch, selectedService, startTimeLocal]);
 
   useEffect(() => {
     if (roleMismatch) return;
@@ -246,15 +277,18 @@ export default function PatientBookAppointment() {
     setErr(null);
 
     if (roleMismatch) return;
-    if (!user?.id) return setErr("Not signed in.");
-    if (!patient?.id) return setErr("No patient record linked to this login.");
-    if (!renderedLocationId) return setErr("Select a location.");
-    if (!renderedServiceId) return setErr("Select a service.");
-    if (!startTimeLocal) return setErr("Select a date/time.");
+    if (!user?.id || !patient?.id) return setErr("Something went wrong. Please try again.");
+    if (!renderedLocationId || !renderedServiceId || !startTimeLocal || !selectedService) {
+      return setErr("Please select a service and time to continue");
+    }
+    if (intakeOnlyPathway) {
+      nav(`/intake?pathway=${encodeURIComponent(intakeOnlyPathway)}`, { replace: true });
+      return;
+    }
 
     const start = new Date(startTimeLocal);
     if (Number.isNaN(start.getTime()) || start.getTime() < Date.now() - 60 * 1000) {
-      return setErr("Select a future date/time.");
+      return setErr("Please select a service and time to continue");
     }
 
     const startIso = toIsoFromLocal(startTimeLocal);
@@ -262,7 +296,8 @@ export default function PatientBookAppointment() {
 
     setSaving(true);
 
-    const { data, error } = await supabase
+    try {
+      const { data, error } = await supabase
       .from("appointments")
       .insert([
         {
@@ -282,17 +317,18 @@ export default function PatientBookAppointment() {
       .select("id")
       .single();
 
-    setSaving(false);
+      if (error) {
+        setErr(getBookingErrorMessage(error));
+        return;
+      }
 
-    if (error) {
+      clearPublicBookingDraft();
+      nav(`/patient/intake?appointmentId=${data.id}`, { replace: true });
+    } catch (error: unknown) {
       setErr(getBookingErrorMessage(error));
-      return;
+    } finally {
+      setSaving(false);
     }
-
-    clearPublicBookingDraft();
-
-    // go straight into intake for this appointment
-    nav(`/patient/intake?appointmentId=${data.id}`, { replace: true });
   };
 
   return (
@@ -300,24 +336,14 @@ export default function PatientBookAppointment() {
       <div className="shell">
         <RouteHeader
           title="Book Appointment"
-          subtitle="Choose a service, time, and next step."
+          subtitle="Choose a service and time to continue."
           backTo="/patient"
           homeTo="/patient"
           rightAction={
-            <button className="btn btn-ghost" onClick={signOut} type="button">
+            <button className="btn btn-secondary" onClick={signOut} type="button">
               Sign out
             </button>
           }
-        />
-
-        <div className="space" />
-
-        <VitalityHero
-          title="Vitality Institute"
-          subtitle="Book your appointment, then continue into intake."
-          secondaryCta={{ label: roleMismatch ? "Back to Dashboard" : "Back", to: getHomeRouteForRole(roleMismatch ?? role) }}
-          rightActions={null}
-          showKpis={false}
         />
 
         <div className="space" />
@@ -335,7 +361,7 @@ export default function PatientBookAppointment() {
               <button className="btn btn-primary" type="button" onClick={() => nav(getHomeRouteForRole(roleMismatch), { replace: true })}>
                 Go to Dashboard
               </button>
-              <button className="btn btn-ghost" onClick={signOut} type="button">
+              <button className="btn btn-secondary" onClick={signOut} type="button">
                 Sign in as Different User
               </button>
             </div>
@@ -352,7 +378,7 @@ export default function PatientBookAppointment() {
           {loading && <div className="muted">Loading…</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
-          {!loading && (
+          {!loading && hasRenderableFormState && (
             <>
               <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
                 <select className="input" style={{ flex: "1 1 220px" }} value={renderedLocationId} onChange={(e) => setLocationId(e.target.value)}>
@@ -375,7 +401,7 @@ export default function PatientBookAppointment() {
                 </select>
                 {!renderedServiceId && renderedLocationId ? (
                   <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                    {servicesForLocation.length === 0 ? "No services are available for this location right now." : "Choose a service to continue."}
+                    {servicesForLocation.length === 0 ? "Something went wrong. Please try again." : "Please select a service and time to continue"}
                   </div>
                 ) : null}
 
@@ -387,6 +413,18 @@ export default function PatientBookAppointment() {
                   onChange={(e) => setStartTimeLocal(e.target.value)}
                 />
               </div>
+
+              {!startTimeLocal && !intakeOnlyPathway ? (
+                <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                  Please select a service and time to continue
+                </div>
+              ) : null}
+
+              {intakeOnlyPathway ? (
+                <div className="muted" style={{ marginTop: 10, lineHeight: 1.7 }}>
+                  This service starts with guided intake instead of direct booking. Continue and we will open the correct intake pathway first.
+                </div>
+              ) : null}
 
               <div className="space" />
 
@@ -402,11 +440,12 @@ export default function PatientBookAppointment() {
                 />
               </div>
 
-              <button className="btn btn-primary" onClick={createAppointment} disabled={saving} type="button">
+              <button className="btn btn-primary" onClick={createAppointment} disabled={ctaDisabled} type="button">
                 {saving ? "Creating…" : "Continue to Intake"}
               </button>
             </>
           )}
+          {!loading && !hasRenderableFormState ? <div className="muted">Loading booking details...</div> : null}
         </div>
         )}
       </div>

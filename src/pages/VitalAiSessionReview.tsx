@@ -154,7 +154,7 @@ export default function VitalAiSessionReview() {
                 </div>
               </div>
               <div className="row" style={{ justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                <button className="btn btn-ghost" type="button" onClick={() => navigate(`/intake/session/${session.id}`)} style={{ ...guidedGhostButtonStyle, minHeight: 48, padding: "12px 16px" }}>
+                <button className="btn btn-secondary" type="button" onClick={() => navigate(`/intake/session/${session.id}`)} style={{ ...guidedGhostButtonStyle, minHeight: 48, padding: "12px 16px" }}>
                   Edit Answers
                 </button>
                 <button className="btn btn-primary" type="button" onClick={handleSubmit} disabled={submitting} style={{ ...guidedPrimaryButtonStyle, minHeight: 48, padding: "12px 18px" }}>

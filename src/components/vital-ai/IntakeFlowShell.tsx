@@ -161,7 +161,7 @@ export default function IntakeFlowShell({
 
         <div className="row" style={{ justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
           <button
-            className="btn btn-ghost"
+            className="btn btn-secondary"
             type="button"
             onClick={onBack}
             disabled={disableBack}

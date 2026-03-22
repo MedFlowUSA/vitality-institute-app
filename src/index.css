@@ -1165,3 +1165,197 @@ button.card :is(.h1, .h2, .title) {
 .public-shell .btn-ghost * {
   color: var(--v-text-dark) !important;
 }
+
+/* ===============================
+   FINAL UNIFIED BUTTON SYSTEM
+   primary / secondary / disabled
+   =============================== */
+
+:root {
+  --v-button-radius: 14px;
+  --v-button-padding-y: 10px;
+  --v-button-padding-x: 16px;
+  --v-button-font-size: 14px;
+  --v-button-font-weight: 700;
+  --v-button-primary-bg: #7357ff;
+  --v-button-primary-bg-hover: #6446ff;
+  --v-button-primary-border: #6446ff;
+  --v-button-primary-shadow: 0 10px 24px rgba(115, 87, 255, 0.28);
+  --v-button-secondary-bg: rgba(255, 255, 255, 0.92);
+  --v-button-secondary-bg-hover: #ffffff;
+  --v-button-secondary-border: rgba(148, 163, 184, 0.34);
+  --v-button-secondary-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  --v-button-secondary-text: #1f1633;
+  --v-button-disabled-opacity: 0.45;
+}
+
+.btn,
+.btn-primary,
+.btn-secondary,
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: var(--v-button-padding-y) var(--v-button-padding-x);
+  border-radius: var(--v-button-radius);
+  font-size: var(--v-button-font-size);
+  font-weight: var(--v-button-font-weight);
+  line-height: 1.1;
+  text-decoration: none !important;
+  border: 1px solid transparent;
+  cursor: pointer;
+  opacity: 1;
+  white-space: nowrap;
+  transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease, opacity 0.16s ease, transform 0.08s ease;
+}
+
+.btn:hover,
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-ghost:hover {
+  text-decoration: none !important;
+  transform: translateY(-1px);
+}
+
+.btn:active,
+.btn-primary:active,
+.btn-secondary:active,
+.btn-ghost:active {
+  transform: translateY(0);
+}
+
+.btn:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-ghost:focus-visible {
+  outline: 2px solid rgba(115, 87, 255, 0.28);
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  background: var(--v-button-primary-bg);
+  color: #ffffff !important;
+  border-color: var(--v-button-primary-border);
+  box-shadow: var(--v-button-primary-shadow);
+  opacity: 1;
+}
+
+.btn-primary:hover {
+  background: var(--v-button-primary-bg-hover);
+  border-color: var(--v-button-primary-bg-hover);
+  box-shadow: 0 12px 26px rgba(100, 70, 255, 0.34);
+}
+
+.btn-secondary,
+.btn-ghost {
+  background: var(--v-button-secondary-bg);
+  color: var(--v-button-secondary-text) !important;
+  border-color: var(--v-button-secondary-border);
+  box-shadow: var(--v-button-secondary-shadow);
+  opacity: 1;
+}
+
+.btn-secondary.active,
+.btn-ghost.active {
+  background: rgba(115, 87, 255, 0.16);
+  color: #2b1f48 !important;
+  border-color: rgba(115, 87, 255, 0.34);
+  box-shadow: 0 10px 22px rgba(115, 87, 255, 0.14);
+  opacity: 1;
+}
+
+.btn-secondary:hover,
+.btn-ghost:hover {
+  background: var(--v-button-secondary-bg-hover);
+  border-color: rgba(100, 116, 139, 0.42);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
+}
+
+.surface-light .btn-secondary,
+.surface-light .btn-ghost,
+.card-light .btn-secondary,
+.card-light .btn-ghost,
+.public-shell .btn-secondary,
+.public-shell .btn-ghost {
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--v-button-secondary-text) !important;
+  border-color: rgba(148, 163, 184, 0.34);
+}
+
+.surface-light .btn-primary,
+.card-light .btn-primary,
+.public-shell .btn-primary {
+  color: #ffffff !important;
+}
+
+.btn:disabled,
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-ghost:disabled,
+button:disabled.btn,
+button:disabled.btn-primary,
+button:disabled.btn-secondary,
+button:disabled.btn-ghost {
+  opacity: var(--v-button-disabled-opacity);
+  cursor: not-allowed;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: saturate(0.82);
+}
+
+.booking-times button,
+.appointment-times button,
+.time-grid button,
+.times-grid button,
+.slots button {
+  min-height: 40px;
+  padding: 9px 14px !important;
+  border-radius: var(--v-button-radius) !important;
+  font-size: var(--v-button-font-size) !important;
+  font-weight: var(--v-button-font-weight) !important;
+  background: var(--v-button-secondary-bg) !important;
+  color: var(--v-button-secondary-text) !important;
+  border: 1px solid var(--v-button-secondary-border) !important;
+  box-shadow: var(--v-button-secondary-shadow) !important;
+}
+
+.booking-times button:hover,
+.appointment-times button:hover,
+.time-grid button:hover,
+.times-grid button:hover,
+.slots button:hover {
+  background: var(--v-button-secondary-bg-hover) !important;
+  border-color: rgba(100, 116, 139, 0.42) !important;
+}
+
+.booking-times button.active,
+.booking-times button.selected,
+.appointment-times button.active,
+.appointment-times button.selected,
+.time-grid button.active,
+.time-grid button.selected,
+.times-grid button.active,
+.times-grid button.selected,
+.slots button.active,
+.slots button.selected,
+.booking-times button[aria-pressed="true"],
+.appointment-times button[aria-pressed="true"],
+.time-grid button[aria-pressed="true"],
+.times-grid button[aria-pressed="true"],
+.slots button[aria-pressed="true"] {
+  background: var(--v-button-primary-bg) !important;
+  color: #ffffff !important;
+  border-color: var(--v-button-primary-border) !important;
+  box-shadow: var(--v-button-primary-shadow) !important;
+}
+
+.booking-times button:disabled,
+.appointment-times button:disabled,
+.time-grid button:disabled,
+.times-grid button:disabled,
+.slots button:disabled {
+  opacity: var(--v-button-disabled-opacity) !important;
+  box-shadow: none !important;
+}

@@ -279,7 +279,7 @@ export default function PatientServices() {
           subtitle="Explore personalized treatments, compare options, and choose the right next step with confidence."
           secondaryCta={{ label: "Back", to: "/patient" }}
           rightActions={
-            <button className="btn btn-ghost" onClick={signOut} type="button">
+            <button className="btn btn-secondary" onClick={signOut} type="button">
               Sign out
             </button>
           }
@@ -310,7 +310,7 @@ export default function PatientServices() {
 
             <button
               type="button"
-              className={showAllLocations ? "btn btn-ghost" : "btn btn-primary"}
+              className={showAllLocations ? "btn btn-secondary" : "btn btn-primary"}
               onClick={() => setShowAllLocations((v) => !v)}
             >
               {showAllLocations ? "Show My Location" : "Show All Locations"}
@@ -335,7 +335,7 @@ export default function PatientServices() {
                     <button
                       key={group.key}
                       type="button"
-                      className="btn btn-ghost"
+                      className="btn btn-secondary"
                       style={{
                         background: "rgba(255,255,255,0.08)",
                         border: "1px solid rgba(200,182,255,0.18)",
@@ -494,7 +494,7 @@ export default function PatientServices() {
                               </button>
 
                               <button
-                                className="btn btn-ghost"
+                                className="btn btn-secondary"
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
@@ -575,7 +575,7 @@ export default function PatientServices() {
                 </div>
 
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-secondary"
                   type="button"
                   onClick={() => setSelectedService(null)}
                 >
@@ -667,7 +667,7 @@ export default function PatientServices() {
                 </button>
 
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-secondary"
                   type="button"
                   onClick={() => setSelectedService(null)}
                 >

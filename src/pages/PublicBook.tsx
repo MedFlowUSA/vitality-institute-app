@@ -7,7 +7,15 @@ import { createBookingRequest } from "../lib/bookingRequests";
 import { getPublicOfferingBySlug } from "../lib/publicMarketingCatalog";
 import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, buildOnboardingRoute } from "../lib/routeFlow";
-import { loadCatalogLocations, loadCatalogServices, matchCatalogServiceFromInterest, type CatalogLocation, type CatalogService } from "../lib/services/catalog";
+import {
+  getIntakeOnlyPathwayForService,
+  getPublicVitalAiPathwayParam,
+  loadCatalogLocations,
+  loadCatalogServices,
+  matchCatalogServiceFromInterest,
+  type CatalogLocation,
+  type CatalogService,
+} from "../lib/services/catalog";
 
 function getHomeRouteForRole(role: AppRole | null) {
   if (role === "super_admin" || role === "location_admin") return "/admin";
@@ -92,6 +100,23 @@ export default function PublicBook() {
     return servicesForLocation.find((service) => service.id === renderedServiceId) ?? null;
   }, [renderedServiceId, servicesForLocation]);
 
+  const intakeOnlyPathway = useMemo(() => {
+    return selectedServiceRow ? getIntakeOnlyPathwayForService(selectedServiceRow) : null;
+  }, [selectedServiceRow]);
+
+  const validationMessage = useMemo(() => {
+    if (!renderedLocationId || !renderedServiceId) {
+      return "Please select a service and time to continue";
+    }
+    if (!selectedServiceRow || servicesForLocation.length === 0) {
+      return "Something went wrong. Please try again.";
+    }
+    if (!startTimeLocal && !intakeOnlyPathway) {
+      return "Please select a service and time to continue";
+    }
+    return null;
+  }, [intakeOnlyPathway, renderedLocationId, renderedServiceId, selectedServiceRow, servicesForLocation.length, startTimeLocal]);
+
   const matchedInterestService = useMemo(() => {
     return matchCatalogServiceFromInterest({
       interest: selectedInterestSlug,
@@ -167,15 +192,34 @@ export default function PublicBook() {
     if (loading) return;
     if (!renderedLocationId) return;
     if (servicesForLocation.length === 0) {
-      setServicePrompt("No services are available for this location right now. Please choose another location.");
+      setServicePrompt("Something went wrong. Please try again.");
       return;
     }
     if (!renderedServiceId) {
-      setServicePrompt("Choose a service to continue.");
+      setServicePrompt("Please select a service and time to continue");
       return;
     }
     setServicePrompt(null);
   }, [loading, renderedLocationId, renderedServiceId, servicesForLocation.length]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (validationMessage) {
+      setError((current) => {
+        if (!current || current === "Please select a service and time to continue" || current === "Something went wrong. Please try again.") {
+          return validationMessage;
+        }
+        return current;
+      });
+      return;
+    }
+
+    setError((current) => {
+      if (!current) return null;
+      if (renderedLocationId && renderedServiceId && startTimeLocal && selectedServiceRow) return null;
+      return current;
+    });
+  }, [loading, renderedLocationId, renderedServiceId, selectedServiceRow, startTimeLocal, validationMessage]);
 
   useEffect(() => {
     const requestId = getRequestIdForBookingSelection(draft, {
@@ -200,18 +244,24 @@ export default function PublicBook() {
     if (loading || submitting) return;
 
     if (!renderedLocationId || !renderedServiceId || !startTimeLocal) {
-      setError("Select a location, service, and date/time before continuing.");
+      setError("Please select a service and time to continue");
       return;
     }
 
     if (!selectedServiceRow) {
-      setError("That service is no longer available. Please choose another option.");
+      setError("Something went wrong. Please try again.");
+      return;
+    }
+
+    if (intakeOnlyPathway) {
+      const nextPathway = getPublicVitalAiPathwayParam(selectedServiceRow);
+      navigate(`/vital-ai?pathway=${encodeURIComponent(nextPathway)}`);
       return;
     }
 
     const start = new Date(startTimeLocal);
     if (Number.isNaN(start.getTime()) || start.getTime() < Date.now() - 60 * 1000) {
-      setError("That selected time is no longer valid. Please choose a future time.");
+      setError("Please select a service and time to continue");
       return;
     }
 
@@ -256,7 +306,7 @@ export default function PublicBook() {
       const onboardingPath = buildOnboardingRoute({ next: "/intake", handoff: "booking_request" });
       navigate(buildAuthRoute({ mode: "signup", next: onboardingPath, handoff: "booking_request" }));
     } catch {
-      setError("We couldn't save your visit request right now. Please try again or contact the clinic for help.");
+      setError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -378,12 +428,17 @@ export default function PublicBook() {
                     {servicePrompt}
                   </div>
                 ) : null}
+                {intakeOnlyPathway ? (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                    This service starts with guided intake instead of direct booking.
+                  </div>
+                ) : null}
               </div>
 
               <div style={{ flex: "1 1 240px" }}>
                 <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Preferred time</div>
                 <input className="input" type="datetime-local" value={startTimeLocal} onChange={(event) => setStartTimeLocal(event.target.value)} />
-                {!startTimeLocal ? (
+                {!startTimeLocal && !intakeOnlyPathway ? (
                   <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
                     Choose a preferred time to continue.
                   </div>
@@ -407,10 +462,15 @@ export default function PublicBook() {
             <div className="space" />
 
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-              <button type="button" className="btn btn-primary" onClick={() => void confirmBooking()} disabled={submitting}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void confirmBooking()}
+                disabled={submitting || (!intakeOnlyPathway && (!!validationMessage || !!error))}
+              >
                 {submitting ? "Saving Request..." : "Continue to Intake"}
               </button>
-              <Link to="/contact" className="btn btn-ghost">
+              <Link to="/contact" className="btn btn-secondary">
                 Need help first?
               </Link>
             </div>

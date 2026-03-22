@@ -111,7 +111,7 @@ export default function QuestionRenderer({
               type="button"
               role="radio"
               aria-checked={selectedValue === "yes"}
-              className={selectedValue === "yes" ? "btn btn-primary" : "btn btn-ghost"}
+              className={selectedValue === "yes" ? "btn btn-primary" : "btn btn-secondary"}
               onClick={() => onChange(true)}
               style={{
                 minWidth: 110,
@@ -127,7 +127,7 @@ export default function QuestionRenderer({
               type="button"
               role="radio"
               aria-checked={selectedValue === "no"}
-              className={selectedValue === "no" ? "btn btn-primary" : "btn btn-ghost"}
+              className={selectedValue === "no" ? "btn btn-primary" : "btn btn-secondary"}
               onClick={() => onChange(false)}
               style={{
                 minWidth: 110,

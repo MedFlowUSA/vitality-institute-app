@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
@@ -25,9 +25,14 @@ const CONTACT_METHODS = [
 
 export default function PublicVitalAiLite() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [step, setStep] = useState<StepKey>("pathway");
   const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
   const [pathway, setPathway] = useState<PublicVitalAiPathway>(() => {
+    const requestedPathway = searchParams.get("pathway");
+    if (requestedPathway === "wound_care" || requestedPathway === "glp1_weight_loss" || requestedPathway === "general_consult") {
+      return requestedPathway;
+    }
     const serviceLabel = `${bookingDraft?.serviceName ?? ""} ${bookingDraft?.notes ?? ""}`.toLowerCase();
     if (serviceLabel.includes("wound")) return "wound_care";
     if (serviceLabel.includes("glp") || serviceLabel.includes("weight")) return "glp1_weight_loss";
