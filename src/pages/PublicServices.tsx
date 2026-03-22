@@ -20,6 +20,8 @@ export default function PublicServices() {
       .map(([key, rows]) => ({ key, label: key, rows }));
   }, [activeCategory]);
 
+  const visibleCategoryCount = grouped.length;
+
   return (
     <PublicSiteLayout title="Services" subtitle="Browse provider-led consultations, programs, and advanced therapies.">
       <div className="card card-pad card-light surface-light">
@@ -66,18 +68,20 @@ export default function PublicServices() {
       <div className="card card-pad">
         <div className="row" style={{ justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
           <div>
-            <div className="h2">Filter by Category</div>
-            <div className="muted" style={{ marginTop: 4 }}>Tap a category to narrow the list.</div>
+            <div className="h2">Browse by Category</div>
+            <div className="muted" style={{ marginTop: 4 }}>
+              Open a category to view services without scrolling through one long list.
+            </div>
           </div>
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            <button type="button" className={activeCategory === "all" ? "btn btn-primary" : "btn btn-ghost"} onClick={() => setActiveCategory("all")}>
+            <button type="button" className={activeCategory === "all" ? "btn btn-primary" : "btn btn-secondary"} onClick={() => setActiveCategory("all")}>
               All
             </button>
             {PUBLIC_SERVICE_GROUPS.map((category) => (
               <button
                 key={category}
                 type="button"
-                className={activeCategory === category ? "btn btn-primary" : "btn btn-ghost"}
+                className={activeCategory === category ? "btn btn-primary" : "btn btn-secondary"}
                 onClick={() => setActiveCategory(category)}
               >
                 {category}
@@ -89,18 +93,37 @@ export default function PublicServices() {
 
       <div className="space" />
 
+      <div className="surface-light-helper" style={{ marginBottom: 12, lineHeight: 1.7 }}>
+        Showing {visibleCategoryCount} service categor{visibleCategoryCount === 1 ? "y" : "ies"}.
+      </div>
+
       {grouped.map((group) => (
-        <div key={group.key} className="card card-pad" style={{ marginBottom: 14 }}>
-          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <div>
-              <div className="h2">{group.label}</div>
-              <div className="muted" style={{ marginTop: 4 }}>
-                {group.rows.length} offering{group.rows.length === 1 ? "" : "s"}
+        <details
+          key={group.key}
+          className="card card-pad"
+          style={{ marginBottom: 14 }}
+          open={activeCategory === "all" ? group.label === grouped[0]?.label : true}
+        >
+          <summary
+            style={{
+              cursor: "pointer",
+              listStyle: "none",
+            }}
+          >
+            <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <div>
+                <div className="h2">{group.label}</div>
+                <div className="muted" style={{ marginTop: 4 }}>
+                  {group.rows.length} offering{group.rows.length === 1 ? "" : "s"}
+                </div>
               </div>
+              <div className="v-chip">Tap to expand</div>
             </div>
-          </div>
+          </summary>
+
           <div className="space" />
-          <div style={{ display: "grid", gap: 12 }}>
+
+          <div style={{ display: "grid", gap: 10 }}>
             {group.rows.map((service) => (
               <div
                 key={service.slug}
@@ -122,7 +145,7 @@ export default function PublicServices() {
                   <div className="v-chip">{service.price}</div>
                 </div>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 14 }}>
-                  <Link to={`/services/${service.slug}`} className="btn btn-ghost">
+                  <Link to={`/services/${service.slug}`} className="btn btn-secondary">
                     View Details
                   </Link>
                   <Link to={`/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
@@ -132,7 +155,7 @@ export default function PublicServices() {
               </div>
             ))}
           </div>
-        </div>
+        </details>
       ))}
 
       <div className="card card-pad card-light surface-light">

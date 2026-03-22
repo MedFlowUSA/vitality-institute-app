@@ -21,13 +21,6 @@ const howToBegin = [
 
 const featuredServices = [
   {
-    title: "Wound Care",
-    category: "Clinical Priority",
-    summary: "Early review for wounds that are worsening, draining, or slow to heal.",
-    to: "/vital-ai",
-    cta: "Start Wound Review",
-  },
-  {
     title: "GLP-1 / Weight Optimization",
     category: "Medical Weight Care",
     summary: "Medical weight care with provider-led evaluation and follow-up.",
@@ -46,6 +39,13 @@ const featuredServices = [
     category: "Advanced Wellness",
     summary: "Advanced therapies designed to support recovery, performance, and vitality.",
     to: "/services/nad-infusion",
+    cta: "View Service",
+  },
+  {
+    title: "Aesthetics & Wellness",
+    category: "Aesthetic Care",
+    summary: "Aesthetic and wellness-focused options designed around confident, provider-guided care.",
+    to: "/services/botox-consultation",
     cta: "View Service",
   },
 ];

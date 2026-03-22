@@ -4,7 +4,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
-import VitalityHero from "../components/VitalityHero";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
@@ -331,6 +330,13 @@ function readableStatus(v: string | null | undefined) {
   return (v || "unknown").replaceAll("_", " ");
 }
 
+function compactDescription(value: string | null | undefined, maxLength = 120) {
+  const text = (value ?? "").trim();
+  if (!text) return "";
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength).trimEnd()}...`;
+}
+
 function getFollowUpDaysFromPlan(plan: any): number | null {
   const v = plan?.follow_up_days;
   if (v == null) return null;
@@ -473,7 +479,7 @@ function nextStepCardStyle(tone: "info" | "warning" | "success") {
 }
 
 export default function PatientHome() {
-  const { user, signOut, resumeKey } = useAuth();
+  const { user, resumeKey } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const prefillServiceId = searchParams.get("serviceId") ?? "";
@@ -1751,6 +1757,7 @@ export default function PatientHome() {
     background: "linear-gradient(135deg, rgba(255,255,255,0.96), rgba(245,241,255,0.94))",
     border: "1px solid rgba(184,164,255,0.22)",
     color: "#1F1633",
+    boxShadow: "0 16px 36px rgba(16,24,40,0.08)",
   };
 
   const glanceCardStyle = {
@@ -1765,6 +1772,31 @@ export default function PatientHome() {
     flexDirection: "column" as const,
     justifyContent: "space-between",
     cursor: "pointer",
+  };
+
+  const sectionEyebrowStyle = {
+    fontSize: 12,
+    fontWeight: 800,
+    color: "#5B4E86",
+    textTransform: "uppercase" as const,
+    letterSpacing: ".08em",
+  };
+
+  const sectionBodyStyle = {
+    marginTop: 4,
+    color: "#4B5563",
+    lineHeight: 1.65,
+  };
+
+  const primaryActionCardStyle = {
+    ...lightSurfaceCardStyle,
+    padding: 18,
+    borderRadius: 18,
+    display: "grid",
+    gap: 10,
+    alignContent: "space-between",
+    flex: "1 1 220px",
+    minHeight: 170,
   };
 
   // Gate loading UI (keeps your full page intact, but prevents rendering before gate check)
@@ -1829,39 +1861,20 @@ export default function PatientHome() {
             avatarCircular
           >
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-              <button className="btn btn-secondary" type="button" onClick={() => navigate("/intake")}>
-                Intake
-              </button>
               {vitalAiHeroActions.map((action) => (
                 <button key={action.key} className={action.className} type="button" onClick={action.onClick}>
                   {action.label}
                 </button>
               ))}
+              <button className="btn btn-secondary" type="button" onClick={scrollToBooking}>
+                Book Appointment
+              </button>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/patient/chat")}>
+                Messages
+              </button>
             </div>
           </VitalAiAvatarAssistant>
         </div>
-
-        <div className="space" />
-
-        <VitalityHero
-          title="Vitality Institute"
-          subtitle="Your portal for appointments, treatments, messages, labs, and guided intake."
-          primaryCta={{ label: "Book Appointment", onClick: scrollToBooking }}
-          secondaryCta={{ label: "View Appointments", onClick: scrollToAppointments }}
-          rightActions={
-            <>
-              <button className="btn btn-primary" {...quickBtnProps} onClick={() => navigate("/intake")}>
-                Intake
-              </button>
-              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/chat")}>
-                Messages
-              </button>
-              <button className="btn btn-secondary" onClick={signOut} type="button">
-                Sign out
-              </button>
-            </>
-          }
-        />
 
         <div className="space" />
 
@@ -1974,11 +1987,9 @@ export default function PatientHome() {
         >
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#6D5F97", textTransform: "uppercase", letterSpacing: ".08em" }}>
-                Dashboard Overview
-              </div>
+              <div style={sectionEyebrowStyle}>Dashboard Overview</div>
               <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Today at a Glance</div>
-              <div style={{ marginTop: 4, color: "#475569" }}>
+              <div style={sectionBodyStyle}>
                 Open the areas that matter most right now without hunting through the portal.
               </div>
             </div>
@@ -2083,57 +2094,102 @@ export default function PatientHome() {
         <div id="my-appointments" className="card card-pad">
           <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#CFC3F5", textTransform: "uppercase", letterSpacing: ".08em" }}>
-                Quick Actions
+              <div style={{ ...sectionEyebrowStyle, color: "#D8CCFF" }}>Quick Access</div>
+              <div className="h1">Choose Your Next Step</div>
+              <div className="muted" style={{ marginTop: 6, color: "rgba(226,232,240,0.8)" }}>
+                Use the main actions below to keep your care moving without extra clicks.
               </div>
-              <div className="h1">Care Access</div>
-              <div className="muted" style={{ marginTop: 6 }}>
-                Jump straight to the part of your care journey you need right now.
-              </div>
+            </div>
+          </div>
 
-              <div className="space" />
+          <div className="space" />
 
-              <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                <div className="muted">Latest wound-care intake:</div>
-                {loadingWound ? (
-                  <span className="muted">Loading...</span>
-                ) : latestWoundIntake ? (
-                  <span style={statusBadge(latestWoundIntake.status)}>{latestWoundIntake.status.toUpperCase()}</span>
-                ) : (
-                  <span className="muted">Not submitted</span>
-                )}
-              </div>
-
-              {latestWoundIntake?.created_at ? (
-                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                  Last submitted: {new Date(latestWoundIntake.created_at).toLocaleString()}
+          <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+            <div
+              style={{
+                ...primaryActionCardStyle,
+                background: "linear-gradient(135deg, rgba(84,60,158,0.96), rgba(54,36,112,0.98))",
+                border: "1px solid rgba(216,204,255,0.22)",
+                color: "#F8FAFC",
+              }}
+            >
+              <div style={{ ...sectionEyebrowStyle, color: "rgba(232,224,255,0.86)" }}>Primary Action</div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC" }}>Book Appointment</div>
+                <div style={{ marginTop: 8, color: "rgba(226,232,240,0.82)", lineHeight: 1.6 }}>
+                  Reserve your next visit or follow-up without leaving the dashboard.
                 </div>
+              </div>
+              <div>
+                <button className="btn btn-primary" {...quickBtnProps} onClick={scrollToBooking}>
+                  Book Appointment
+                </button>
+              </div>
+            </div>
+
+            <div style={primaryActionCardStyle}>
+              <div style={sectionEyebrowStyle}>Intake</div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>
+                  {latestVitalAiSession?.status === "draft" ? "Continue Intake" : "Start with Vital AI"}
+                </div>
+                <div style={{ marginTop: 8, color: "#4B5563", lineHeight: 1.6 }}>
+                  {latestVitalAiSession?.status === "draft"
+                    ? "Pick up where you left off so the care team has the details they need."
+                    : "Complete a guided intake before your next visit."}
+                </div>
+              </div>
+              <div>
+                <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/intake")}>
+                  {latestVitalAiSession?.status === "draft" ? "Continue Intake" : "Open Intake"}
+                </button>
+              </div>
+            </div>
+
+            <div style={primaryActionCardStyle}>
+              <div style={sectionEyebrowStyle}>Messages</div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>Message Clinic</div>
+                <div style={{ marginTop: 8, color: "#4B5563", lineHeight: 1.6 }}>
+                  Review updates, reply to your care team, and keep care coordination moving.
+                </div>
+              </div>
+              <div>
+                <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/chat")}>
+                  Open Messages
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="space" />
+
+          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <div className="muted" style={{ color: "rgba(226,232,240,0.78)" }}>Latest wound-care intake:</div>
+              {loadingWound ? (
+                <span className="muted">Loading...</span>
+              ) : latestWoundIntake ? (
+                <span style={statusBadge(latestWoundIntake.status)}>{latestWoundIntake.status.toUpperCase()}</span>
+              ) : (
+                <span className="muted" style={{ color: "rgba(226,232,240,0.72)" }}>Not submitted</span>
+              )}
+              {latestWoundIntake?.created_at ? (
+                <span className="muted" style={{ fontSize: 12, color: "rgba(226,232,240,0.72)" }}>
+                  Updated {new Date(latestWoundIntake.created_at).toLocaleDateString()}
+                </span>
               ) : null}
             </div>
 
-            <div className="row" style={{ gap: 8, flexWrap: "wrap", minHeight: 44 }}>
-              <button className="btn btn-primary" {...quickBtnProps} onClick={() => navigate("/intake")}>
-                Continue Intake Form
-              </button>
-
-              <button className="btn btn-secondary" {...quickBtnProps} onClick={scrollToBooking}>
-                Book Appointment
-              </button>
-
-              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/services")}>
-                Browse Services
-              </button>
-
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
               <button className="btn btn-secondary" {...quickBtnProps} onClick={scrollToAppointments}>
                 My Appointments
               </button>
-
-              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/chat")}>
-                Message Clinic
-              </button>
-
               <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/treatments")}>
                 Open My Chart
+              </button>
+              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/services")}>
+                Browse Services
               </button>
             </div>
           </div>
@@ -2144,12 +2200,10 @@ export default function PatientHome() {
         <div className="card card-pad">
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             <div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#CFC3F5", textTransform: "uppercase", letterSpacing: ".08em" }}>
-                Explore Treatments
-              </div>
+              <div style={{ ...sectionEyebrowStyle, color: "#D8CCFF" }}>Explore Treatments</div>
               <div className="h2" style={{ marginTop: 8 }}>Browse Care Options</div>
-              <div className="muted" style={{ marginTop: 4 }}>
-                Open a service card for details, pricing, and booking.
+              <div className="muted" style={{ marginTop: 4, color: "rgba(226,232,240,0.78)" }}>
+                Review a few highlighted services, then open the full catalog when you want more detail.
               </div>
             </div>
 
@@ -2174,17 +2228,17 @@ export default function PatientHome() {
                   fmtMoney(service.price_regular_cents);
 
                 return (
-                  <div
-                    key={service.id}
-                    className="card card-pad"
-                    role="button"
+                    <div
+                      key={service.id}
+                      className="card card-pad"
+                      role="button"
                     tabIndex={0}
                     style={{
                       flex: "1 1 300px",
                       minWidth: 280,
-                      background: "linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))",
-                      border: "1px solid rgba(200,182,255,0.16)",
-                      boxShadow: "0 16px 32px rgba(10,8,24,0.18)",
+                      background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,241,255,0.95))",
+                      border: "1px solid rgba(184,164,255,0.22)",
+                      boxShadow: "0 16px 32px rgba(16,24,40,0.10)",
                       cursor: "pointer",
                     }}
                     onClick={() => navigate("/patient/services")}
@@ -2194,30 +2248,30 @@ export default function PatientHome() {
                         navigate("/patient/services");
                       }
                     }}
-                  >
-                    <div style={{ fontSize: 12, color: "#CFC3F5", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
-                      {prettyCategory(service.category)}
-                    </div>
-
-                    <div className="h2" style={{ marginTop: 8 }}>
-                      {service.name}
-                    </div>
-
-                    {service.description ? (
-                      <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
-                        {service.description}
+                    >
+                      <div style={{ fontSize: 12, color: "#5B4E86", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                        {prettyCategory(service.category)}
                       </div>
-                    ) : null}
+
+                      <div className="h2" style={{ marginTop: 8, color: "#1F1633" }}>
+                        {service.name}
+                      </div>
+
+                      {service.description ? (
+                        <div className="muted" style={{ marginTop: 8, lineHeight: 1.6, color: "#4B5563" }}>
+                          {compactDescription(service.description)}
+                        </div>
+                      ) : null}
 
                     <div className="space" />
 
                     {price ? (
-                      <div style={{ fontSize: 24, fontWeight: 900 }}>
-                        {price}
-                      </div>
-                    ) : (
-                      <div className="muted">Consultation based pricing</div>
-                    )}
+                        <div style={{ fontSize: 24, fontWeight: 900, color: "#241B3D" }}>
+                          {price}
+                        </div>
+                      ) : (
+                        <div className="muted" style={{ color: "#4B5563" }}>Consultation based pricing</div>
+                      )}
 
                     <div className="space" />
 
@@ -2235,11 +2289,11 @@ export default function PatientHome() {
                           );
                         }}
                       >
-                        Book Now
+                        Book Appointment
                       </button>
 
                       <button
-                        className="btn btn-ghost"
+                        className="btn btn-secondary"
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
@@ -2258,9 +2312,10 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div id="book-appointment" className="card card-pad">
-          <div className="h2">Book an Appointment</div>
-          <div className="muted" style={{ marginTop: 4 }}>
+        <div id="book-appointment" className="card card-pad" style={lightSurfaceCardStyle}>
+          <div style={sectionEyebrowStyle}>Book Appointment</div>
+          <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Request Your Next Visit</div>
+          <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
             Choose your location, service, date, and an available time slot.
           </div>
 
@@ -2393,8 +2448,8 @@ export default function PatientHome() {
               <div className="space" />
 
               {locationId && date && hours && !hours.is_closed && (
-                <div className="card card-pad" style={{ marginBottom: 16 }}>
-                  <div className="h2">Available Times</div>
+                <div className="card card-pad card-light surface-light" style={{ marginBottom: 16 }}>
+                  <div className="h2" style={{ color: "#1F1633" }}>Available Times</div>
                   <div className="space" />
 
                   {slots.length === 0 ? (
@@ -2408,7 +2463,7 @@ export default function PatientHome() {
                         return (
                           <button
                             key={s.iso}
-                            className={active ? "btn btn-primary" : "btn btn-ghost"}
+                            className={active ? "btn btn-primary" : "btn btn-secondary"}
                             onClick={() => setSelectedSlotIso(s.iso)}
                             disabled={disabled}
                             title={disabled ? "Already booked" : "Select"}
@@ -2417,12 +2472,7 @@ export default function PatientHome() {
                               minWidth: 96,
                               fontWeight: 800,
                               letterSpacing: 0.2,
-                              color: active ? undefined : "rgba(255,255,255,0.96)",
-                              WebkitTextFillColor: active ? undefined : "rgba(255,255,255,0.96)",
                               opacity: disabled ? 0.45 : 1,
-                              borderWidth: 2,
-                              borderColor: active ? undefined : "rgba(255,255,255,0.22)",
-                              background: active ? undefined : "rgba(0,0,0,0.18)",
                             }}
                           >
                             {s.label}
@@ -2521,9 +2571,10 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad">
-          <div className="h2">My Appointments</div>
-          <div className="muted" style={{ marginTop: 4 }}>
+        <div className="card card-pad" style={lightSurfaceCardStyle}>
+          <div style={sectionEyebrowStyle}>Appointments</div>
+          <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>My Appointments</div>
+          <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
             Review your appointment history, track status updates, and message the clinic for follow-up.
           </div>
 
@@ -2539,8 +2590,7 @@ export default function PatientHome() {
                 className="card card-pad"
                 style={{
                   marginBottom: 12,
-                  background: "linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03))",
-                  border: "1px solid rgba(255,255,255,.10)",
+                  ...lightSurfaceCardStyle,
                   cursor: "pointer",
                 }}
                 onClick={() => {
@@ -2552,13 +2602,13 @@ export default function PatientHome() {
                     <div style={{ flex: 1 }}>
                       <div className="h2">{new Date(a.start_time).toLocaleString()}</div>
                       <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
-                        <div className="muted" style={{ fontSize: 13 }}>
+                        <div className="muted" style={{ fontSize: 13, color: "#4B5563" }}>
                           Location: {locName(a.location_id)} {" - "} Service: {svcName(a.service_id)}
                         </div>
                         <VirtualVisitBadge appointment={a} />
                       </div>
                     <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
-                      <div className="muted" style={{ fontSize: 12 }}>
+                      <div className="muted" style={{ fontSize: 12, color: "#5B4E86" }}>
                         Status:
                       </div>
                       <span style={appointmentStatusBadge(a.status)}>
@@ -2566,11 +2616,11 @@ export default function PatientHome() {
                       </span>
                     </div>
                     {a.notes && (
-                      <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+                      <div className="muted" style={{ fontSize: 13, marginTop: 8, color: "#4B5563" }}>
                         Notes: {a.notes}
                       </div>
                     )}
-                    <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 8, color: "#6B7280" }}>
                       Appointment ID: {a.id}
                     </div>
                   </div>
@@ -2578,7 +2628,7 @@ export default function PatientHome() {
                   <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <JoinVirtualVisitButton
                       appointment={a}
-                      className="btn btn-ghost"
+                      className="btn btn-secondary"
                       onClick={(e) => e.stopPropagation()}
                     />
                     <button
@@ -2593,7 +2643,7 @@ export default function PatientHome() {
                     </button>
 
                     <button
-                      className="btn btn-ghost"
+                      className="btn btn-secondary"
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -2604,7 +2654,7 @@ export default function PatientHome() {
                     </button>
 
                     <button
-                      className="btn btn-ghost"
+                      className="btn btn-secondary"
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -2621,17 +2671,18 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad">
+        <div className="card card-pad" style={lightSurfaceCardStyle}>
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
-              <div className="h2">Your Current Care Instructions</div>
-              <div className="muted" style={{ marginTop: 4 }}>
+              <div style={sectionEyebrowStyle}>Care Instructions</div>
+              <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Your Current Care Instructions</div>
+              <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
                 Your latest provider-approved guidance and next steps.
               </div>
             </div>
 
             <button
-              className="btn btn-ghost"
+              className="btn btn-secondary"
               type="button"
               onClick={() => navigate("/patient/treatments")}
             >
@@ -2728,17 +2779,18 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad">
+        <div className="card card-pad" style={lightSurfaceCardStyle}>
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
-              <div className="h2">Recent Labs</div>
-              <div className="muted" style={{ marginTop: 4 }}>
+              <div style={sectionEyebrowStyle}>Labs</div>
+              <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Recent Labs</div>
+              <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
                 A quick look at your most recent lab activity and results.
               </div>
             </div>
 
             <button
-              className="btn btn-ghost"
+              className="btn btn-secondary"
               type="button"
               onClick={() => navigate("/patient/labs")}
             >
@@ -2781,17 +2833,18 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad">
+        <div className="card card-pad" style={lightSurfaceCardStyle}>
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
-              <div className="h2">Your Timeline</div>
-              <div className="muted" style={{ marginTop: 4 }}>
+              <div style={sectionEyebrowStyle}>Timeline</div>
+              <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Your Timeline</div>
+              <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
                 A quick look at your most recent care activity across appointments, treatments, and labs.
               </div>
             </div>
 
             <button
-              className="btn btn-ghost"
+              className="btn btn-secondary"
               type="button"
               onClick={() => navigate("/patient/treatments")}
             >
@@ -2850,11 +2903,12 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad">
+        <div className="card card-pad" style={lightSurfaceCardStyle}>
           <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div className="h2">Documents</div>
-              <div className="muted">
+              <div style={sectionEyebrowStyle}>Documents</div>
+              <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Documents</div>
+              <div className="muted" style={{ color: "#4B5563" }}>
                 Files shared with you by your provider.
               </div>
             </div>
@@ -2883,7 +2937,7 @@ export default function PatientHome() {
                       </div>
 
                     <button
-                      className="btn btn-ghost"
+                      className="btn btn-secondary"
                       type="button"
                       onClick={() => openPatientFile(file)}
                     >
@@ -2936,7 +2990,7 @@ export default function PatientHome() {
                 </div>
 
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-secondary"
                   type="button"
                   onClick={() => {
                     setAppointmentDrawerFiles([]);
@@ -3148,7 +3202,7 @@ export default function PatientHome() {
                 <div className="space" />
 
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-secondary"
                   type="button"
                   disabled={uploadingDrawerFiles || appointmentDrawerFiles.length === 0}
                   onClick={() => uploadFilesToAppointment(selectedAppointment)}
@@ -3211,7 +3265,7 @@ export default function PatientHome() {
                           <div className="space" />
 
                           {url ? (
-                            <a className="btn btn-ghost" href={url} target="_blank" rel="noreferrer">
+                            <a className="btn btn-secondary" href={url} target="_blank" rel="noreferrer">
                               Open File
                             </a>
                           ) : (
@@ -3238,7 +3292,7 @@ export default function PatientHome() {
                 </button>
 
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-secondary"
                   type="button"
                   onClick={() => startIntakeFromAppointment(selectedAppointment)}
                 >
@@ -3254,7 +3308,7 @@ export default function PatientHome() {
                 </button>
 
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-secondary"
                   type="button"
                   onClick={() => navigate("/patient/treatments")}
                 >
@@ -3262,7 +3316,7 @@ export default function PatientHome() {
                 </button>
 
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-secondary"
                   type="button"
                   onClick={() => navigate("/patient/services")}
                 >
@@ -3319,7 +3373,7 @@ export default function PatientHome() {
                 </div>
 
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-secondary"
                   type="button"
                   onClick={() => setBookingSuccess(null)}
                 >
@@ -3377,7 +3431,7 @@ export default function PatientHome() {
                 </button>
 
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-secondary"
                   type="button"
                   onClick={() => {
                     setBookingSuccess(null);
@@ -3389,7 +3443,7 @@ export default function PatientHome() {
                 </button>
 
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-secondary"
                   type="button"
                   onClick={() => {
                     setBookingSuccess(null);
