@@ -5,7 +5,7 @@
    ========================= */
 
 :root {
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Aptos", "Avenir Next", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -63,6 +63,8 @@ body {
   min-height: 100%;
   background: var(--v-bg);
   color: var(--v-text);
+  font-family: "Aptos", "Avenir Next", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 15px;
 }
 
 /* Links */
@@ -96,12 +98,15 @@ a:hover { text-decoration: underline; }
 /* Typography helpers */
 .h1 {
   font-size: 22px;
-  font-weight: 750;
-  letter-spacing: 0.2px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-family: "Aptos", "Avenir Next", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 .h2 {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  font-family: "Aptos", "Avenir Next", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 .muted { color: var(--v-muted); }
 
@@ -1176,16 +1181,16 @@ button.card :is(.h1, .h2, .title) {
   --v-button-padding-y: 10px;
   --v-button-padding-x: 16px;
   --v-button-font-size: 14px;
-  --v-button-font-weight: 700;
-  --v-button-primary-bg: #7357ff;
-  --v-button-primary-bg-hover: #6446ff;
-  --v-button-primary-border: #6446ff;
-  --v-button-primary-shadow: 0 10px 24px rgba(115, 87, 255, 0.28);
-  --v-button-secondary-bg: rgba(255, 255, 255, 0.92);
-  --v-button-secondary-bg-hover: #ffffff;
-  --v-button-secondary-border: rgba(148, 163, 184, 0.34);
+  --v-button-font-weight: 800;
+  --v-button-primary-bg: #6f56f6;
+  --v-button-primary-bg-hover: #5f45ea;
+  --v-button-primary-border: #5f45ea;
+  --v-button-primary-shadow: 0 12px 26px rgba(111, 86, 246, 0.26);
+  --v-button-secondary-bg: #ffffff;
+  --v-button-secondary-bg-hover: #f7f4ff;
+  --v-button-secondary-border: rgba(148, 163, 184, 0.32);
   --v-button-secondary-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-  --v-button-secondary-text: #1f1633;
+  --v-button-secondary-text: #241b3d;
   --v-button-disabled-opacity: 0.45;
 }
 
@@ -1203,6 +1208,7 @@ button.card :is(.h1, .h2, .title) {
   font-size: var(--v-button-font-size);
   font-weight: var(--v-button-font-weight);
   line-height: 1.1;
+  font-family: "Aptos", "Avenir Next", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
   text-decoration: none !important;
   border: 1px solid transparent;
   cursor: pointer;
@@ -1245,7 +1251,7 @@ button.card :is(.h1, .h2, .title) {
 .btn-primary:hover {
   background: var(--v-button-primary-bg-hover);
   border-color: var(--v-button-primary-bg-hover);
-  box-shadow: 0 12px 26px rgba(100, 70, 255, 0.34);
+  box-shadow: 0 14px 28px rgba(95, 69, 234, 0.30);
 }
 
 .btn-secondary,
@@ -1269,8 +1275,8 @@ button.card :is(.h1, .h2, .title) {
 .btn-secondary:hover,
 .btn-ghost:hover {
   background: var(--v-button-secondary-bg-hover);
-  border-color: rgba(100, 116, 139, 0.42);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.10);
+  border-color: rgba(111, 86, 246, 0.22);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.09);
 }
 
 .surface-light .btn-secondary,
@@ -1279,9 +1285,19 @@ button.card :is(.h1, .h2, .title) {
 .card-light .btn-ghost,
 .public-shell .btn-secondary,
 .public-shell .btn-ghost {
-  background: rgba(255, 255, 255, 0.94);
+  background: #ffffff;
   color: var(--v-button-secondary-text) !important;
   border-color: rgba(148, 163, 184, 0.34);
+}
+
+.btn-ghost,
+.surface-light .btn-ghost,
+.card-light .btn-ghost,
+.public-shell .btn-ghost {
+  background: var(--v-button-secondary-bg);
+  color: var(--v-button-secondary-text) !important;
+  border-color: var(--v-button-secondary-border);
+  box-shadow: var(--v-button-secondary-shadow);
 }
 
 .surface-light .btn-primary,

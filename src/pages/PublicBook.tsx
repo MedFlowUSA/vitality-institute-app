@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, type AppRole } from "../auth/AuthProvider";
 import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { createBookingRequest } from "../lib/bookingRequests";
+import { buildFollowUpMessage, resolveBookingRequestLead } from "../lib/publicFollowUpEngine";
 import { getPublicOfferingBySlug } from "../lib/publicMarketingCatalog";
 import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, buildOnboardingRoute } from "../lib/routeFlow";
@@ -45,8 +46,8 @@ export default function PublicBook() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [servicePrompt, setServicePrompt] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [interestMessage, setInterestMessage] = useState<string | null>(null);
   const [locations, setLocations] = useState<CatalogLocation[]>([]);
   const [services, setServices] = useState<CatalogService[]>([]);
@@ -56,6 +57,7 @@ export default function PublicBook() {
   const [serviceId, setServiceId] = useState(searchParams.get("serviceId") ?? draft?.serviceId ?? "");
   const [startTimeLocal, setStartTimeLocal] = useState(searchParams.get("start") ?? draft?.startTimeLocal ?? "");
   const [notes, setNotes] = useState(searchParams.get("notes") ?? draft?.notes ?? "");
+  const hydratedSelectionRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,9 +68,9 @@ export default function PublicBook() {
         if (cancelled) return;
         setLocations(locationRows);
         setServices(serviceResult.services);
-        if (!locationId && locationRows[0]?.id) setLocationId(locationRows[0].id);
+        setCatalogError(null);
       } catch {
-        if (!cancelled) setError("Booking options are temporarily unavailable. Please try again in a moment.");
+        if (!cancelled) setCatalogError("Booking options are temporarily unavailable. Please try again in a moment.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -104,18 +106,33 @@ export default function PublicBook() {
     return selectedServiceRow ? getIntakeOnlyPathwayForService(selectedServiceRow) : null;
   }, [selectedServiceRow]);
 
+  const normalizedStartTime = useMemo(() => startTimeLocal.trim(), [startTimeLocal]);
+  const hasCompleteStartTimeValue = normalizedStartTime.length >= 16;
+
+  const startTimeDate = useMemo(() => {
+    if (!hasCompleteStartTimeValue) return null;
+    const next = new Date(normalizedStartTime);
+    return Number.isNaN(next.getTime()) ? null : next;
+  }, [hasCompleteStartTimeValue, normalizedStartTime]);
+
+  const hasValidLocation = !!renderedLocationId && !!selectedLocation;
+  const hasValidService = !!renderedServiceId && !!selectedServiceRow;
+  const needsPreferredTime = !intakeOnlyPathway;
+  const hasValidTime = !needsPreferredTime || (!!startTimeDate && hasCompleteStartTimeValue);
+  const isFormComplete = hasValidLocation && hasValidService && hasValidTime;
+
   const validationMessage = useMemo(() => {
-    if (!renderedLocationId || !renderedServiceId) {
+    if (!hasValidLocation || !hasValidService) {
       return "Please select a service and time to continue";
     }
     if (!selectedServiceRow || servicesForLocation.length === 0) {
       return "Something went wrong. Please try again.";
     }
-    if (!startTimeLocal && !intakeOnlyPathway) {
+    if (!hasValidTime) {
       return "Please select a service and time to continue";
     }
     return null;
-  }, [intakeOnlyPathway, renderedLocationId, renderedServiceId, selectedServiceRow, servicesForLocation.length, startTimeLocal]);
+  }, [hasValidLocation, hasValidService, hasValidTime, selectedServiceRow, servicesForLocation.length]);
 
   const matchedInterestService = useMemo(() => {
     return matchCatalogServiceFromInterest({
@@ -126,35 +143,42 @@ export default function PublicBook() {
   }, [selectedInterest?.title, selectedInterestSlug, services]);
 
   useEffect(() => {
-    if (loading || locations.length === 0) return;
+    if (loading || hydratedSelectionRef.current) return;
+    if (locations.length === 0) return;
 
+    const matchedLocationId =
+      matchedInterestService?.service.location_id && locations.some((location) => location.id === matchedInterestService.service.location_id)
+        ? matchedInterestService.service.location_id
+        : "";
     const nextLocationId =
       (locationId && locations.some((location) => location.id === locationId) ? locationId : "") ||
-      (matchedInterestService?.service.location_id && locations.some((location) => location.id === matchedInterestService.service.location_id)
-        ? matchedInterestService.service.location_id
-        : "") ||
+      (searchParams.get("locationId") && locations.some((location) => location.id === searchParams.get("locationId")) ? searchParams.get("locationId")! : "") ||
+      matchedLocationId ||
+      (draft?.locationId && locations.some((location) => location.id === draft.locationId) ? draft.locationId : "") ||
       locations[0]?.id ||
       "";
-
-    if (nextLocationId !== locationId) {
-      setLocationId(nextLocationId);
-      return;
-    }
 
     const nextServices = services.filter((service) => service.location_id === nextLocationId);
     const nextServiceId =
       (serviceId && nextServices.some((service) => service.id === serviceId) ? serviceId : "") ||
+      (searchParams.get("serviceId") && nextServices.some((service) => service.id === searchParams.get("serviceId")) ? searchParams.get("serviceId")! : "") ||
       (matchedInterestService?.service.id && nextServices.some((service) => service.id === matchedInterestService.service.id)
         ? matchedInterestService.service.id
         : "") ||
       (draft?.serviceId && nextServices.some((service) => service.id === draft.serviceId) ? draft.serviceId : "") ||
-      nextServices[0]?.id ||
       "";
 
-    if (nextServiceId !== serviceId) {
-      setServiceId(nextServiceId);
-    }
-  }, [draft?.serviceId, loading, locationId, locations, matchedInterestService?.service.id, matchedInterestService?.service.location_id, serviceId, services]);
+    hydratedSelectionRef.current = true;
+    setLocationId(nextLocationId);
+    setServiceId(nextServiceId);
+  }, [draft?.locationId, draft?.serviceId, loading, locationId, locations, matchedInterestService?.service.id, matchedInterestService?.service.location_id, searchParams, serviceId, services]);
+
+  useEffect(() => {
+    if (loading || !renderedLocationId) return;
+    if (!serviceId) return;
+    if (servicesForLocation.some((service) => service.id === serviceId)) return;
+    setServiceId("");
+  }, [loading, renderedLocationId, serviceId, servicesForLocation]);
 
   useEffect(() => {
     if (!selectedInterestSlug) {
@@ -169,87 +193,61 @@ export default function PublicBook() {
     }
 
     const matchedService = matchedInterestService.service;
-    if (matchedService.location_id && matchedService.location_id !== locationId) {
-      setLocationId(matchedService.location_id);
-    }
-    if (serviceId !== matchedService.id) {
-      setServiceId(matchedService.id);
-    }
-
     setInterestMessage(
       matchedInterestService.confidence === "exact"
         ? `We selected ${matchedService.name} from your link.`
         : `We selected the closest available service: ${matchedService.name}.`
     );
-  }, [loading, locationId, matchedInterestService, selectedInterestSlug, serviceId, services.length]);
+  }, [loading, matchedInterestService, selectedInterestSlug, services.length]);
 
   useEffect(() => {
-    setError(null);
-    setServicePrompt(null);
+    setSubmitError(null);
   }, [locationId, notes, serviceId, startTimeLocal]);
-
-  useEffect(() => {
-    if (loading) return;
-    if (!renderedLocationId) return;
-    if (servicesForLocation.length === 0) {
-      setServicePrompt("Something went wrong. Please try again.");
-      return;
-    }
-    if (!renderedServiceId) {
-      setServicePrompt("Please select a service and time to continue");
-      return;
-    }
-    setServicePrompt(null);
-  }, [loading, renderedLocationId, renderedServiceId, servicesForLocation.length]);
-
-  useEffect(() => {
-    if (loading) return;
-    if (validationMessage) {
-      setError((current) => {
-        if (!current || current === "Please select a service and time to continue" || current === "Something went wrong. Please try again.") {
-          return validationMessage;
-        }
-        return current;
-      });
-      return;
-    }
-
-    setError((current) => {
-      if (!current) return null;
-      if (renderedLocationId && renderedServiceId && startTimeLocal && selectedServiceRow) return null;
-      return current;
-    });
-  }, [loading, renderedLocationId, renderedServiceId, selectedServiceRow, startTimeLocal, validationMessage]);
 
   useEffect(() => {
     const requestId = getRequestIdForBookingSelection(draft, {
       locationId: renderedLocationId,
       serviceId: renderedServiceId,
-      startTimeLocal,
+      startTimeLocal: normalizedStartTime,
       notes,
     });
 
     savePublicBookingDraft({
       locationId: renderedLocationId,
       serviceId: renderedServiceId,
-      startTimeLocal,
+      startTimeLocal: normalizedStartTime,
       notes,
       locationName: selectedLocation?.name ?? draft?.locationName,
       serviceName: selectedServiceRow?.name ?? draft?.serviceName,
       requestId,
     });
-  }, [draft, draft?.locationName, draft?.serviceName, notes, renderedLocationId, renderedServiceId, selectedLocation?.name, selectedServiceRow?.name, startTimeLocal]);
+  }, [draft, draft?.locationName, draft?.serviceName, normalizedStartTime, notes, renderedLocationId, renderedServiceId, selectedLocation?.name, selectedServiceRow?.name]);
+
+  const fieldHelperMessage = useMemo(() => {
+    if (loading) return " ";
+    if (catalogError) return catalogError;
+    if (!hasValidLocation || !hasValidService) return "Please select a service and time to continue";
+    if (!hasValidTime) return "Please select a service and time to continue";
+    if (intakeOnlyPathway) return "This service starts with guided intake instead of direct booking.";
+    return " ";
+  }, [catalogError, hasValidLocation, hasValidService, hasValidTime, intakeOnlyPathway, loading]);
+
+  const canContinue = useMemo(() => {
+    if (loading || submitting) return false;
+    if (catalogError) return false;
+    return !validationMessage;
+  }, [catalogError, loading, submitting, validationMessage]);
 
   const confirmBooking = async () => {
-    if (loading || submitting) return;
+    if (loading || submitting || catalogError) return;
 
-    if (!renderedLocationId || !renderedServiceId || !startTimeLocal) {
-      setError("Please select a service and time to continue");
+    if (!hasValidLocation || !hasValidService || !hasValidTime) {
+      setSubmitError("Please select a service and time to continue");
       return;
     }
 
     if (!selectedServiceRow) {
-      setError("Something went wrong. Please try again.");
+      setSubmitError("Something went wrong. Please try again.");
       return;
     }
 
@@ -259,16 +257,16 @@ export default function PublicBook() {
       return;
     }
 
-    const start = new Date(startTimeLocal);
-    if (Number.isNaN(start.getTime()) || start.getTime() < Date.now() - 60 * 1000) {
-      setError("Please select a service and time to continue");
+    const start = startTimeDate;
+    if (!start || start.getTime() < Date.now() - 60 * 1000) {
+      setSubmitError("Please select a service and time to continue");
       return;
     }
 
     const nextPath =
       `/patient/book?locationId=${encodeURIComponent(renderedLocationId)}` +
       `&serviceId=${encodeURIComponent(renderedServiceId)}` +
-      `&start=${encodeURIComponent(startTimeLocal)}` +
+      `&start=${encodeURIComponent(normalizedStartTime)}` +
       `&notes=${encodeURIComponent(notes)}`;
 
     if (user?.id && role === "patient") {
@@ -282,7 +280,7 @@ export default function PublicBook() {
     }
 
     setSubmitting(true);
-    setError(null);
+    setSubmitError(null);
 
     try {
       const request = await createBookingRequest({
@@ -292,11 +290,28 @@ export default function PublicBook() {
         notes,
         source: selectedInterestSlug ? `public_booking_interest:${selectedInterestSlug}` : "public_booking_flow",
       });
+      const followUp = buildFollowUpMessage(
+        resolveBookingRequestLead({
+          serviceName: selectedServiceRow.name,
+          notes,
+        }).leadType,
+        resolveBookingRequestLead({
+          serviceName: selectedServiceRow.name,
+          notes,
+        }).urgencyLevel
+      );
+      console.info("[Public follow-up]", {
+        type: "booking_request",
+        requestId: request.id,
+        serviceName: selectedServiceRow.name,
+        patientMessage: followUp.patientMessage,
+        staffNote: followUp.staffNote,
+      });
 
       savePublicBookingDraft({
         locationId: renderedLocationId,
         serviceId: renderedServiceId,
-        startTimeLocal,
+        startTimeLocal: normalizedStartTime,
         notes,
         locationName: selectedLocation?.name ?? draft?.locationName,
         serviceName: selectedServiceRow.name,
@@ -306,7 +321,7 @@ export default function PublicBook() {
       const onboardingPath = buildOnboardingRoute({ next: "/intake", handoff: "booking_request" });
       navigate(buildAuthRoute({ mode: "signup", next: onboardingPath, handoff: "booking_request" }));
     } catch {
-      setError("Something went wrong. Please try again.");
+      setSubmitError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -338,10 +353,17 @@ export default function PublicBook() {
           </>
         ) : null}
 
-        {error ? (
+        {submitError ? (
           <>
             <div className="space" />
-            <div style={{ color: "#fecaca" }}>{error}</div>
+            <div style={{ color: "#fecaca", minHeight: 22 }}>{submitError}</div>
+          </>
+        ) : null}
+
+        {catalogError && !submitError ? (
+          <>
+            <div className="space" />
+            <div style={{ color: "#fecaca", minHeight: 22 }}>{catalogError}</div>
           </>
         ) : null}
 
@@ -423,27 +445,16 @@ export default function PublicBook() {
                     </option>
                   ))}
                 </select>
-                {servicePrompt ? (
-                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                    {servicePrompt}
-                  </div>
-                ) : null}
-                {intakeOnlyPathway ? (
-                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                    This service starts with guided intake instead of direct booking.
-                  </div>
-                ) : null}
               </div>
 
               <div style={{ flex: "1 1 240px" }}>
                 <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Preferred time</div>
                 <input className="input" type="datetime-local" value={startTimeLocal} onChange={(event) => setStartTimeLocal(event.target.value)} />
-                {!startTimeLocal && !intakeOnlyPathway ? (
-                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                    Choose a preferred time to continue.
-                  </div>
-                ) : null}
               </div>
+            </div>
+
+            <div className="muted" style={{ fontSize: 12, marginTop: 8, minHeight: 18 }}>
+              {!isFormComplete || intakeOnlyPathway || catalogError ? fieldHelperMessage : " "}
             </div>
 
             <div className="space" />
@@ -466,7 +477,7 @@ export default function PublicBook() {
                 type="button"
                 className="btn btn-primary"
                 onClick={() => void confirmBooking()}
-                disabled={submitting || (!intakeOnlyPathway && (!!validationMessage || !!error))}
+                disabled={!canContinue}
               >
                 {submitting ? "Saving Request..." : "Continue to Intake"}
               </button>
@@ -479,13 +490,11 @@ export default function PublicBook() {
 
             <PublicFlowStatusCard
               eyebrow="What Happens Next"
-              title={user?.id ? "The clinic will use your intake to finalize the visit" : "Your request is saved before scheduling is finalized"}
+              title="What Happens Next"
               body={
-                user?.id
-                  ? "Continue into intake so the clinic has the right details before confirming the visit plan."
-                  : "Your request is saved first, then account setup and intake help our team review the right next step for scheduling."
+                "Once you send your request, our team will review it and follow up with the right next step."
               }
-              detail="Guest requests do not create a confirmed appointment. Wound-care concerns may prompt faster coordinator outreach and additional provider review."
+              detail="Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit."
               actions={[
                 { label: "Start with Vital AI", to: "/vital-ai", variant: "ghost" },
                 { label: "Explore Services", to: "/services", variant: "ghost" },

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { buildFollowUpMessage, resolveBookingRequestLead } from "../lib/publicFollowUpEngine";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, normalizeRedirectTarget } from "../lib/routeFlow";
 import { supabase } from "../lib/supabase";
@@ -15,6 +16,18 @@ export default function PatientOnboarding() {
   const nextPath = useMemo(() => normalizeRedirectTarget(searchParams.get("next"), "/patient"), [searchParams]);
   const handoff = searchParams.get("handoff");
   const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
+  const bookingFollowUp = useMemo(() => {
+    return buildFollowUpMessage(
+      resolveBookingRequestLead({
+        serviceName: bookingDraft?.serviceName,
+        notes: bookingDraft?.notes,
+      }).leadType,
+      resolveBookingRequestLead({
+        serviceName: bookingDraft?.serviceName,
+        notes: bookingDraft?.notes,
+      }).urgencyLevel
+    );
+  }, [bookingDraft?.notes, bookingDraft?.serviceName]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -169,10 +182,10 @@ export default function PatientOnboarding() {
               >
                 <div className="h2">Your visit request is already saved</div>
                 <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                  Finish your profile so we can continue into intake and keep your request connected to the right patient account.
+                  {bookingFollowUp.patientMessage} Finish your profile so we can continue into intake and keep your request connected to the right patient account.
                 </div>
                 <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
-                  Reference: {bookingDraft.requestId}. {bookingDraft.serviceName || "Your selected service"}{bookingDraft.locationName ? ` at ${bookingDraft.locationName}` : ""} is waiting for clinic review, and a coordinator may follow up to confirm next steps.
+                  Reference: {bookingDraft.requestId}. {bookingDraft.serviceName || "Your selected service"}{bookingDraft.locationName ? ` at ${bookingDraft.locationName}` : ""} is waiting for clinic review. {bookingFollowUp.supportingLine}
                 </div>
               </div>
             </>

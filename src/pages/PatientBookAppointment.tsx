@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, type AppRole } from "../auth/AuthProvider";
 import { clearPublicBookingDraft, getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, buildCurrentPath } from "../lib/routeFlow";
-import { getIntakeOnlyPathwayForService } from "../lib/services/catalog";
+import { getGuidedIntakePathwayForService, getIntakeOnlyPathwayForService } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
 import RouteHeader from "../components/RouteHeader";
 
@@ -84,6 +84,16 @@ export default function PatientBookAppointment() {
   const intakeOnlyPathway = useMemo(() => {
     return selectedService
       ? getIntakeOnlyPathwayForService({
+          name: selectedService.name,
+          category: selectedService.visit_type,
+          service_group: null,
+        })
+      : null;
+  }, [selectedService]);
+
+  const guidedPathway = useMemo(() => {
+    return selectedService
+      ? getGuidedIntakePathwayForService({
           name: selectedService.name,
           category: selectedService.visit_type,
           service_group: null,
@@ -282,7 +292,7 @@ export default function PatientBookAppointment() {
       return setErr("Please select a service and time to continue");
     }
     if (intakeOnlyPathway) {
-      nav(`/intake?pathway=${encodeURIComponent(intakeOnlyPathway)}`, { replace: true });
+      nav(`/intake?pathway=${encodeURIComponent(intakeOnlyPathway)}&autostart=1`, { replace: true });
       return;
     }
 
@@ -323,7 +333,10 @@ export default function PatientBookAppointment() {
       }
 
       clearPublicBookingDraft();
-      nav(`/patient/intake?appointmentId=${data.id}`, { replace: true });
+      const nextPath = guidedPathway
+        ? `/intake?appointmentId=${encodeURIComponent(data.id)}&pathway=${encodeURIComponent(guidedPathway)}&autostart=1`
+        : `/intake?appointmentId=${encodeURIComponent(data.id)}`;
+      nav(nextPath, { replace: true });
     } catch (error: unknown) {
       setErr(getBookingErrorMessage(error));
     } finally {

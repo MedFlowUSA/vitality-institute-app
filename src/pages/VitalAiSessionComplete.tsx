@@ -10,7 +10,9 @@ import {
   loadVitalAiSession,
   responsesToMap,
 } from "../lib/vitalAi/submission";
+import { outcomeBadgeStyle, scoreConversionLead } from "../lib/vitalAi/conversionEngine";
 import { loadVitalAiPathwayById } from "../lib/vitalAi/pathways";
+import { getRevenueRecommendation } from "../lib/vitalAi/revenueEngine";
 import type { ResponseMap, VitalAiPathwayRow, VitalAiSessionRow } from "../lib/vitalAi/types";
 
 type EvaluationKind = "glp1" | "peptides" | "hormone" | "wound" | "general";
@@ -96,7 +98,7 @@ function buildWoundEvaluation(answers: ResponseMap): EvaluationContent {
       eyebrow: "Evaluation Results",
       recommendation: "Your wound may need prompt clinical review.",
       support:
-        "Your responses suggest details that may benefit from earlier wound-care follow-up, especially if symptoms change, drainage increases, or discomfort worsens.",
+        "Your answers suggest this concern may need earlier follow-up so the care team can review symptoms, images, and the safest next step.",
       consultationRequired: true,
       bookLabel: "Start Wound Review",
       continueLabel: "Continue",
@@ -114,7 +116,7 @@ function buildWoundEvaluation(answers: ResponseMap): EvaluationContent {
     eyebrow: "Evaluation Results",
     recommendation: "Your wound may benefit from clinical review.",
     support:
-      "Your intake gives the wound-care team a clearer starting point so they can review your symptoms, any images, and the best next step for follow-up.",
+      "Your intake gives the wound-care team a clearer picture so they can review your symptoms and guide the right follow-up.",
     consultationRequired: true,
     bookLabel: "Start Wound Review",
     continueLabel: "Continue",
@@ -136,11 +138,11 @@ function buildGlp1Evaluation(kind: "glp1" | "peptides", answers: ResponseMap): E
     return {
       eyebrow: "Evaluation Results",
       recommendation: peptideGoal
-        ? `Your responses suggest you may benefit from a peptide-support review focused on ${peptideGoal.toLowerCase()}.`
-        : "Based on your responses, you may be a candidate for peptide-support evaluation.",
+        ? `You may benefit from a peptide-support review focused on ${peptideGoal.toLowerCase()}.`
+        : "You may be a candidate for peptide-support evaluation.",
       support: priorPeptideUse
-        ? "Your prior peptide use gives the provider more context for reviewing what may be appropriate next."
-        : "This guidance is not a diagnosis. A provider will still review your goals, history, and any follow-up information before confirming the best plan.",
+        ? "Your prior peptide use gives the provider more context for deciding the right next step."
+        : "Your intake helps the team review your goals, history, and whether this path may be a fit.",
       consultationRequired: false,
       bookLabel: "Book Consultation",
       continueLabel: "Continue Without Consultation",
@@ -161,16 +163,14 @@ function buildGlp1Evaluation(kind: "glp1" | "peptides", answers: ResponseMap): E
   const goalWeight = toNumberValue(readAnswer(answers, ["goal_weight"]));
   const hasWeightGoal = currentWeight != null && goalWeight != null && goalWeight < currentWeight;
 
-  let recommendation = "Based on your responses, you may be a candidate for GLP-1 therapy.";
-  let support =
-    "This guidance helps us route your next step. Final treatment recommendations depend on clinical review, medical history, and any follow-up questions.";
+  let recommendation = "You may be a candidate for GLP-1 therapy.";
+  let support = "Your intake gives the team a starting point for reviewing fit, safety, and the right next step.";
   let summaryTitle = "Metabolic support may be a fit";
   let nextSteps = [
     "Our team will review your intake details and any follow-up needs.",
     "A coordinator may help confirm the best next step for care and scheduling.",
     "A licensed provider makes final treatment decisions after clinical review.",
   ];
-
   if (hasMetabolicConcern) {
     recommendation = "Your responses suggest a metabolic review may be appropriate, and you may be a candidate for GLP-1 therapy.";
     support =
@@ -182,9 +182,9 @@ function buildGlp1Evaluation(kind: "glp1" | "peptides", answers: ResponseMap): E
       "A licensed provider will discuss treatment eligibility and the safest path forward.",
     ];
   } else if (priorUse && hasWeightGoal) {
-    recommendation = "Based on your responses, you may be a candidate for GLP-1 therapy with a review of your prior treatment experience.";
+    recommendation = "You may be a candidate for GLP-1 therapy with a review of your prior treatment experience.";
     support =
-      "Your prior GLP-1 use and current goals give the provider more context for discussing whether another treatment approach or follow-up plan may be appropriate.";
+      "Your prior GLP-1 use and current goals give the provider more context for recommending the right next step.";
     summaryTitle = "A GLP-1 follow-up review may be appropriate";
     nextSteps = [
       "Our team will review your previous GLP-1 experience and current goals.",
@@ -216,25 +216,24 @@ function buildHormoneEvaluation(answers: ResponseMap): EvaluationContent {
     gender === "female" || hasAnyToken(symptomFocus, ["menopause", "cycle", "perimenopause", "hrt", "hot flash", "women"]);
   const fatiguePattern = hasAnyToken(symptomFocus, ["energy", "fatigue", "sleep", "stress"]);
 
-  let recommendation = "Based on your responses, a hormone-focused consultation may be appropriate.";
+  let recommendation = "A hormone-focused consultation may be appropriate based on your responses.";
   let support =
-    "Hormone-related concerns usually require a provider visit so we can review symptoms, history, and any appropriate next-step testing before treatment decisions are made.";
+    "Hormone-related concerns usually need provider review so symptoms, history, and any next-step testing can be considered before treatment decisions are made.";
   let summaryTitle = "A hormone-focused consultation is likely the right next step";
   let nextSteps = [
     "Your responses will be reviewed for symptom patterns and care goals.",
     "A provider visit helps determine whether hormone-focused treatment discussion is appropriate.",
     "Additional labs or clinical review may be recommended before any treatment plan is finalized.",
   ];
-
   if (malePattern) {
     recommendation = "Your responses suggest a testosterone-focused hormone evaluation may be appropriate.";
     support =
-      "The provider can review symptom patterns, history, and whether hormone or lab follow-up may be appropriate before any treatment decisions are made.";
+      "The provider can review symptom patterns, history, and whether hormone or lab follow-up may be appropriate.";
     summaryTitle = "A testosterone-focused review may be appropriate";
   } else if (femalePattern) {
     recommendation = "Your responses suggest a women’s hormone evaluation may be appropriate.";
     support =
-      "A provider can review your symptom pattern, hormone history, and whether consultation or lab review may help clarify the right next step.";
+      "A provider can review your symptom pattern, hormone history, and whether consultation or lab review may help clarify the next step.";
     summaryTitle = "A women’s hormone review may be appropriate";
   } else if (fatiguePattern) {
     recommendation = "Your responses suggest a hormone evaluation may be appropriate as part of a broader symptom review.";
@@ -281,9 +280,9 @@ function getEvaluationContent(kind: EvaluationKind, answers: ResponseMap): Evalu
 
   return {
     eyebrow: "Evaluation Results",
-    recommendation: "Based on your responses, a provider-guided consultation may be appropriate.",
+    recommendation: "A provider-guided consultation may be appropriate based on your responses.",
     support:
-      "Your intake gives the team a starting point for safe routing. Final recommendations depend on clinical review and any follow-up details needed for your visit.",
+      "Your intake gives the team a starting point for reviewing the right next step and any follow-up needed before your visit.",
     consultationRequired: true,
     bookLabel: "Book Consultation",
     continueLabel: "Continue",
@@ -347,6 +346,18 @@ export default function VitalAiSessionComplete() {
   }, [opportunityTypes, pathway?.slug, session?.current_step_key]);
 
   const evaluation = useMemo(() => getEvaluationContent(evaluationKind, answers), [answers, evaluationKind]);
+  const leadMetadata = useMemo(() => {
+    return scoreConversionLead({
+      pathway: evaluationKind,
+      answers,
+    });
+  }, [answers, evaluationKind]);
+  const revenueRecommendation = useMemo(() => {
+    return getRevenueRecommendation({
+      lead: leadMetadata,
+      answers,
+    });
+  }, [answers, leadMetadata]);
 
   const handleBookConsultation = () => {
     const params = new URLSearchParams();
@@ -364,6 +375,54 @@ export default function VitalAiSessionComplete() {
 
   const handleCallClinic = () => {
     window.location.href = "tel:+19095004572";
+  };
+
+  const handlePrimaryOffer = () => {
+    switch (revenueRecommendation.primaryAction) {
+      case "start_program":
+        handleContinueWithoutConsult();
+        return;
+      case "book_consultation":
+        handleBookConsultation();
+        return;
+      case "start_wound_review":
+        handleBookConsultation();
+        return;
+      case "call_clinic":
+        handleCallClinic();
+        return;
+      case "explore_iv_therapy":
+        navigate("/services");
+        return;
+      case "request_visit":
+      default:
+        handleRequestVisit();
+    }
+  };
+
+  const handleSecondaryOffer = () => {
+    switch (revenueRecommendation.secondaryAction) {
+      case "book_consultation":
+        handleBookConsultation();
+        return;
+      case "call_clinic":
+        handleCallClinic();
+        return;
+      case "explore_iv_therapy":
+        navigate("/services");
+        return;
+      case "request_visit":
+        handleRequestVisit();
+        return;
+      case "start_program":
+        handleContinueWithoutConsult();
+        return;
+      case "start_wound_review":
+        handleBookConsultation();
+        return;
+      default:
+        return;
+    }
   };
 
   return (
@@ -395,6 +454,22 @@ export default function VitalAiSessionComplete() {
           className="card card-pad"
           style={{ background: "rgba(8,15,28,0.98)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 14px 34px rgba(0,0,0,0.22)" }}
         >
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 12px",
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: ".04em",
+              textTransform: "uppercase",
+              ...outcomeBadgeStyle(leadMetadata.urgencyLevel),
+            }}
+          >
+            {leadMetadata.outcomeLabel}
+          </div>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "rgba(226,232,240,0.74)" }}>
             {evaluation.eyebrow}
           </div>
@@ -418,6 +493,10 @@ export default function VitalAiSessionComplete() {
 
         <div className="card card-pad card-light">
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "#5B4E86" }}>
+            Your next step
+          </div>
+          <div className="space" />
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "#5B4E86" }}>
             What Happens Next
           </div>
           <ul style={{ marginTop: 12, paddingLeft: 18, color: "#3E355C", lineHeight: 1.8 }}>
@@ -426,40 +505,48 @@ export default function VitalAiSessionComplete() {
             ))}
           </ul>
 
-          <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 16 }}>
-            {evaluationKind === "wound" ? (
-              <>
-                <button className="btn btn-primary" type="button" onClick={handleBookConsultation}>
-                  {evaluation.bookLabel}
-                </button>
-                <button className="btn btn-secondary" type="button" onClick={handleCallClinic}>
-                  Call the Clinic
-                </button>
-              </>
-            ) : evaluationKind === "general" ? (
-              <>
-                <button className="btn btn-primary" type="button" onClick={handleRequestVisit}>
-                  Request Visit
-                </button>
-                <button className="btn btn-secondary" type="button" onClick={handleCallClinic}>
-                  Contact the Clinic
-                </button>
-              </>
-            ) : !evaluation.consultationRequired ? (
-              <>
-                <button className="btn btn-secondary" type="button" onClick={handleContinueWithoutConsult}>
-                  {evaluation.continueLabel}
-                </button>
-                <button className="btn btn-primary" type="button" onClick={handleBookConsultation}>
-                  {evaluation.bookLabel}
-                </button>
-              </>
-            ) : (
-              <button className="btn btn-primary" type="button" onClick={handleBookConsultation}>
-                {evaluation.bookLabel}
-              </button>
-            )}
+          <div className="space" />
+
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: 14,
+              background: "rgba(124,58,237,0.06)",
+              border: "1px solid rgba(124,58,237,0.12)",
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "#5B4E86" }}>
+              Recommended Next Step
+            </div>
+            <div style={{ marginTop: 6, fontWeight: 800, color: "#241B3D" }}>{revenueRecommendation.primaryOffer}</div>
+            {revenueRecommendation.secondaryOffer ? (
+              <div className="muted" style={{ marginTop: 4, color: "#5B4E86" }}>
+                Optional next path: {revenueRecommendation.secondaryOffer}
+              </div>
+            ) : null}
+            {revenueRecommendation.note ? (
+              <div className="muted" style={{ marginTop: 6, fontSize: 13, lineHeight: 1.6, color: "#5B4E86" }}>
+                {revenueRecommendation.note}
+              </div>
+            ) : null}
           </div>
+
+          <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 16 }}>
+            <button className="btn btn-primary" type="button" onClick={handlePrimaryOffer}>
+              {revenueRecommendation.primaryOffer}
+            </button>
+            {revenueRecommendation.secondaryOffer ? (
+              <button className="btn btn-secondary" type="button" onClick={handleSecondaryOffer}>
+                {revenueRecommendation.secondaryOffer}
+              </button>
+            ) : null}
+          </div>
+
+          {(evaluationKind === "glp1" || evaluationKind === "hormone") && !revenueRecommendation.note ? (
+            <div className="muted" style={{ marginTop: 10, fontSize: 13, lineHeight: 1.6, color: "#5B4E86" }}>
+              Lab review may be recommended before starting treatment.
+            </div>
+          ) : null}
 
           {evaluation.consultationNote ? (
             <div className="muted" style={{ marginTop: 10, fontSize: 13, lineHeight: 1.6, color: "#5B4E86" }}>

@@ -4,17 +4,17 @@ import PublicSiteLayout from "../components/public/PublicSiteLayout";
 const howToBegin = [
   {
     title: "Request a Visit",
-    body: "Choose your preferred service, location, and time.",
+    body: "Choose a service, location, and preferred time in one clean step.",
     to: "/book",
   },
   {
     title: "Start with Vital AI",
-    body: "Get guided intake before scheduling is finalized.",
+    body: "Begin guided intake if you want help finding the right path.",
     to: "/vital-ai",
   },
   {
-    title: "Sign In",
-    body: "Continue intake, follow-up, or existing care.",
+    title: "Create or Access Your Account",
+    body: "Continue intake, booking, or follow-up inside your portal.",
     to: "/login",
   },
 ];
@@ -56,7 +56,7 @@ export default function PublicLandingSimplified() {
       <div
         className="card card-pad card-light surface-light"
         style={{
-          background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,241,255,0.95))",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.99), rgba(245,241,255,0.96))",
         }}
       >
         <div
@@ -71,10 +71,10 @@ export default function PublicLandingSimplified() {
           Provider-Led Care in Redlands
         </div>
         <div className="h1" style={{ marginTop: 10, maxWidth: 760 }}>
-          Provider-led care for wound healing, wellness, and advanced therapies.
+          Thoughtful provider-led care for wound healing, wellness, and advanced therapies.
         </div>
         <div className="surface-light-body" style={{ marginTop: 12, lineHeight: 1.75, maxWidth: 720 }}>
-          Explore personalized care, request a visit, or begin with guided intake so our team can help you take the right next step.
+          Start with a visit request or guided intake, and we will help you move into the right next step with clarity.
         </div>
 
         <div className="space" />
@@ -83,20 +83,25 @@ export default function PublicLandingSimplified() {
           <Link to="/book" className="btn btn-primary">
             Request Visit
           </Link>
-          <Link to="/vital-ai" className="btn btn-ghost">
+          <Link to="/vital-ai" className="btn btn-secondary">
             Start with Vital AI
+          </Link>
+          <Link to="/login?mode=signup" className="btn btn-secondary">
+            Create Account
           </Link>
         </div>
 
         <div className="space" />
 
-        <div className="surface-light-helper" style={{ lineHeight: 1.7 }}>Every public request is reviewed by the clinic.</div>
+        <div className="surface-light-helper" style={{ lineHeight: 1.7 }}>
+          Every public request is reviewed by the clinic before scheduling is finalized.
+        </div>
       </div>
 
       <div className="space" />
 
-      <div className="card card-pad">
-        <div className="h2">How to Begin</div>
+      <div className="card card-pad card-light surface-light">
+        <div className="h2" style={{ color: "#1F1633" }}>How to Begin</div>
 
         <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
           {howToBegin.map((item) => (
@@ -104,7 +109,13 @@ export default function PublicLandingSimplified() {
               key={item.title}
               to={item.to}
               className="card card-pad card-light surface-light"
-              style={{ flex: "1 1 220px", minWidth: 220, textDecoration: "none" }}
+              style={{
+                flex: "1 1 220px",
+                minWidth: 220,
+                textDecoration: "none",
+                border: "1px solid rgba(184,164,255,0.18)",
+                boxShadow: "0 14px 28px rgba(16,24,40,0.06)",
+              }}
             >
               <div
                 style={{
@@ -119,6 +130,9 @@ export default function PublicLandingSimplified() {
               </div>
               <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
                 {item.body}
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <span className="btn btn-secondary">{item.title}</span>
               </div>
             </Link>
           ))}
@@ -154,7 +168,7 @@ export default function PublicLandingSimplified() {
           <Link to="/vital-ai" className="btn btn-primary">
             Start Wound Review
           </Link>
-          <a href="tel:+19095004572" className="btn btn-ghost" style={{ textDecoration: "none" }}>
+          <a href="tel:+19095004572" className="btn btn-secondary" style={{ textDecoration: "none" }}>
             Call the Clinic
           </a>
         </div>
@@ -162,12 +176,12 @@ export default function PublicLandingSimplified() {
 
       <div className="space" />
 
-      <div className="card card-pad">
+      <div className="card card-pad card-light surface-light">
         <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <div>
-            <div className="h2">Featured Services</div>
+            <div className="h2" style={{ color: "#1F1633" }}>Featured Services</div>
           </div>
-          <Link to="/services" className="btn btn-ghost">
+          <Link to="/services" className="btn btn-secondary">
             View All Services
           </Link>
         </div>
@@ -180,7 +194,13 @@ export default function PublicLandingSimplified() {
               key={service.title}
               to={service.to}
               className="card card-pad card-light surface-light service-card"
-              style={{ flex: "1 1 220px", minWidth: 220, textDecoration: "none" }}
+              style={{
+                flex: "1 1 220px",
+                minWidth: 220,
+                textDecoration: "none",
+                border: "1px solid rgba(184,164,255,0.18)",
+                boxShadow: "0 14px 28px rgba(16,24,40,0.06)",
+              }}
             >
               <div
                 style={{
@@ -200,7 +220,7 @@ export default function PublicLandingSimplified() {
                 {service.summary}
               </div>
               <div style={{ marginTop: 14 }}>
-                <span className="btn btn-primary">{service.cta}</span>
+                <span className="btn btn-secondary">{service.cta}</span>
               </div>
             </Link>
           ))}
@@ -249,7 +269,7 @@ export default function PublicLandingSimplified() {
           Questions before you begin? Call the clinic or use the contact page for help.
         </div>
         <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-          <Link to="/contact" className="btn btn-ghost">
+          <Link to="/contact" className="btn btn-secondary">
             Contact Page
           </Link>
           <a href="tel:+19095004572" className="btn btn-primary" style={{ textDecoration: "none" }}>

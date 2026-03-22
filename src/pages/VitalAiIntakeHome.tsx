@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
@@ -39,6 +39,17 @@ export default function VitalAiIntakeHome() {
   const [intakeGender, setIntakeGender] = useState<IntakeGender | "">(() => readStoredIntakeGender());
   const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
   const requestedPathway = searchParams.get("pathway");
+  const shouldAutostart = searchParams.get("autostart") === "1";
+  const autoStartedPathwayRef = useRef<string | null>(null);
+
+  const matchedRequestedPathway = useMemo(() => {
+    if (!requestedPathway) return null;
+    const requestedKey = requestedPathway.toLowerCase();
+    return pathways.find((pathway) => {
+      const slug = pathway.slug.toLowerCase();
+      return slug === requestedKey || slug.includes(requestedKey) || requestedKey.includes(slug);
+    }) ?? null;
+  }, [pathways, requestedPathway]);
 
   const prioritizedPathways = useMemo(() => {
     const baseline = [...pathways].sort((a, b) => {
@@ -103,6 +114,20 @@ export default function VitalAiIntakeHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeKey, user?.id]);
 
+  useEffect(() => {
+    if (!shouldAutostart || !requestedPathway) {
+      autoStartedPathwayRef.current = null;
+    }
+  }, [requestedPathway, shouldAutostart]);
+
+  useEffect(() => {
+    if (!shouldAutostart || loading || busySlug || !matchedRequestedPathway) return;
+    if (autoStartedPathwayRef.current === matchedRequestedPathway.slug) return;
+
+    autoStartedPathwayRef.current = matchedRequestedPathway.slug;
+    void startPathway(matchedRequestedPathway);
+  }, [busySlug, loading, matchedRequestedPathway, shouldAutostart]);
+
   const startPathway = async (pathway: VitalAiPathwayRow) => {
     if (!user?.id) return;
     setBusySlug(pathway.slug);
@@ -116,6 +141,7 @@ export default function VitalAiIntakeHome() {
       clearPublicBookingDraft();
       navigate(`/intake/session/${session.id}`, { replace: true });
     } catch (e: any) {
+      autoStartedPathwayRef.current = null;
       setErr(e?.message ?? "Failed to start intake.");
     } finally {
       setBusySlug(null);

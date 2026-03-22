@@ -22,6 +22,7 @@ export type CatalogLocation = {
 };
 
 export type IntakeOnlyPathway = "glp1" | "peptides" | "wellness";
+export type GuidedIntakePathway = "wound-care" | "glp1" | "peptides" | "wellness";
 
 const DISPLAY_SELECT =
   "id,name,description,category,service_group,location_id,requires_consult,pricing_unit,duration_minutes,visit_type,price_marketing_cents,price_regular_cents";
@@ -101,6 +102,17 @@ export function getServiceTypeKey(service: Pick<CatalogService, "name" | "catego
 export function getIntakeOnlyPathwayForService(service: Pick<CatalogService, "name" | "category" | "service_group">): IntakeOnlyPathway | null {
   const key = getServiceTypeKey(service);
 
+  if (key === "glp1") return "glp1";
+  if (key === "peptides") return "peptides";
+  if (key === "hrt" || key === "trt") return "wellness";
+
+  return null;
+}
+
+export function getGuidedIntakePathwayForService(service: Pick<CatalogService, "name" | "category" | "service_group">): GuidedIntakePathway | null {
+  const key = getServiceTypeKey(service);
+
+  if (key === "wound_care") return "wound-care";
   if (key === "glp1") return "glp1";
   if (key === "peptides") return "peptides";
   if (key === "hrt" || key === "trt") return "wellness";

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { getGuidedIntakePathwayForService } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
 import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
@@ -1728,14 +1729,22 @@ export default function PatientHome() {
 
   const startIntakeFromAppointment = (appt: ApptRow) => {
     const svc = serviceById(appt.service_id);
-    const typeKey = serviceTypeKey(svc?.name ?? null, svc?.category ?? null);
+    const nextPathway = svc
+      ? getGuidedIntakePathwayForService({
+          name: svc.name ?? "",
+          category: svc.category,
+          service_group: svc.visit_type,
+        })
+      : null;
 
-    if (typeKey === "wound_care" || typeKey === "general") {
-      navigate(`/intake?appointmentId=${appt.id}`);
+    if (!nextPathway) {
+      navigate(`/intake?appointmentId=${encodeURIComponent(appt.id)}`);
       return;
     }
 
-    navigate(`/patient/intake?appointmentId=${appt.id}&type=${typeKey}`);
+    navigate(
+      `/intake?appointmentId=${encodeURIComponent(appt.id)}&pathway=${encodeURIComponent(nextPathway)}&autostart=1`
+    );
   };
 
   async function openPatientFile(file: any) {

@@ -11,9 +11,11 @@ import {
   type PublicVitalAiAnswers,
   type PublicVitalAiPathway,
 } from "../lib/publicVitalAiLite";
+import { buildFollowUpMessage } from "../lib/publicFollowUpEngine";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { submitPublicVitalAiRequest } from "../lib/publicVitalAiSubmission";
 import { loadCatalogLocations, type CatalogLocation } from "../lib/services/catalog";
+import { scoreConversionLead } from "../lib/vitalAi/conversionEngine";
 
 type StepKey = "pathway" | "questions" | "contact" | "review" | "success";
 
@@ -53,6 +55,11 @@ export default function PublicVitalAiLite() {
 
   const pathwayDef = useMemo(() => getPublicVitalAiPathway(pathway), [pathway]);
   const questions = useMemo(() => getPathwayQuestions(pathway), [pathway]);
+  const leadMetadata = useMemo(() => scoreConversionLead({ pathway, answers }), [answers, pathway]);
+  const followUp = useMemo(
+    () => buildFollowUpMessage(leadMetadata.leadType, leadMetadata.urgencyLevel),
+    [leadMetadata.leadType, leadMetadata.urgencyLevel]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +127,14 @@ export default function PublicVitalAiLite() {
         preferredContactMethod,
         preferredLocationId,
         summary,
+      });
+      console.info("[Public follow-up]", {
+        type: "public_vital_ai_submission",
+        submissionId: data.id ?? null,
+        leadType: leadMetadata.leadType,
+        urgencyLevel: leadMetadata.urgencyLevel,
+        patientMessage: followUp.patientMessage,
+        staffNote: followUp.staffNote,
       });
       setSubmissionId(data.id ?? null);
       setStep("success");
@@ -478,8 +493,8 @@ export default function PublicVitalAiLite() {
           tone="success"
           eyebrow="Request Received"
           title="Thank you - our team will review your request"
-          body={`${pathwayDef.successNote} A coordinator may follow up by ${preferredContactMethod === "either" ? "phone or email" : preferredContactMethod} to confirm scheduling and next steps.`}
-          detail={`Reference: ${submissionId ?? "submitted"}.${bookingDraft?.requestId ? ` Linked visit request: ${bookingDraft.requestId}.` : ""} Final recommendations and treatment decisions are always determined by medical evaluation.`}
+          body={`${followUp.patientMessage} ${pathwayDef.successNote}`}
+          detail={`${followUp.supportingLine} A coordinator may follow up by ${preferredContactMethod === "either" ? "phone or email" : preferredContactMethod} to confirm scheduling and next steps.${bookingDraft?.requestId ? ` Linked visit request: ${bookingDraft.requestId}.` : ""} Reference: ${submissionId ?? "submitted"}. Final recommendations and treatment decisions are always determined by medical evaluation.`}
           actions={[
             { label: "Explore Services", to: "/services" },
             { label: "Request Booking", to: "/book", variant: "ghost" },

@@ -120,16 +120,16 @@ export default function PatientAuth() {
             border: "1px solid rgba(255,255,255,0.10)",
             background: "linear-gradient(180deg, rgba(8,15,28,0.96), rgba(10,18,34,0.98))",
             boxShadow: "0 28px 70px rgba(0,0,0,0.35)",
-          }}
-        >
-          <div
-            style={{
-              padding: "32px 28px 20px 28px",
-              borderBottom: "1px solid rgba(255,255,255,0.08)",
-              background:
-                "radial-gradient(circle at top left, rgba(184,164,255,0.22), transparent 38%), radial-gradient(circle at top right, rgba(139,124,255,0.18), transparent 34%)",
             }}
           >
+            <div
+              style={{
+                padding: "30px 28px 18px 28px",
+                borderBottom: "1px solid rgba(255,255,255,0.08)",
+                background:
+                  "radial-gradient(circle at top left, rgba(184,164,255,0.22), transparent 38%), radial-gradient(circle at top right, rgba(139,124,255,0.18), transparent 34%)",
+              }}
+            >
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div
                 style={{
@@ -168,13 +168,13 @@ export default function PatientAuth() {
                   Vitality Institute
                 </div>
                 <div style={{ marginTop: 6, fontSize: 14, color: "rgba(226,232,240,0.72)", lineHeight: 1.6 }}>
-                  Secure account access for patients, providers, staff, and approved Vitality users.
+                  Secure account access for continuing intake, scheduling, and follow-up.
                 </div>
               </div>
             </div>
 
             <div style={{ marginTop: 16, fontSize: 13, color: "rgba(226,232,240,0.64)", lineHeight: 1.6 }}>
-              Choose how you want to continue. Your destination will open automatically after sign-in.
+              Sign in or create your account to continue with a clean handoff into the next step.
             </div>
           </div>
 
@@ -206,17 +206,20 @@ export default function PatientAuth() {
               >
                 Create Account
               </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setMode("magic")}
-                style={mode === "magic" ? activeTabStyle : tabStyle}
-              >
+              <button type="button" className="btn" onClick={() => setMode("magic")} style={mode === "magic" ? activeTabStyle : tabStyle}>
                 Magic Link
               </button>
             </div>
 
-            <div style={{ height: 22 }} />
+            <div style={{ height: 18 }} />
+
+            <div style={{ fontSize: 13, color: "rgba(226,232,240,0.66)", lineHeight: 1.6, marginBottom: 14 }}>
+              {mode === "signup"
+                ? "Create a secure account first, then confirm your email to continue."
+                : mode === "magic"
+                ? "Send a secure magic link if you prefer not to use a password."
+                : "Sign in to continue where you left off."}
+            </div>
 
             {handoff === "booking_request" && bookingDraft?.requestId ? (
               <div style={contextCardStyle}>
@@ -264,13 +267,26 @@ export default function PatientAuth() {
               </label>
             ) : null}
 
-            <button className="btn btn-primary" type="button" disabled={!canSubmit || busy} onClick={submit}>
+            <button className="btn btn-primary" type="button" disabled={!canSubmit || busy} onClick={submit} style={{ width: "100%" }}>
               {busy ? "Working..." : mode === "signup" ? "Create account" : mode === "login" ? "Sign in" : "Send magic link"}
             </button>
 
+            <div style={{ height: 14 }} />
+
+            {mode !== "magic" ? (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ width: "100%" }}
+                onClick={() => setMode(mode === "signup" ? "login" : "signup")}
+              >
+                {mode === "signup" ? "Already have an account? Sign In" : "Need an account? Create One"}
+              </button>
+            ) : null}
+
             <div style={{ height: 16 }} />
 
-            <div style={{ fontSize: 12, color: "rgba(226,232,240,0.60)", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 12, color: "rgba(226,232,240,0.60)", lineHeight: 1.6, textAlign: "center" }}>
               Destination after sign-in: <strong style={{ color: "#F8FAFC" }}>{nextPath}</strong>
             </div>
 
@@ -279,17 +295,10 @@ export default function PatientAuth() {
             <button
               type="button"
               onClick={() => nav("/", { replace: true })}
-              style={{
-                background: "transparent",
-                border: "none",
-                color: "#C8B6FF",
-                cursor: "pointer",
-                padding: 0,
-                fontSize: 13,
-                fontWeight: 800,
-              }}
+              className="btn btn-secondary"
+              style={{ width: "100%" }}
             >
-              Back to sign in
+              Back to Home
             </button>
           </div>
         </div>

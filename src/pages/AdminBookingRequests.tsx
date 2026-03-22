@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthProvider";
 import RouteHeader from "../components/RouteHeader";
 import { getPathwayLabel, type PublicVitalAiPathway } from "../lib/publicVitalAiLite";
+import { buildFollowUpMessage, compareLeadPriority, getUrgencyIndicatorStyle, getValueIndicatorStyle, resolveBookingRequestLead } from "../lib/publicFollowUpEngine";
 import {
   describeBookingSource,
   describePublicSubmissionOrigin,
@@ -11,6 +12,8 @@ import {
   type BookingRequestStatus,
 } from "../lib/publicSubmissionOps";
 import { supabase } from "../lib/supabase";
+import { scoreConversionLead, type ConversionPathway, type ConversionUrgencyLevel, type ConversionValueLevel } from "../lib/vitalAi/conversionEngine";
+import { getRevenueRecommendation } from "../lib/vitalAi/revenueEngine";
 
 type BookingRequestRow = {
   id: string;
@@ -37,6 +40,10 @@ type LinkedVitalAiRow = {
   pathway: PublicVitalAiPathway;
   status: string;
   summary: string | null;
+  answers_json?: Record<string, unknown> | null;
+  lead_type: ConversionPathway | null;
+  urgency_level: ConversionUrgencyLevel | null;
+  value_level: ConversionValueLevel | null;
   created_at: string;
 };
 
@@ -61,7 +68,7 @@ type QueueFilter = "open" | "wound" | "linked" | "all";
 const BOOKING_REQUEST_SELECT =
   "id,location_id,service_id,requested_start,notes,source,status,patient_id,email,phone,internal_notes,assigned_to,contacted_at,resolved_at,created_at,updated_at";
 
-const LINKED_VITAL_AI_SELECT = "id,booking_request_id,pathway,status,summary,created_at";
+const LINKED_VITAL_AI_SELECT = "id,booking_request_id,pathway,status,summary,answers_json,lead_type,urgency_level,value_level,created_at";
 
 export default function AdminBookingRequests() {
   const { user } = useAuth();
@@ -103,9 +110,29 @@ export default function AdminBookingRequests() {
         serviceName,
         notes: request.notes,
       });
+      const scoredLead = linkedSubmission
+        ? linkedSubmission.lead_type && linkedSubmission.urgency_level && linkedSubmission.value_level
+          ? scoreConversionLead({
+              pathway: linkedSubmission.lead_type,
+              answers: linkedSubmission.answers_json ?? {},
+            })
+          : scoreConversionLead({
+              pathway: linkedSubmission.pathway,
+              answers: linkedSubmission.answers_json ?? {},
+            })
+        : resolveBookingRequestLead({
+            serviceName,
+            notes: request.notes,
+          });
+      const revenueRecommendation = getRevenueRecommendation({
+        lead: scoredLead,
+        answers: linkedSubmission?.answers_json ?? {},
+      });
       return {
         ...request,
         linkedSubmission,
+        scoredLead,
+        revenueRecommendation,
         serviceName,
         isWound,
         originLabel: describePublicSubmissionOrigin({
@@ -118,13 +145,36 @@ export default function AdminBookingRequests() {
   }, [linkedVitalAiByBookingId, requests, serviceNameById]);
 
   const visibleRequests = useMemo(() => {
-    if (filter === "all") return enrichedRequests;
-    if (filter === "wound") return enrichedRequests.filter((request) => request.isWound);
-    if (filter === "linked") return enrichedRequests.filter((request) => !!request.linkedSubmission);
-    return enrichedRequests.filter((request) => request.status !== "closed");
+    const filtered =
+      filter === "all"
+        ? enrichedRequests
+        : filter === "wound"
+        ? enrichedRequests.filter((request) => request.isWound)
+        : filter === "linked"
+        ? enrichedRequests.filter((request) => !!request.linkedSubmission)
+        : enrichedRequests.filter((request) => request.status !== "closed");
+
+    return [...filtered].sort((a, b) =>
+      compareLeadPriority(
+        {
+          urgencyLevel: a.scoredLead.urgencyLevel,
+          valueLevel: a.scoredLead.valueLevel,
+          createdAt: a.created_at,
+        },
+        {
+          urgencyLevel: b.scoredLead.urgencyLevel,
+          valueLevel: b.scoredLead.valueLevel,
+          createdAt: b.created_at,
+        }
+      )
+    );
   }, [enrichedRequests, filter]);
 
   const selected = useMemo(() => visibleRequests.find((row) => row.id === selectedId) ?? enrichedRequests.find((row) => row.id === selectedId) ?? null, [enrichedRequests, selectedId, visibleRequests]);
+  const selectedFollowUp = useMemo(
+    () => (selected ? buildFollowUpMessage(selected.scoredLead.leadType, selected.scoredLead.urgencyLevel) : null),
+    [selected]
+  );
 
   useEffect(() => {
     if (!selected) return;
@@ -323,12 +373,14 @@ export default function AdminBookingRequests() {
                           Requested for {new Date(selected.requested_start).toLocaleString()} via {describeBookingSource(selected.source)}
                         </div>
                       </div>
-                      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                        <div className="v-chip">Status: <strong>{getBookingRequestStatusLabel(selected.status)}</strong></div>
-                        <div className="v-chip">Flow: <strong>{selected.originLabel}</strong></div>
-                        {selected.linkedSubmission ? <div className="v-chip">Vital AI: <strong>{getPathwayLabel(selected.linkedSubmission.pathway)}</strong></div> : null}
-                        {selected.isWound ? <div className="v-chip">Priority: <strong>Wound review</strong></div> : null}
-                      </div>
+                        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                          <div className="v-chip">Status: <strong>{getBookingRequestStatusLabel(selected.status)}</strong></div>
+                          <div className="v-chip">Flow: <strong>{selected.originLabel}</strong></div>
+                          {selected.linkedSubmission ? <div className="v-chip">Vital AI: <strong>{getPathwayLabel(selected.linkedSubmission.pathway)}</strong></div> : null}
+                          {selected.scoredLead ? <div className="v-chip" style={getUrgencyIndicatorStyle(selected.scoredLead.urgencyLevel)}>Urgency: <strong>{selected.scoredLead.urgencyLevel}</strong></div> : null}
+                          {selected.scoredLead ? <div className="v-chip" style={getValueIndicatorStyle(selected.scoredLead.valueLevel)}>Value: <strong>{selected.scoredLead.valueLevel}</strong></div> : null}
+                          {selected.isWound ? <div className="v-chip">Priority: <strong>Wound review</strong></div> : null}
+                        </div>
                     </div>
 
                     <div className="space" />
@@ -354,6 +406,9 @@ export default function AdminBookingRequests() {
                           <div style={{ lineHeight: 1.8 }}>
                             <div><strong>Pathway:</strong> {getPathwayLabel(selected.linkedSubmission.pathway)}</div>
                             <div><strong>Submission status:</strong> {selected.linkedSubmission.status.replaceAll("_", " ")}</div>
+                            <div><strong>Lead type:</strong> {selected.scoredLead?.leadType ?? "-"}</div>
+                            <div><strong>Urgency:</strong> {selected.scoredLead?.urgencyLevel ?? "-"}</div>
+                            <div><strong>Value:</strong> {selected.scoredLead?.valueLevel ?? "-"}</div>
                             <div><strong>Summary:</strong> {selected.linkedSubmission.summary || "-"}</div>
                           </div>
                         ) : (
@@ -361,6 +416,27 @@ export default function AdminBookingRequests() {
                             No Vital AI Lite submission is linked yet. Staff can still follow up, request intake completion, or route into wound review if clinically appropriate.
                           </div>
                         )}
+                      </div>
+
+                      <div className="card card-pad" style={{ flex: "1 1 280px" }}>
+                        <div className="h2">Auto Follow-Up</div>
+                        <div className="space" />
+                        <div style={{ lineHeight: 1.8 }}>
+                          <div><strong>Patient message:</strong> {selectedFollowUp?.patientMessage ?? "-"}</div>
+                          <div><strong>Support line:</strong> {selectedFollowUp?.supportingLine ?? "-"}</div>
+                          <div><strong>Staff note:</strong> {selectedFollowUp?.staffNote ?? "-"}</div>
+                        </div>
+                      </div>
+
+                      <div className="card card-pad" style={{ flex: "1 1 280px" }}>
+                        <div className="h2">Recommended Revenue Path</div>
+                        <div className="space" />
+                        <div style={{ lineHeight: 1.8 }}>
+                          <div><strong>Primary:</strong> {selected.revenueRecommendation.primaryOffer}</div>
+                          <div><strong>Secondary:</strong> {selected.revenueRecommendation.secondaryOffer || "-"}</div>
+                          <div><strong>Consult required:</strong> {selected.revenueRecommendation.consultRequired ? "Yes" : "No"}</div>
+                          {selected.revenueRecommendation.note ? <div><strong>Note:</strong> {selected.revenueRecommendation.note}</div> : null}
+                        </div>
                       </div>
 
                       <div className="card card-pad" style={{ flex: "1 1 280px" }}>

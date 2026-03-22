@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { getGuidedIntakePathwayForService } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
@@ -220,8 +221,18 @@ export default function PatientBooking() {
       const apptId = (data as any)?.id as string;
       if (!apptId) throw new Error("Appointment created but id not returned.");
 
-      // Route directly to intake, prefilled with appointmentId
-      nav(`/patient/intake?appointmentId=${apptId}`);
+      const nextPathway = svc
+        ? getGuidedIntakePathwayForService({
+            name: svc.name,
+            category: svc.category ?? svc.visit_type,
+            service_group: svc.visit_type,
+          })
+        : null;
+      const nextPath = nextPathway
+        ? `/intake?appointmentId=${encodeURIComponent(apptId)}&pathway=${encodeURIComponent(nextPathway)}&autostart=1`
+        : `/intake?appointmentId=${encodeURIComponent(apptId)}`;
+
+      nav(nextPath);
     } catch (e: any) {
       setErr(e?.message ?? "Failed to create appointment.");
     } finally {

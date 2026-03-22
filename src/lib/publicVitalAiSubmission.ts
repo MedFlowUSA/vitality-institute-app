@@ -1,6 +1,7 @@
 import { readPublicBookingDraft } from "./publicBookingDraft";
 import { supabase } from "./supabase";
 import type { PublicVitalAiAnswers, PublicVitalAiPathway } from "./publicVitalAiLite";
+import { scoreConversionLead } from "./vitalAi/conversionEngine";
 
 export type SubmitPublicVitalAiInput = {
   pathway: PublicVitalAiPathway;
@@ -16,6 +17,10 @@ export type SubmitPublicVitalAiInput = {
 
 export async function submitPublicVitalAiRequest(input: SubmitPublicVitalAiInput) {
   const bookingDraft = readPublicBookingDraft();
+  const leadMetadata = scoreConversionLead({
+    pathway: input.pathway,
+    answers: input.answers,
+  });
   const { data, error } = await supabase
     .from("public_vital_ai_submissions")
     .insert([
@@ -34,6 +39,9 @@ export async function submitPublicVitalAiRequest(input: SubmitPublicVitalAiInput
         booking_request_id: bookingDraft?.requestId ?? null,
         service_id: bookingDraft?.serviceId ?? null,
         notes: bookingDraft?.notes?.trim() || null,
+        lead_type: leadMetadata.leadType,
+        urgency_level: leadMetadata.urgencyLevel,
+        value_level: leadMetadata.valueLevel,
       },
     ])
     .select("id")
