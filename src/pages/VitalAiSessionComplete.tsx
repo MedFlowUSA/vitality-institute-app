@@ -11,7 +11,7 @@ import {
   loadVitalAiSession,
   responsesToMap,
 } from "../lib/vitalAi/submission";
-import { outcomeBadgeStyle, scoreConversionLead } from "../lib/vitalAi/conversionEngine";
+import { normalizeConversionPathway, outcomeBadgeStyle, scoreConversionLead } from "../lib/vitalAi/conversionEngine";
 import { loadVitalAiPathwayById } from "../lib/vitalAi/pathways";
 import { getRevenueRecommendation } from "../lib/vitalAi/revenueEngine";
 import type { ResponseMap, VitalAiPathwayRow, VitalAiSessionRow } from "../lib/vitalAi/types";
@@ -30,10 +30,6 @@ type EvaluationContent = {
   nextSteps: string[];
   consultationNote?: string;
 };
-
-function includesToken(value: string | null | undefined, token: string) {
-  return (value ?? "").toLowerCase().includes(token.toLowerCase());
-}
 
 function formatLabel(value: string) {
   return value
@@ -265,11 +261,12 @@ function resolveEvaluationKind(args: {
   pathwaySlug?: string | null;
   opportunityTypes: string[];
 }): EvaluationKind {
-  const pathwaySlug = args.pathwaySlug ?? "";
+  const normalizedPathway = normalizeConversionPathway(args.pathwaySlug);
 
-  if (includesToken(pathwaySlug, "glp1")) return "glp1";
-  if (includesToken(pathwaySlug, "peptide")) return "peptides";
-  if (includesToken(pathwaySlug, "wound")) return "wound";
+  if (normalizedPathway === "glp1") return "glp1";
+  if (normalizedPathway === "peptides") return "peptides";
+  if (normalizedPathway === "wound") return "wound";
+  if (normalizedPathway === "hormone") return "hormone";
   if (args.opportunityTypes.includes("hormone_review_candidate")) return "hormone";
   return "general";
 }

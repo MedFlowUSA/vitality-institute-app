@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import BrandLockup from "../BrandLockup";
 import { getPublicAccessRoute } from "../../lib/publicMarketingCatalog";
 
 type Props = {
@@ -49,21 +50,13 @@ export default function PublicSiteLayout({ title, subtitle, children, rightActio
           }}
         >
           <div className="row" style={{ justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
-            <div>
-              <Link to="/" style={{ textDecoration: "none" }}>
-                <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase", color: "#5B4E86" }}>
-                  Vitality Institute
-                </div>
-                {!compactHeader ? (
-                  <>
-                    <div className="h1" style={{ marginTop: 8, color: "#1F1633" }}>
-                      {title}
-                    </div>
-                    {subtitle ? <div className="muted" style={{ marginTop: 6, maxWidth: 680, color: "#4B5563" }}>{subtitle}</div> : null}
-                  </>
-                ) : null}
-              </Link>
-            </div>
+            <BrandLockup
+              to="/"
+              eyebrow="Vitality Institute"
+              title={compactHeader ? "Vitality Institute" : title}
+              subtitle={compactHeader ? undefined : subtitle}
+              compact={compactHeader}
+            />
 
             <div className="row" style={{ gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               {navItems.map((item) => {

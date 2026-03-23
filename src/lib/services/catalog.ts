@@ -1,4 +1,5 @@
 import { supabase } from "../supabase";
+import { getCanonicalServiceTypeKey, resolveCanonicalOffer } from "../canonicalOfferRegistry";
 
 export type CatalogService = {
   id: string;
@@ -80,54 +81,38 @@ export function serviceDisplayKey(service: Pick<CatalogService, "category" | "se
   return service.category ?? service.service_group ?? "other";
 }
 
-function normalizeCategoryText(value: string | null | undefined) {
-  return (value ?? "").toLowerCase();
-}
-
 export function getServiceTypeKey(service: Pick<CatalogService, "name" | "category" | "service_group">) {
-  const name = normalizeCategoryText(service.name);
-  const category = normalizeCategoryText(service.category ?? service.service_group);
-
-  if (category.includes("wound") || name.includes("wound")) return "wound_care";
-  if (category.includes("glp") || name.includes("glp")) return "glp1";
-  if (category.includes("hrt") || name.includes("hormone")) return "hrt";
-  if (category.includes("trt") || name.includes("testosterone")) return "trt";
-  if (category.includes("peptide") || name.includes("peptide")) return "peptides";
-  if (category.includes("botox") || category.includes("inject") || name.includes("botox")) return "injectables";
-  if (category.includes("iv") || name.includes("iv drip") || name.includes("nad+")) return "iv_therapy";
-
-  return "general";
+  return getCanonicalServiceTypeKey({
+    name: service.name,
+    category: service.category,
+    service_group: service.service_group,
+  });
 }
 
 export function getIntakeOnlyPathwayForService(service: Pick<CatalogService, "name" | "category" | "service_group">): IntakeOnlyPathway | null {
-  const key = getServiceTypeKey(service);
-
-  if (key === "glp1") return "glp1";
-  if (key === "peptides") return "peptides";
-  if (key === "hrt" || key === "trt") return "wellness";
-
-  return null;
+  return resolveCanonicalOffer({
+    name: service.name,
+    category: service.category,
+    service_group: service.service_group,
+  })?.intakeOnlyPathway ?? null;
 }
 
 export function getGuidedIntakePathwayForService(service: Pick<CatalogService, "name" | "category" | "service_group">): GuidedIntakePathway | null {
-  const key = getServiceTypeKey(service);
-
-  if (key === "wound_care") return "wound-care";
-  if (key === "glp1") return "glp1";
-  if (key === "peptides") return "peptides";
-  if (key === "hrt" || key === "trt") return "wellness";
-
-  return null;
+  return resolveCanonicalOffer({
+    name: service.name,
+    category: service.category,
+    service_group: service.service_group,
+  })?.canonicalPathway ?? null;
 }
 
 export function getPublicVitalAiPathwayParam(service: Pick<CatalogService, "name" | "category" | "service_group">) {
-  const key = getServiceTypeKey(service);
-
-  if (key === "wound_care") return "wound_care";
-  if (key === "glp1") return "glp1_weight_loss";
-  if (key === "peptides" || key === "hrt" || key === "trt") return "general_consult";
-
-  return "general_consult";
+  return (
+    resolveCanonicalOffer({
+      name: service.name,
+      category: service.category,
+      service_group: service.service_group,
+    })?.publicVitalAiPathway ?? "general_consult"
+  );
 }
 
 export function serviceSlug(service: Pick<CatalogService, "name">) {

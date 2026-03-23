@@ -3,14 +3,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { buildFollowUpMessage, resolveBookingRequestLead } from "../lib/publicFollowUpEngine";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
-import { buildAuthRoute, normalizeRedirectTarget } from "../lib/routeFlow";
+import { normalizeRedirectTarget } from "../lib/routeFlow";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 
 type LocationRow = { id: string; name: string; city: string | null; state: string | null };
 
 export default function PatientOnboarding() {
-  const { user, role, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
   const nextPath = useMemo(() => normalizeRedirectTarget(searchParams.get("next"), "/patient"), [searchParams]);
@@ -52,20 +52,12 @@ export default function PatientOnboarding() {
     const boot = async () => {
       if (authLoading) return;
 
-      if (!user?.id) {
-        nav(buildAuthRoute({ mode: "login", next: nextPath, handoff }), { replace: true });
-        return;
-      }
-
-      if (role && role !== "patient") {
-        nav(role === "super_admin" || role === "location_admin" ? "/admin" : "/provider", { replace: true });
-        return;
-      }
-
       setLoading(true);
       setErr(null);
 
       try {
+        if (!user?.id) return;
+
         const { data: existing, error: exErr } = await supabase
           .from("patients")
           .select("id, first_name, last_name, email, phone, dob, location_id")
@@ -105,7 +97,7 @@ export default function PatientOnboarding() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, handoff, nav, nextPath, role, user?.email, user?.id]);
+  }, [authLoading, nav, nextPath, user?.email, user?.id]);
 
   const save = async () => {
     if (!user?.id) return;

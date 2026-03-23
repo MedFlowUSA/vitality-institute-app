@@ -93,6 +93,7 @@ function FullscreenLoader({
   );
 }
 
+const ADMIN_ROLES = ["super_admin", "location_admin"] as const;
 const PROVIDER_ROLES = [
   "super_admin",
   "location_admin",
@@ -101,6 +102,7 @@ const PROVIDER_ROLES = [
   "billing",
   "front_desk",
 ] as const;
+const PATIENT_ROLES = ["patient"] as const;
 
 function roleTroubleshootMessage(roleError?: string | null) {
   let msg = "Finalizing profile...\n\n";
@@ -140,7 +142,7 @@ function Gate() {
     );
   }
 
-  if (role === "super_admin" || role === "location_admin") {
+  if ((ADMIN_ROLES as readonly string[]).includes(role)) {
     return <Navigate to="/admin" replace />;
   }
 
@@ -171,6 +173,10 @@ function RequireRole({ allow, children }: { allow: string[]; children: React.Rea
   if (!allow.includes(role)) return <Navigate to="/" replace />;
 
   return <>{children}</>;
+}
+
+function withRole(allow: readonly string[], element: React.ReactNode) {
+  return <RequireRole allow={[...allow]}>{element}</RequireRole>;
 }
 
 function PatientGate() {
@@ -253,326 +259,170 @@ export default function App() {
             {/* admin */}
             <Route
               path="/admin"
-              element={
-                <RequireRole allow={["super_admin", "location_admin"]}>
-                  <AdminHome />
-                </RequireRole>
-              }
+              element={withRole(ADMIN_ROLES, <AdminHome />)}
             />
             <Route
               path="/admin/services"
-              element={
-                <RequireRole allow={["super_admin", "location_admin"]}>
-                  <ServicesPanel locationId={null} locationName={null} />
-                </RequireRole>
-              }
+              element={withRole(ADMIN_ROLES, <ServicesPanel locationId={null} locationName={null} />)}
             />
             <Route
               path="/admin/staff"
-              element={
-                <RequireRole allow={["super_admin", "location_admin"]}>
-                  <AdminStaffManagement />
-                </RequireRole>
-              }
+              element={withRole(ADMIN_ROLES, <AdminStaffManagement />)}
             />
             <Route
               path="/admin/vital-ai"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <AdminVitalAiQueue />
-                </RequireRole>
-              }
+              element={withRole(ADMIN_ROLES, <AdminVitalAiQueue />)}
             />
             <Route
               path="/admin/inquiries"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <AdminInquiries />
-                </RequireRole>
-              }
+              element={withRole(ADMIN_ROLES, <AdminInquiries />)}
             />
             <Route
               path="/admin/booking-requests"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <AdminBookingRequests />
-                </RequireRole>
-              }
+              element={withRole(ADMIN_ROLES, <AdminBookingRequests />)}
             />
             <Route
               path="/admin/vital-ai-lite"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <AdminPublicVitalAiSubmissions />
-                </RequireRole>
-              }
+              element={withRole(ADMIN_ROLES, <AdminPublicVitalAiSubmissions />)}
             />
             <Route
               path="/admin/vital-ai/leads/:leadId"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <AdminVitalAiLeadDetail />
-                </RequireRole>
-              }
+              element={withRole(ADMIN_ROLES, <AdminVitalAiLeadDetail />)}
             />
 
             {/* provider */}
             <Route
               path="/provider"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderHome />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderHome />)}
             />
             <Route
               path="/provider/command"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderCommandCenter />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderCommandCenter />)}
             />
             <Route
               path="/provider/queue"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderVisitQueue />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderVisitQueue />)}
             />
             <Route
               path="/provider/visit/:id"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderVisitChart />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderVisitChart />)}
             />
             <Route
               path="/provider/visit-builder/:patientId"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderVisitBuilder />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderVisitBuilder />)}
             />
             <Route
               path="/provider/visit-builder"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderVisitBuilder />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderVisitBuilder />)}
             />
             <Route
               path="/provider/patients"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderPatients />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderPatients />)}
             />
             <Route
               path="/provider/patients/:patientId"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderPatientCenter />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderPatientCenter />)}
             />
             <Route
               path="/provider/visits/:id"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderVisitChart />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderVisitChart />)}
             />
             <Route
               path="/provider/wound-timeline/:patientId"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <WoundTimeline />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <WoundTimeline />)}
             />
             <Route
               path="/provider/intake"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderIntake />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderIntake />)}
             />
             <Route
               path="/provider/intakes"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderIntakeQueue />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderIntakeQueue />)}
             />
             <Route
               path="/provider/chat"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderChat />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderChat />)}
             />
             <Route
               path="/provider/labs"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderLabs />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderLabs />)}
             />
             <Route
               path="/provider/ai"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderAI />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderAI />)}
             />
             <Route
               path="/provider/vital-ai"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderVitalAiQueue />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderVitalAiQueue />)}
             />
             <Route
               path="/provider/vital-ai/profile/:profileId"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderVitalAiProfileDetail />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderVitalAiProfileDetail />)}
             />
             <Route
               path="/provider/referrals"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderReferrals />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderReferrals />)}
             />
             <Route
               path="/provider/referrals/:referralId"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <ProviderReferralDetail />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <ProviderReferralDetail />)}
             />
             <Route
               path="/provider/ivr/print/:visitId"
-              element={
-                <RequireRole allow={[...PROVIDER_ROLES]}>
-                  <IVRPacketPrint />
-                </RequireRole>
-              }
+              element={withRole(PROVIDER_ROLES, <IVRPacketPrint />)}
             />
 
             {/* patient */}
             <Route path="/access" element={<PatientAuth />} />
             <Route path="/patient/auth" element={<PatientAuth />} />
-            <Route path="/patient/onboarding" element={<PatientOnboarding />} />
-            <Route path="/patient/services" element={<PatientServices />} />
-            <Route path="/patient/book" element={<PatientBookAppointment />} />
-            <Route path="/patient/assessment" element={<PatientAssessment />} />
-            <Route path="/patient/visits" element={<PatientVisitChart />} />
+            <Route path="/patient/onboarding" element={withRole(PATIENT_ROLES, <PatientOnboarding />)} />
+            <Route path="/patient/services" element={withRole(PATIENT_ROLES, <PatientServices />)} />
+            <Route path="/patient/book" element={withRole(PATIENT_ROLES, <PatientBookAppointment />)} />
+            <Route path="/patient/assessment" element={withRole(PATIENT_ROLES, <PatientAssessment />)} />
+            <Route path="/patient/visits" element={withRole(PATIENT_ROLES, <PatientVisitChart />)} />
             <Route
               path="/patient"
-              element={
-                <RequireRole allow={["patient"]}>
-                  <PatientGate />
-                </RequireRole>
-              }
+              element={withRole(PATIENT_ROLES, <PatientGate />)}
             />
             <Route
               path="/patient/intake"
-              element={
-                <RequireRole allow={["patient"]}>
-                  <Navigate to="/intake" replace />
-                </RequireRole>
-              }
+              element={withRole(PATIENT_ROLES, <Navigate to="/intake" replace />)}
             />
             <Route
               path="/patient/intake/wound"
-              element={
-                <RequireRole allow={["patient"]}>
-                  <Navigate to="/intake?pathway=wound-care&autostart=1" replace />
-                </RequireRole>
-              }
+              element={withRole(PATIENT_ROLES, <Navigate to="/intake?pathway=wound-care&autostart=1" replace />)}
             />
             <Route
               path="/patient/labs"
-              element={
-                <RequireRole allow={["patient"]}>
-                  <PatientLabs />
-                </RequireRole>
-              }
+              element={withRole(PATIENT_ROLES, <PatientLabs />)}
             />
             <Route
               path="/patient/chat"
-              element={
-                <RequireRole allow={["patient"]}>
-                  <PatientChat />
-                </RequireRole>
-              }
+              element={withRole(PATIENT_ROLES, <PatientChat />)}
             />
             <Route
               path="/patient/treatments"
-              element={
-                <RequireRole allow={["patient"]}>
-                  <PatientTreatments />
-                </RequireRole>
-              }
+              element={withRole(PATIENT_ROLES, <PatientTreatments />)}
             />
             <Route
               path="/patient/treatments/:visitId"
-              element={
-                <RequireRole allow={["patient"]}>
-                  <PatientTreatmentDetail />
-                </RequireRole>
-              }
+              element={withRole(PATIENT_ROLES, <PatientTreatmentDetail />)}
             />
             <Route
               path="/intake"
-              element={
-                <RequireRole allow={["patient"]}>
-                  <VitalAiIntakeHome />
-                </RequireRole>
-              }
+              element={withRole(PATIENT_ROLES, <VitalAiIntakeHome />)}
             />
             <Route
               path="/intake/session/:sessionId"
-              element={
-                <RequireRole allow={["patient"]}>
-                  <VitalAiSession />
-                </RequireRole>
-              }
+              element={withRole(PATIENT_ROLES, <VitalAiSession />)}
             />
             <Route
               path="/intake/session/:sessionId/review"
-              element={
-                <RequireRole allow={["patient"]}>
-                  <VitalAiSessionReview />
-                </RequireRole>
-              }
+              element={withRole(PATIENT_ROLES, <VitalAiSessionReview />)}
             />
             <Route
               path="/intake/session/:sessionId/complete"
-              element={
-                <RequireRole allow={["patient"]}>
-                  <VitalAiSessionComplete />
-                </RequireRole>
-              }
+              element={withRole(PATIENT_ROLES, <VitalAiSessionComplete />)}
             />
 
             <Route path="*" element={<Navigate to="/" replace />} />

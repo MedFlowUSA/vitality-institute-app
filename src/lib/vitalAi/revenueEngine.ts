@@ -1,3 +1,4 @@
+import { getCanonicalOfferByLeadType } from "../canonicalOfferRegistry";
 import type { ResponseMap } from "./types";
 import type {
   ConversionLeadMetadata,
@@ -47,12 +48,13 @@ export function getRevenueRecommendation(args: {
 }): RevenueRecommendation {
   const answers = (args.answers ?? {}) as Record<string, unknown>;
   const leadType: ConversionPathway = args.lead.leadType;
+  const canonicalOffer = getCanonicalOfferByLeadType(leadType);
 
   if (leadType === "wound") {
     return {
       primaryOffer: "Start Wound Review",
       secondaryOffer: "Call the Clinic",
-      consultRequired: true,
+      consultRequired: canonicalOffer?.consultRequired ?? true,
       note:
         args.lead.urgencyLevel === "high"
           ? "Prompt review is recommended before the next visit step."
@@ -66,7 +68,7 @@ export function getRevenueRecommendation(args: {
     return {
       primaryOffer: "Start GLP-1 Program",
       secondaryOffer: "Book Consultation",
-      consultRequired: false,
+      consultRequired: canonicalOffer?.consultRequired ?? false,
       note: "Lab review may be recommended before starting.",
       primaryAction: "start_program",
       secondaryAction: "book_consultation",
@@ -77,7 +79,7 @@ export function getRevenueRecommendation(args: {
     return {
       primaryOffer: "Start Peptide Program",
       secondaryOffer: "Book Consultation",
-      consultRequired: false,
+      consultRequired: canonicalOffer?.consultRequired ?? false,
       note: "A provider may recommend review before the next step is finalized.",
       primaryAction: "start_program",
       secondaryAction: "book_consultation",
@@ -87,7 +89,7 @@ export function getRevenueRecommendation(args: {
   if (leadType === "hormone") {
     return {
       primaryOffer: "Book Hormone Consultation",
-      consultRequired: true,
+      consultRequired: canonicalOffer?.consultRequired ?? true,
       note: "Lab review is typically part of the next step.",
       primaryAction: "book_consultation",
     };
@@ -110,7 +112,7 @@ export function getRevenueRecommendation(args: {
     return {
       primaryOffer: "Request Visit",
       secondaryOffer: "Explore IV Therapy",
-      consultRequired: false,
+      consultRequired: canonicalOffer?.consultRequired ?? false,
       note: "A provider may guide whether supportive IV options fit your next step.",
       primaryAction: "request_visit",
       secondaryAction: "explore_iv_therapy",
@@ -119,7 +121,7 @@ export function getRevenueRecommendation(args: {
 
   return {
     primaryOffer: "Request Visit",
-    consultRequired: false,
+    consultRequired: canonicalOffer?.consultRequired ?? false,
     note: "The team can guide the most appropriate next step after review.",
     primaryAction: "request_visit",
   };

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { getCanonicalPatientIntakeServiceType, getCanonicalServiceTypeKey } from "../lib/canonicalOfferRegistry";
 import { getGuidedIntakePathwayForService } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
 import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
@@ -392,33 +393,6 @@ function documentDisplaySubtitle(file: any) {
   }
 
   return file.category ? file.category.replaceAll("_", " ") : "Document";
-}
-
-function serviceTypeKey(name: string | null, category: string | null) {
-  const n = (name ?? "").toLowerCase();
-  const c = (category ?? "").toLowerCase();
-
-  if (c.includes("wound") || n.includes("wound")) return "wound_care";
-  if (c.includes("glp") || n.includes("glp")) return "glp1";
-  if (c.includes("hrt") || n.includes("hormone")) return "hrt";
-  if (c.includes("trt") || n.includes("testosterone")) return "trt";
-  if (c.includes("peptide") || n.includes("peptide")) return "peptides";
-  if (c.includes("botox") || c.includes("inject") || n.includes("botox")) return "injectables";
-  if (c.includes("iv") || n.includes("iv drip") || n.includes("nad+")) return "iv_therapy";
-
-  return "general";
-}
-
-function intakeServiceTypeFromService(name: string | null, category: string | null) {
-  const key = serviceTypeKey(name, category);
-
-  if (key === "wound_care") return "wound_care";
-  if (key === "glp1") return "glp1";
-  if (key === "hrt") return "hrt";
-  if (key === "trt") return "trt";
-  if (key === "peptides") return "peptides";
-
-  return "general";
 }
 
 function isImageFileName(name: string, contentType?: string | null) {
@@ -839,7 +813,10 @@ export default function PatientHome() {
       if ((appt.status || "").toLowerCase() === "cancelled") return false;
 
       const svc = serviceById(appt.service_id);
-      const typeKey = serviceTypeKey(svc?.name ?? null, svc?.category ?? null);
+      const typeKey = getCanonicalServiceTypeKey({
+        name: svc?.name ?? null,
+        category: svc?.category ?? null,
+      });
       return typeKey === "general" || typeKey === "wound_care";
     }) ?? null;
   }, [myAppointments, serviceById]);
@@ -1030,7 +1007,10 @@ export default function PatientHome() {
         }
 
         const svc = serviceById(selectedAppointment.service_id);
-        const serviceType = intakeServiceTypeFromService(svc?.name ?? null, svc?.category ?? null);
+        const serviceType = getCanonicalPatientIntakeServiceType({
+          name: svc?.name ?? null,
+          category: svc?.category ?? null,
+        });
 
         const { data, error } = await supabase
           .from("patient_intakes")
@@ -3080,7 +3060,10 @@ export default function PatientHome() {
                 <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
                   {(() => {
                     const svc = serviceById(selectedAppointment.service_id);
-                    const key = serviceTypeKey(svc?.name ?? null, svc?.category ?? null);
+                    const key = getCanonicalServiceTypeKey({
+                      name: svc?.name ?? null,
+                      category: svc?.category ?? null,
+                    });
 
                     if (key === "wound_care") {
                       return "This appointment supports wound care. You can complete or update your wound intake directly from this drawer.";

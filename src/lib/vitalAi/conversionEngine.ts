@@ -1,7 +1,8 @@
+import { resolveCanonicalOffer, type CanonicalLeadType } from "../canonicalOfferRegistry";
 import type { PublicVitalAiAnswers, PublicVitalAiPathway } from "../publicVitalAiLite";
 import type { ResponseMap } from "./types";
 
-export type ConversionPathway = "wound" | "glp1" | "peptides" | "hormone" | "general";
+export type ConversionPathway = CanonicalLeadType;
 export type ConversionUrgencyLevel = "low" | "medium" | "high";
 export type ConversionValueLevel = "low" | "medium" | "high";
 
@@ -53,14 +54,13 @@ function hasAnyToken(value: unknown, tokens: string[]) {
 }
 
 export function normalizeConversionPathway(pathway: string | null | undefined): ConversionPathway {
-  const normalized = (pathway ?? "").toLowerCase();
-  if (normalized.includes("wound")) return "wound";
-  if (normalized.includes("glp1")) return "glp1";
-  if (normalized.includes("peptide")) return "peptides";
-  if (normalized.includes("hormone") || normalized.includes("wellness") || normalized.includes("hrt") || normalized.includes("trt")) {
-    return "hormone";
-  }
-  return "general";
+  return resolveCanonicalOffer({
+    slug: pathway,
+    title: pathway,
+    category: pathway,
+    service_group: pathway,
+    visit_type: pathway,
+  })?.leadType ?? "general";
 }
 
 export function normalizePublicPathway(pathway: PublicVitalAiPathway): ConversionPathway {

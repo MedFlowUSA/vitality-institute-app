@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, type AppRole } from "../auth/AuthProvider";
 import { trackFunnelEvent } from "../lib/analytics";
+import { resolveCanonicalOffer } from "../lib/canonicalOfferRegistry";
 import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { createBookingRequest } from "../lib/bookingRequests";
@@ -10,7 +11,6 @@ import { getPublicOfferingBySlug, PUBLIC_OFFERINGS, type PublicOffering } from "
 import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, buildOnboardingRoute } from "../lib/routeFlow";
 import {
-  getServiceTypeKey,
   getIntakeOnlyPathwayForService,
   getPublicVitalAiPathwayParam,
   loadCatalogLocations,
@@ -39,17 +39,13 @@ type PublicBookingOption = {
 };
 
 function getMarketingIntakePathway(offering: PublicOffering) {
-  const typeKey = getServiceTypeKey({
-    name: offering.title,
-    category: offering.category,
-    service_group: offering.category,
-  });
-
-  if (typeKey === "glp1") return "glp1_weight_loss";
-  if (typeKey === "wound_care") return "wound_care";
-  if (typeKey === "hrt" || typeKey === "trt" || typeKey === "peptides") return "general_consult";
-  if (offering.category.toLowerCase().includes("bundle") || offering.category.toLowerCase().includes("add-on")) return "general_consult";
-  return "general_consult";
+  return (
+    resolveCanonicalOffer({
+      slug: offering.slug,
+      title: offering.title,
+      category: offering.category,
+    })?.publicVitalAiPathway ?? "general_consult"
+  );
 }
 
 function getMarketingCategoryLabel(offering: PublicOffering) {

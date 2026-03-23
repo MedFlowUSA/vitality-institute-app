@@ -1,4 +1,4 @@
-import { getServiceTypeKey } from "./services/catalog";
+import { resolveCanonicalOffer } from "./canonicalOfferRegistry";
 import type {
   ConversionLeadMetadata,
   ConversionPathway,
@@ -159,13 +159,13 @@ export function resolveBookingRequestLead(args: {
   serviceName?: string | null;
   notes?: string | null;
 }): ConversionLeadMetadata {
-  const typeKey = getServiceTypeKey({
+  const offer = resolveCanonicalOffer({
     name: args.serviceName ?? "",
     category: null,
     service_group: null,
   });
 
-  if (typeKey === "wound_care") {
+  if (offer?.leadType === "wound") {
     const urgencyLevel = hasUrgentWoundSignals(args.notes) ? ("high" as ConversionUrgencyLevel) : ("medium" as ConversionUrgencyLevel);
     return {
       leadType: "wound" as ConversionPathway,
@@ -176,7 +176,7 @@ export function resolveBookingRequestLead(args: {
     };
   }
 
-  if (typeKey === "glp1") {
+  if (offer?.leadType === "glp1") {
     return {
       leadType: "glp1" as ConversionPathway,
       urgencyLevel: "low" as ConversionUrgencyLevel,
@@ -186,7 +186,7 @@ export function resolveBookingRequestLead(args: {
     };
   }
 
-  if (typeKey === "hrt" || typeKey === "trt") {
+  if (offer?.leadType === "hormone") {
     return {
       leadType: "hormone" as ConversionPathway,
       urgencyLevel: "medium" as ConversionUrgencyLevel,
@@ -196,7 +196,7 @@ export function resolveBookingRequestLead(args: {
     };
   }
 
-  if (typeKey === "peptides") {
+  if (offer?.leadType === "peptides") {
     return {
       leadType: "peptides" as ConversionPathway,
       urgencyLevel: "low" as ConversionUrgencyLevel,

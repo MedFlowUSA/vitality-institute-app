@@ -1,3 +1,5 @@
+import { getCanonicalPublicPrimaryCta, getCanonicalPublicVitalAiPath } from "./canonicalOfferRegistry";
+
 export type PublicOffering = {
   slug: string;
   title: string;
@@ -387,32 +389,12 @@ export function getPublicOfferingBySlug(slug: string | undefined) {
   return PUBLIC_OFFERINGS.find((offering) => offering.slug === slug) ?? null;
 }
 
-function normalizeOfferingText(offering: Pick<PublicOffering, "title" | "category" | "slug">) {
-  return `${offering.title} ${offering.category} ${offering.slug}`.toLowerCase();
-}
-
 export function getPublicOfferingVitalAiPath(offering: Pick<PublicOffering, "title" | "category" | "slug">) {
-  const text = normalizeOfferingText(offering);
-
-  if (text.includes("wound")) return "/vital-ai?pathway=wound_care";
-  if (text.includes("glp") || text.includes("weight optimization")) return "/vital-ai?pathway=glp1_weight_loss";
-  return "/vital-ai?pathway=general_consult";
+  return getCanonicalPublicVitalAiPath(offering);
 }
 
 export function getPublicOfferingPrimaryCta(offering: Pick<PublicOffering, "title" | "category" | "slug">) {
-  const text = normalizeOfferingText(offering);
-
-  if (text.includes("wound")) {
-    return {
-      label: "Start Wound Review",
-      to: getPublicOfferingVitalAiPath(offering),
-    };
-  }
-
-  return {
-    label: "Request Visit",
-    to: `/book?interest=${encodeURIComponent(offering.slug)}`,
-  };
+  return getCanonicalPublicPrimaryCta(offering);
 }
 
 export function getPublicAccessRoute(mode: "login" | "signup" = "login") {

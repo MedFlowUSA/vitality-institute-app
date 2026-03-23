@@ -1,9 +1,8 @@
 // src/pages/PatientBookAppointment.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useAuth, type AppRole } from "../auth/AuthProvider";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../auth/AuthProvider";
 import { clearPublicBookingDraft, getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
-import { buildAuthRoute, buildCurrentPath } from "../lib/routeFlow";
 import { getGuidedIntakePathwayForService, getIntakeOnlyPathwayForService } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
 import RouteHeader from "../components/RouteHeader";
@@ -20,12 +19,6 @@ type ServiceRow = {
 
 type PatientRow = { id: string; profile_id: string; first_name: string | null; last_name: string | null };
 
-function getHomeRouteForRole(role: AppRole | null) {
-  if (role === "super_admin" || role === "location_admin") return "/admin";
-  if (role && role !== "patient") return "/provider";
-  return "/patient";
-}
-
 function getBookingErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   if (!message) return "Something went wrong. Please try again.";
@@ -39,15 +32,13 @@ function getBookingErrorMessage(error: unknown) {
 }
 
 export default function PatientBookAppointment() {
-  const { user, role, signOut, resumeKey } = useAuth();
+  const { user, signOut, resumeKey } = useAuth();
   const nav = useNavigate();
-  const location = useLocation();
   const [searchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [roleMismatch, setRoleMismatch] = useState<AppRole | null>(null);
 
   const [patient, setPatient] = useState<PatientRow | null>(null);
   const [locations, setLocations] = useState<LocationRow[]>([]);
@@ -111,25 +102,7 @@ export default function PatientBookAppointment() {
       setLoading(true);
 
       try {
-        if (!user?.id) {
-          nav(buildAuthRoute({ mode: "login", next: buildCurrentPath(location.pathname, location.search) }), { replace: true });
-          return;
-        }
-
-        if (role && role !== "patient") {
-          setRoleMismatch(role);
-          setPatient(null);
-          setLocations([]);
-          setServices([]);
-          setLocationId("");
-          setServiceId("");
-          setStartTimeLocal("");
-          setNotes("");
-          setErr(null);
-          return;
-        }
-
-        setRoleMismatch(null);
+        if (!user?.id) return;
 
         // 1) Resolve patient record (patients.profile_id = auth user id)
         const { data: p, error: pErr } = await supabase
@@ -192,10 +165,9 @@ export default function PatientBookAppointment() {
 
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, location.search, nav, prefillLocationId, prefillNotes, prefillServiceId, prefillStart, resumeKey, role, user?.id]);
+  }, [nav, prefillLocationId, prefillNotes, prefillServiceId, prefillStart, resumeKey, user?.id]);
 
   useEffect(() => {
-    if (roleMismatch) return;
     const selectedStillVisible = servicesForLocation.some((service) => service.id === serviceId);
     if (selectedStillVisible) return;
 
@@ -206,10 +178,9 @@ export default function PatientBookAppointment() {
     }
 
     setServiceId("");
-  }, [prefillServiceId, roleMismatch, serviceId, servicesForLocation]);
+  }, [prefillServiceId, serviceId, servicesForLocation]);
 
   useEffect(() => {
-    if (roleMismatch) return;
     if (loading) return;
     if (!renderedLocationId) {
       setErr("Please select a service and time to continue");
@@ -237,20 +208,18 @@ export default function PatientBookAppointment() {
       }
       return current;
     });
-  }, [intakeOnlyPathway, loading, renderedLocationId, renderedServiceId, roleMismatch, servicesForLocation.length, startTimeLocal]);
+  }, [intakeOnlyPathway, loading, renderedLocationId, renderedServiceId, servicesForLocation.length, startTimeLocal]);
 
   useEffect(() => {
-    if (roleMismatch) return;
     setErr((current) => {
       if (!current) return current;
       if (!renderedLocationId || !renderedServiceId || !selectedService) return current;
       if (!intakeOnlyPathway && !startTimeLocal) return current;
       return null;
     });
-  }, [intakeOnlyPathway, renderedLocationId, renderedServiceId, roleMismatch, selectedService, startTimeLocal]);
+  }, [intakeOnlyPathway, renderedLocationId, renderedServiceId, selectedService, startTimeLocal]);
 
   useEffect(() => {
-    if (roleMismatch) return;
     const locationName = locations.find((location) => location.id === renderedLocationId)?.name ?? storedDraft?.locationName;
     const serviceName = servicesForLocation.find((service) => service.id === renderedServiceId)?.name ?? storedDraft?.serviceName;
     const requestId = getRequestIdForBookingSelection(storedDraft, {
@@ -268,7 +237,7 @@ export default function PatientBookAppointment() {
       serviceName,
       requestId,
     });
-  }, [locations, notes, renderedLocationId, renderedServiceId, roleMismatch, servicesForLocation, startTimeLocal, storedDraft, storedDraft?.locationName, storedDraft?.serviceName]);
+  }, [locations, notes, renderedLocationId, renderedServiceId, servicesForLocation, startTimeLocal, storedDraft, storedDraft?.locationName, storedDraft?.serviceName]);
 
   const computeEndTimeIso = (startIso: string) => {
     const mins = selectedService?.duration_minutes ?? 30;
@@ -286,7 +255,6 @@ export default function PatientBookAppointment() {
   const createAppointment = async () => {
     setErr(null);
 
-    if (roleMismatch) return;
     if (!user?.id || !patient?.id) return setErr("Something went wrong. Please try again.");
     if (!renderedLocationId || !renderedServiceId || !startTimeLocal || !selectedService) {
       return setErr("Please select a service and time to continue");
@@ -361,25 +329,6 @@ export default function PatientBookAppointment() {
 
         <div className="space" />
 
-        {roleMismatch ? (
-          <div className="card card-pad">
-            <div className="h2">Patient Booking Only</div>
-            <div className="muted" style={{ marginTop: 6, lineHeight: 1.7 }}>
-              This booking flow is for patients. You are signed in as a {roleMismatch.replace("_", " ")}.
-            </div>
-
-            <div className="space" />
-
-            <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-              <button className="btn btn-primary" type="button" onClick={() => nav(getHomeRouteForRole(roleMismatch), { replace: true })}>
-                Go to Dashboard
-              </button>
-              <button className="btn btn-secondary" onClick={signOut} type="button">
-                Sign in as Different User
-              </button>
-            </div>
-          </div>
-        ) : (
         <div className="card card-pad">
           <div className="h2">Book Appointment</div>
           <div className="muted" style={{ marginTop: 6 }}>
@@ -460,7 +409,6 @@ export default function PatientBookAppointment() {
           )}
           {!loading && !hasRenderableFormState ? <div className="muted">Loading booking details...</div> : null}
         </div>
-        )}
       </div>
     </div>
   );
