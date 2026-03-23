@@ -491,10 +491,10 @@ export default function ProviderHome() {
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <button className="btn btn-ghost" type="button" onClick={refreshAll}>
+              <button className="btn btn-secondary" type="button" onClick={refreshAll}>
                 Refresh
               </button>
-              <button className="btn btn-ghost" type="button" onClick={signOut}>
+              <button className="btn btn-secondary" type="button" onClick={signOut}>
                 Sign out
               </button>
             </div>
@@ -591,7 +591,7 @@ export default function ProviderHome() {
                 Join, update readiness, and open the chart from one place.
               </div>
             </div>
-            <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/visit-builder")}>
+            <button className="btn btn-secondary" type="button" onClick={() => navigate("/provider/visit-builder")}>
               Visit Builder
             </button>
           </div>
@@ -639,13 +639,13 @@ export default function ProviderHome() {
                     <div style={{ display: "grid", gap: 10, justifyItems: "end" }}>
                       <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                         <JoinVirtualVisitButton appointment={appt} className="btn btn-primary" label="Join Visit" />
-                        <button className="btn btn-ghost" type="button" onClick={() => navigate(`/provider/visit-builder?appointmentId=${appt.id}`)}>
+                        <button className="btn btn-secondary" type="button" onClick={() => navigate(`/provider/visit-builder?appointmentId=${appt.id}`)}>
                           Edit Setup
                         </button>
-                        <button className="btn btn-ghost" type="button" onClick={() => navigate(`/provider/patients/${appt.patient_id}`)}>
+                        <button className="btn btn-secondary" type="button" onClick={() => navigate(`/provider/patients/${appt.patient_id}`)}>
                           Open Patient
                         </button>
-                        <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/intake")}>
+                        <button className="btn btn-secondary" type="button" onClick={() => navigate("/provider/intake")}>
                           Intake Review
                         </button>
                       </div>
@@ -654,7 +654,7 @@ export default function ProviderHome() {
                         {["ready", "in_progress", "completed", "missed"].map((status) => (
                           <button
                             key={status}
-                            className={appt.meeting_status === status ? "btn btn-primary" : "btn btn-ghost"}
+                            className={appt.meeting_status === status ? "btn btn-primary" : "btn btn-secondary"}
                             type="button"
                             onClick={() => setMeetingStatus(appt.id, status)}
                           >
@@ -682,7 +682,7 @@ export default function ProviderHome() {
                   : "Select an active location to load queue data."}
               </div>
             </div>
-            <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider/queue")}>
+            <button className="btn btn-secondary" type="button" onClick={() => navigate("/provider/queue")}>
               Full Queue
             </button>
           </div>
@@ -723,10 +723,10 @@ export default function ProviderHome() {
                       </div>
 
                       <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                        <button className="btn btn-ghost" type="button" onClick={() => messagePatient(appt)}>
+                        <button className="btn btn-secondary" type="button" onClick={() => messagePatient(appt)}>
                           Message Patient
                         </button>
-                        <button className="btn btn-ghost" type="button" onClick={() => navigate(`/provider/patients/${appt.patient_id}`)}>
+                        <button className="btn btn-secondary" type="button" onClick={() => navigate(`/provider/patients/${appt.patient_id}`)}>
                           Open Patient
                         </button>
                         <button
@@ -737,7 +737,7 @@ export default function ProviderHome() {
                         >
                           {startingVisitId === appt.id ? "Starting..." : "Start Visit"}
                         </button>
-                        <button className="btn btn-ghost" type="button" onClick={() => setStatus(appt.id, "confirmed")}>
+                        <button className="btn btn-secondary" type="button" onClick={() => setStatus(appt.id, "confirmed")}>
                           Confirm
                         </button>
                       </div>

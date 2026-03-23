@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
+import { getPublicAccessRoute } from "../lib/publicMarketingCatalog";
 
 const howToBegin = [
   {
@@ -15,7 +16,7 @@ const howToBegin = [
   {
     title: "Create or Access Your Account",
     body: "Continue intake, booking, or follow-up inside your portal.",
-    to: "/login",
+    to: getPublicAccessRoute("signup"),
   },
 ];
 
@@ -86,7 +87,7 @@ export default function PublicLandingSimplified() {
           <Link to="/vital-ai" className="btn btn-secondary">
             Start with Vital AI
           </Link>
-          <Link to="/login?mode=signup" className="btn btn-secondary">
+          <Link to={getPublicAccessRoute("signup")} className="btn btn-secondary">
             Create Account
           </Link>
         </div>

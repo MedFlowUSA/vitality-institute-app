@@ -153,6 +153,17 @@ export default function ProviderQueue() {
     return { openVisits, needsSoap, needsLabs, newToday };
   }, [visits, soapByVisit, labsByVisit]);
 
+  const getNextStep = (visit: VisitRow) => {
+    const soap = soapByVisit[visit.id];
+    const labs = labsByVisit[visit.id] ?? [];
+
+    if (!soap?.id) return "Open the visit and start the SOAP note.";
+    if (!(soap.is_locked || soap.is_signed || soap.signed_at)) return "Finish and sign the SOAP note.";
+    if (labs.length === 0) return "Review whether labs need to be added or ordered.";
+    if ((visit.status ?? "").toLowerCase() !== "closed") return "Review the chart and close the visit when ready.";
+    return "Visit is complete. Reopen only if follow-up work is needed.";
+  };
+
   if (!isStaff) {
     return (
       <div className="app-bg">
@@ -177,7 +188,7 @@ export default function ProviderQueue() {
           secondaryCta={{ label: "Back", to: "/provider" }}
           primaryCta={{ label: "AI Plan Builder", to: "/provider/ai" }}
           rightActions={
-            <button className="btn btn-ghost" onClick={signOut} type="button">
+            <button className="btn btn-secondary" onClick={signOut} type="button">
               Sign out
             </button>
           }
@@ -236,11 +247,11 @@ export default function ProviderQueue() {
                   {loading ? "Refreshing..." : "Refresh Queue"}
                 </button>
 
-                <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/patients")}>
+                <button className="btn btn-secondary" type="button" onClick={() => nav("/provider/patients")}>
                   Patients List
                 </button>
 
-                <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/command")}>
+                <button className="btn btn-secondary" type="button" onClick={() => nav("/provider/command")}>
                   Command Center
                 </button>
               </div>
@@ -275,13 +286,14 @@ export default function ProviderQueue() {
                     <button
                       key={v.id}
                       type="button"
-                      className="btn btn-ghost"
+                      className="btn btn-secondary"
                       style={{
                         width: "100%",
                         justifyContent: "space-between",
                         marginBottom: 10,
                         textAlign: "left",
-                        padding: "12px 14px",
+                        padding: "14px 16px",
+                        minHeight: 96,
                       }}
                       onClick={() => nav(`/provider/visit/${v.id}`)}
                       title="Open Visit Chart"
@@ -298,6 +310,9 @@ export default function ProviderQueue() {
                           {" - "}
                           Labs: <strong>{labs.length}</strong>
                           {v.summary ? ` - ${v.summary}` : ""}
+                        </div>
+                        <div className="muted" style={{ fontSize: 12, marginTop: 6, opacity: 0.9 }}>
+                          Next step: {getNextStep(v)}
                         </div>
                       </span>
 

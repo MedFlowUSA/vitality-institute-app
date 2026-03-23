@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
-import { PUBLIC_OFFERINGS, PUBLIC_SERVICE_GROUPS } from "../lib/publicMarketingCatalog";
+import { PUBLIC_OFFERINGS, PUBLIC_SERVICE_GROUPS, getPublicOfferingPrimaryCta, getPublicOfferingVitalAiPath } from "../lib/publicMarketingCatalog";
 
 export default function PublicServices() {
   const [activeCategory, setActiveCategory] = useState<string>("all");
@@ -37,7 +37,7 @@ export default function PublicServices() {
             <Link to="/book" className="btn btn-primary">
               Request Visit
             </Link>
-            <Link to="/vital-ai" className="btn btn-ghost">
+            <Link to="/vital-ai" className="btn btn-secondary">
               Start with Vital AI
             </Link>
           </div>
@@ -58,7 +58,7 @@ export default function PublicServices() {
             <Link to="/vital-ai" className="btn btn-primary">
               Start Wound Review
             </Link>
-            <Link to="/contact" className="btn btn-ghost">
+            <Link to="/contact" className="btn btn-secondary">
               Contact the Clinic
             </Link>
           </div>
@@ -124,7 +124,10 @@ export default function PublicServices() {
           <div className="space" />
 
           <div style={{ display: "grid", gap: 10 }}>
-            {group.rows.map((service) => (
+            {group.rows.map((service) => {
+              const primaryCta = getPublicOfferingPrimaryCta(service);
+              const vitalAiPath = getPublicOfferingVitalAiPath(service);
+              return (
               <div
                 key={service.slug}
                 className="card card-pad service-card"
@@ -148,12 +151,16 @@ export default function PublicServices() {
                   <Link to={`/services/${service.slug}`} className="btn btn-secondary">
                     View Details
                   </Link>
-                  <Link to={`/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
-                    Request Visit
+                  <Link to={primaryCta.to} className="btn btn-primary">
+                    {primaryCta.label}
+                  </Link>
+                  <Link to={vitalAiPath} className="btn btn-secondary">
+                    Start with Vital AI
                   </Link>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </details>
       ))}
@@ -170,7 +177,7 @@ export default function PublicServices() {
             <Link to="/vital-ai" className="btn btn-primary">
               Start with Vital AI
             </Link>
-            <Link to="/book" className="btn btn-ghost">
+            <Link to="/book" className="btn btn-secondary">
               Request Visit
             </Link>
           </div>

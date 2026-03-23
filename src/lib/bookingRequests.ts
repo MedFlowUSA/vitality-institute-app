@@ -2,7 +2,8 @@ import { supabase } from "./supabase";
 
 export type CreateBookingRequestInput = {
   locationId: string;
-  serviceId: string;
+  serviceId?: string | null;
+  serviceLabel?: string | null;
   requestedStart: string;
   notes?: string;
   source?: string;
@@ -17,7 +18,8 @@ export async function createBookingRequest(input: CreateBookingRequestInput) {
     .insert([
       {
         location_id: input.locationId,
-        service_id: input.serviceId,
+        service_id: input.serviceId ?? null,
+        service_label: input.serviceLabel?.trim() || null,
         requested_start: input.requestedStart,
         notes: input.notes?.trim() || null,
         source: input.source ?? "public_booking",

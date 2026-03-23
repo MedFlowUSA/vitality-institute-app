@@ -57,6 +57,7 @@ type BookingRequestRow = {
   source: string;
   patient_id: string | null;
   requested_start: string;
+  service_label: string | null;
 };
 
 type QueueFilter = "open" | "wound" | "booking-linked" | "all";
@@ -197,7 +198,7 @@ export default function AdminPublicVitalAiSubmissions() {
           .order("email"),
         supabase.from("locations").select("id,name").order("name"),
         supabase.from("services").select("id,name").eq("is_active", true).order("name"),
-        supabase.from("booking_requests").select("id,status,source,patient_id,requested_start"),
+        supabase.from("booking_requests").select("id,status,source,patient_id,requested_start,service_label"),
       ]);
 
       if (submissionRes.error) throw submissionRes.error;
@@ -279,7 +280,7 @@ export default function AdminPublicVitalAiSubmissions() {
           backTo="/admin"
           homeTo="/admin"
           rightAction={
-            <button className="btn btn-ghost" type="button" onClick={loadSubmissions}>
+            <button className="btn btn-secondary" type="button" onClick={loadSubmissions}>
               Refresh
             </button>
           }
@@ -302,16 +303,16 @@ export default function AdminPublicVitalAiSubmissions() {
                   </div>
                 </div>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <button className={filter === "open" ? "btn btn-primary" : "btn btn-ghost"} type="button" onClick={() => setFilter("open")}>
+                  <button className={filter === "open" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("open")}>
                     Open ({filterSummary.open})
                   </button>
-                  <button className={filter === "wound" ? "btn btn-primary" : "btn btn-ghost"} type="button" onClick={() => setFilter("wound")}>
+                  <button className={filter === "wound" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("wound")}>
                     Wound Priority ({filterSummary.wound})
                   </button>
-                  <button className={filter === "booking-linked" ? "btn btn-primary" : "btn btn-ghost"} type="button" onClick={() => setFilter("booking-linked")}>
+                  <button className={filter === "booking-linked" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("booking-linked")}>
                     Booking Linked ({filterSummary.bookingLinked})
                   </button>
-                  <button className={filter === "all" ? "btn btn-primary" : "btn btn-ghost"} type="button" onClick={() => setFilter("all")}>
+                  <button className={filter === "all" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("all")}>
                     All ({filterSummary.all})
                   </button>
                 </div>
@@ -332,14 +333,22 @@ export default function AdminPublicVitalAiSubmissions() {
                     <button
                       key={submission.id}
                       type="button"
-                      className={selectedId === submission.id ? "btn btn-primary" : "btn btn-ghost"}
-                      style={{ width: "100%", justifyContent: "space-between", marginBottom: 8, textAlign: "left" }}
+                      className={selectedId === submission.id ? "btn btn-primary" : "btn btn-secondary"}
+                      style={{ width: "100%", justifyContent: "space-between", marginBottom: 8, textAlign: "left", minHeight: 88 }}
                       onClick={() => setSelectedId(submission.id)}
                     >
-                      <span>
+                      <span style={{ display: "grid", gap: 4 }}>
                         <div style={{ fontWeight: 800 }}>{submission.first_name} {submission.last_name}</div>
                         <div style={{ fontSize: 12, marginTop: 4 }}>
                           {getPathwayLabel(submission.pathway)} | {getVitalAiStatusLabel(submission.status)} | {submission.originLabel}
+                        </div>
+                        <div style={{ fontSize: 12, opacity: 0.85 }}>
+                          Next step: {getVitalAiNextStep({
+                            status: submission.status,
+                            pathway: submission.pathway,
+                            hasBookingRequest: !!submission.linkedBookingRequest,
+                            patientLinked: !!submission.linkedBookingRequest?.patient_id,
+                          })}
                         </div>
                       </span>
                       <span style={{ fontSize: 12 }}>{submission.isWound ? "Wound priority" : submission.preferred_contact_method}</span>
@@ -439,6 +448,7 @@ export default function AdminPublicVitalAiSubmissions() {
                         {selected.linkedBookingRequest ? (
                           <div style={{ lineHeight: 1.8 }}>
                             <div><strong>Booking request:</strong> {selected.linkedBookingRequest.id}</div>
+                            <div><strong>Booked service:</strong> {selected.linkedBookingRequest.service_label || selected.serviceName || "Not provided"}</div>
                             <div><strong>Requested time:</strong> {new Date(selected.linkedBookingRequest.requested_start).toLocaleString()}</div>
                             <div><strong>Booking status:</strong> {getBookingRequestStatusLabel(selected.linkedBookingRequest.status)}</div>
                             <div><strong>Patient linked:</strong> {selected.linkedBookingRequest.patient_id ? "Yes" : "No"}</div>

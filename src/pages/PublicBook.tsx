@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, type AppRole } from "../auth/AuthProvider";
+import { trackFunnelEvent } from "../lib/analytics";
 import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { createBookingRequest } from "../lib/bookingRequests";
 import { buildFollowUpMessage, resolveBookingRequestLead } from "../lib/publicFollowUpEngine";
-import { getPublicOfferingBySlug } from "../lib/publicMarketingCatalog";
+import { getPublicOfferingBySlug, PUBLIC_OFFERINGS, type PublicOffering } from "../lib/publicMarketingCatalog";
 import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, buildOnboardingRoute } from "../lib/routeFlow";
 import {
+  getServiceTypeKey,
   getIntakeOnlyPathwayForService,
   getPublicVitalAiPathwayParam,
   loadCatalogLocations,
@@ -22,6 +24,37 @@ function getHomeRouteForRole(role: AppRole | null) {
   if (role === "super_admin" || role === "location_admin") return "/admin";
   if (role && role !== "patient") return "/provider";
   return "/patient";
+}
+
+type PublicBookingOption = {
+  value: string;
+  label: string;
+  serviceLabel: string;
+  optionKind: "catalog" | "marketing";
+  categoryLabel: string;
+  catalogService: CatalogService | null;
+  offering: PublicOffering | null;
+  intakePathway: string | null;
+  requiresPreferredTime: boolean;
+};
+
+function getMarketingIntakePathway(offering: PublicOffering) {
+  const typeKey = getServiceTypeKey({
+    name: offering.title,
+    category: offering.category,
+    service_group: offering.category,
+  });
+
+  if (typeKey === "glp1") return "glp1_weight_loss";
+  if (typeKey === "wound_care") return "wound_care";
+  if (typeKey === "hrt" || typeKey === "trt" || typeKey === "peptides") return "general_consult";
+  if (offering.category.toLowerCase().includes("bundle") || offering.category.toLowerCase().includes("add-on")) return "general_consult";
+  return "general_consult";
+}
+
+function getMarketingCategoryLabel(offering: PublicOffering) {
+  if (offering.category === "Aesthetics & Advanced Therapies") return "Advanced Therapies";
+  return offering.category;
 }
 
 export default function PublicBook() {
@@ -58,6 +91,7 @@ export default function PublicBook() {
   const [startTimeLocal, setStartTimeLocal] = useState(searchParams.get("start") ?? draft?.startTimeLocal ?? "");
   const [notes, setNotes] = useState(searchParams.get("notes") ?? draft?.notes ?? "");
   const hydratedSelectionRef = useRef(false);
+  const trackedStartRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,21 +124,74 @@ export default function PublicBook() {
     return services.filter((service) => service.location_id === renderedLocationId);
   }, [renderedLocationId, services]);
 
+  const bookingOptions = useMemo(() => {
+    const catalogOptions: PublicBookingOption[] = servicesForLocation.map((service) => {
+      const intakePathway = getIntakeOnlyPathwayForService(service);
+      return {
+        value: service.id,
+        label: service.name,
+        serviceLabel: service.name,
+        optionKind: "catalog",
+        categoryLabel: service.category ?? service.service_group ?? "Available Services",
+        catalogService: service,
+        offering: null,
+        intakePathway,
+        requiresPreferredTime: !intakePathway,
+      };
+    });
+
+    const normalizedCatalogNames = new Set(catalogOptions.map((option) => option.label.trim().toLowerCase()));
+
+    const marketingOptions: PublicBookingOption[] = PUBLIC_OFFERINGS.filter((offering) => {
+      return !normalizedCatalogNames.has(offering.title.trim().toLowerCase());
+    }).map((offering) => {
+      const intakePathway = getMarketingIntakePathway(offering);
+      return {
+        value: `marketing:${offering.slug}`,
+        label: offering.title,
+        serviceLabel: offering.title,
+        optionKind: "marketing",
+        categoryLabel: getMarketingCategoryLabel(offering),
+        catalogService: null,
+        offering,
+        intakePathway,
+        requiresPreferredTime: !intakePathway,
+      };
+    });
+
+    return [...catalogOptions, ...marketingOptions].sort((a, b) => a.label.localeCompare(b.label));
+  }, [servicesForLocation]);
+
+  const selectedBookingOption = useMemo(() => {
+    return bookingOptions.find((option) => option.value === serviceId) ?? null;
+  }, [bookingOptions, serviceId]);
+
   const renderedServiceId = useMemo(() => {
-    return servicesForLocation.some((service) => service.id === serviceId) ? serviceId : "";
-  }, [serviceId, servicesForLocation]);
+    return selectedBookingOption?.value ?? "";
+  }, [selectedBookingOption]);
 
   const selectedLocation = useMemo(() => {
     return locations.find((location) => location.id === renderedLocationId) ?? null;
   }, [locations, renderedLocationId]);
 
-  const selectedServiceRow = useMemo(() => {
-    return servicesForLocation.find((service) => service.id === renderedServiceId) ?? null;
-  }, [renderedServiceId, servicesForLocation]);
+  const selectedServiceRow = selectedBookingOption?.catalogService ?? null;
+
+  useEffect(() => {
+    if (trackedStartRef.current) return;
+    trackedStartRef.current = true;
+    void trackFunnelEvent({
+      eventName: "public_booking_started",
+      pathway: selectedInterestSlug || null,
+      metadata: {
+        interest: selectedInterestSlug || null,
+        hasDraft: Boolean(draft?.requestId || draft?.serviceId || draft?.locationId),
+      },
+    });
+  }, [draft?.locationId, draft?.requestId, draft?.serviceId, selectedInterestSlug]);
 
   const intakeOnlyPathway = useMemo(() => {
-    return selectedServiceRow ? getIntakeOnlyPathwayForService(selectedServiceRow) : null;
-  }, [selectedServiceRow]);
+    return selectedBookingOption?.intakePathway ?? null;
+  }, [selectedBookingOption]);
 
   const normalizedStartTime = useMemo(() => startTimeLocal.trim(), [startTimeLocal]);
   const hasCompleteStartTimeValue = normalizedStartTime.length >= 16;
@@ -116,7 +203,7 @@ export default function PublicBook() {
   }, [hasCompleteStartTimeValue, normalizedStartTime]);
 
   const hasValidLocation = !!renderedLocationId && !!selectedLocation;
-  const hasValidService = !!renderedServiceId && !!selectedServiceRow;
+  const hasValidService = !!renderedServiceId && !!selectedBookingOption;
   const needsPreferredTime = !intakeOnlyPathway;
   const hasValidTime = !needsPreferredTime || (!!startTimeDate && hasCompleteStartTimeValue);
   const isFormComplete = hasValidLocation && hasValidService && hasValidTime;
@@ -125,14 +212,14 @@ export default function PublicBook() {
     if (!hasValidLocation || !hasValidService) {
       return "Please select a service and time to continue";
     }
-    if (!selectedServiceRow || servicesForLocation.length === 0) {
+    if (!selectedBookingOption || bookingOptions.length === 0) {
       return "Something went wrong. Please try again.";
     }
     if (!hasValidTime) {
       return "Please select a service and time to continue";
     }
     return null;
-  }, [hasValidLocation, hasValidService, hasValidTime, selectedServiceRow, servicesForLocation.length]);
+  }, [bookingOptions.length, hasValidLocation, hasValidService, hasValidTime, selectedBookingOption]);
 
   const matchedInterestService = useMemo(() => {
     return matchCatalogServiceFromInterest({
@@ -160,25 +247,26 @@ export default function PublicBook() {
 
     const nextServices = services.filter((service) => service.location_id === nextLocationId);
     const nextServiceId =
-      (serviceId && nextServices.some((service) => service.id === serviceId) ? serviceId : "") ||
-      (searchParams.get("serviceId") && nextServices.some((service) => service.id === searchParams.get("serviceId")) ? searchParams.get("serviceId")! : "") ||
+      (serviceId && bookingOptions.some((option) => option.value === serviceId) ? serviceId : "") ||
+      (searchParams.get("serviceId") && bookingOptions.some((option) => option.value === searchParams.get("serviceId")) ? searchParams.get("serviceId")! : "") ||
       (matchedInterestService?.service.id && nextServices.some((service) => service.id === matchedInterestService.service.id)
         ? matchedInterestService.service.id
         : "") ||
-      (draft?.serviceId && nextServices.some((service) => service.id === draft.serviceId) ? draft.serviceId : "") ||
+      (selectedInterestSlug && bookingOptions.some((option) => option.value === `marketing:${selectedInterestSlug}`) ? `marketing:${selectedInterestSlug}` : "") ||
+      (draft?.serviceId && bookingOptions.some((option) => option.value === draft.serviceId) ? draft.serviceId : "") ||
       "";
 
     hydratedSelectionRef.current = true;
     setLocationId(nextLocationId);
     setServiceId(nextServiceId);
-  }, [draft?.locationId, draft?.serviceId, loading, locationId, locations, matchedInterestService?.service.id, matchedInterestService?.service.location_id, searchParams, serviceId, services]);
+  }, [bookingOptions, draft?.locationId, draft?.serviceId, loading, locationId, locations, matchedInterestService?.service.id, matchedInterestService?.service.location_id, searchParams, serviceId, services]);
 
   useEffect(() => {
     if (loading || !renderedLocationId) return;
     if (!serviceId) return;
-    if (servicesForLocation.some((service) => service.id === serviceId)) return;
+    if (bookingOptions.some((option) => option.value === serviceId)) return;
     setServiceId("");
-  }, [loading, renderedLocationId, serviceId, servicesForLocation]);
+  }, [bookingOptions, loading, renderedLocationId, serviceId]);
 
   useEffect(() => {
     if (!selectedInterestSlug) {
@@ -188,6 +276,10 @@ export default function PublicBook() {
     if (services.length === 0 || loading) return;
 
     if (!matchedInterestService?.service) {
+      if (bookingOptions.some((option) => option.value === `marketing:${selectedInterestSlug}`)) {
+        setInterestMessage(`We selected ${selectedInterest.title} from your link.`);
+        return;
+      }
       setInterestMessage("We couldn't match that link to a specific service, so choose the option that fits best below.");
       return;
     }
@@ -198,7 +290,7 @@ export default function PublicBook() {
         ? `We selected ${matchedService.name} from your link.`
         : `We selected the closest available service: ${matchedService.name}.`
     );
-  }, [loading, matchedInterestService, selectedInterestSlug, services.length]);
+  }, [bookingOptions, loading, matchedInterestService, selectedInterest.title, selectedInterestSlug, services.length]);
 
   useEffect(() => {
     setSubmitError(null);
@@ -218,17 +310,17 @@ export default function PublicBook() {
       startTimeLocal: normalizedStartTime,
       notes,
       locationName: selectedLocation?.name ?? draft?.locationName,
-      serviceName: selectedServiceRow?.name ?? draft?.serviceName,
+      serviceName: selectedBookingOption?.serviceLabel ?? draft?.serviceName,
       requestId,
     });
-  }, [draft, draft?.locationName, draft?.serviceName, normalizedStartTime, notes, renderedLocationId, renderedServiceId, selectedLocation?.name, selectedServiceRow?.name]);
+  }, [draft, draft?.locationName, draft?.serviceName, normalizedStartTime, notes, renderedLocationId, renderedServiceId, selectedBookingOption?.serviceLabel, selectedLocation?.name]);
 
   const fieldHelperMessage = useMemo(() => {
     if (loading) return " ";
     if (catalogError) return catalogError;
     if (!hasValidLocation || !hasValidService) return "Please select a service and time to continue";
     if (!hasValidTime) return "Please select a service and time to continue";
-    if (intakeOnlyPathway) return "This service starts with guided intake instead of direct booking.";
+    if (intakeOnlyPathway) return "This option starts with guided intake before scheduling.";
     return " ";
   }, [catalogError, hasValidLocation, hasValidService, hasValidTime, intakeOnlyPathway, loading]);
 
@@ -246,13 +338,13 @@ export default function PublicBook() {
       return;
     }
 
-    if (!selectedServiceRow) {
+    if (!selectedBookingOption) {
       setSubmitError("Something went wrong. Please try again.");
       return;
     }
 
     if (intakeOnlyPathway) {
-      const nextPathway = getPublicVitalAiPathwayParam(selectedServiceRow);
+      const nextPathway = selectedServiceRow ? getPublicVitalAiPathwayParam(selectedServiceRow) : intakeOnlyPathway;
       navigate(`/vital-ai?pathway=${encodeURIComponent(nextPathway)}`);
       return;
     }
@@ -285,27 +377,37 @@ export default function PublicBook() {
     try {
       const request = await createBookingRequest({
         locationId: renderedLocationId,
-        serviceId: renderedServiceId,
+        serviceId: selectedServiceRow?.id ?? null,
+        serviceLabel: selectedBookingOption.serviceLabel,
         requestedStart: start.toISOString(),
         notes,
         source: selectedInterestSlug ? `public_booking_interest:${selectedInterestSlug}` : "public_booking_flow",
       });
-      const followUp = buildFollowUpMessage(
-        resolveBookingRequestLead({
-          serviceName: selectedServiceRow.name,
-          notes,
-        }).leadType,
-        resolveBookingRequestLead({
-          serviceName: selectedServiceRow.name,
-          notes,
-        }).urgencyLevel
-      );
+      const resolvedLead = resolveBookingRequestLead({
+        serviceName: selectedBookingOption.serviceLabel,
+        notes,
+      });
+      const followUp = buildFollowUpMessage(resolvedLead.leadType, resolvedLead.urgencyLevel);
       console.info("[Public follow-up]", {
         type: "booking_request",
         requestId: request.id,
-        serviceName: selectedServiceRow.name,
+        serviceName: selectedBookingOption.serviceLabel,
         patientMessage: followUp.patientMessage,
         staffNote: followUp.staffNote,
+      });
+      void trackFunnelEvent({
+        eventName: "public_booking_submitted",
+        pathway: selectedInterestSlug || null,
+        leadType: resolvedLead.leadType,
+        urgencyLevel: resolvedLead.urgencyLevel,
+        valueLevel: resolvedLead.valueLevel,
+        metadata: {
+          requestId: request.id,
+          serviceId: selectedServiceRow?.id ?? null,
+          serviceName: selectedBookingOption.serviceLabel,
+          locationId: renderedLocationId,
+          startTimeLocal: normalizedStartTime,
+        },
       });
 
       savePublicBookingDraft({
@@ -314,7 +416,7 @@ export default function PublicBook() {
         startTimeLocal: normalizedStartTime,
         notes,
         locationName: selectedLocation?.name ?? draft?.locationName,
-        serviceName: selectedServiceRow.name,
+        serviceName: selectedBookingOption.serviceLabel,
         requestId: request.id,
       });
 
@@ -437,13 +539,21 @@ export default function PublicBook() {
 
               <div style={{ flex: "2 1 320px" }}>
                 <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Service</div>
-                <select className="input" value={renderedServiceId} onChange={(event) => setServiceId(event.target.value)} disabled={!renderedLocationId || servicesForLocation.length === 0}>
+                <select className="input" value={renderedServiceId} onChange={(event) => setServiceId(event.target.value)} disabled={!renderedLocationId || bookingOptions.length === 0}>
                   <option value="">Select service...</option>
-                  {servicesForLocation.map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name}
-                    </option>
-                  ))}
+                  {Array.from(new Set(bookingOptions.map((option) => option.categoryLabel))).map((category) => {
+                    const optionsForCategory = bookingOptions.filter((option) => option.categoryLabel === category);
+                    return (
+                      <optgroup key={category} label={category}>
+                        {optionsForCategory.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                            {option.optionKind === "marketing" && option.intakePathway ? " - guided start" : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
                 </select>
               </div>
 

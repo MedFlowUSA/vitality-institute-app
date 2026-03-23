@@ -1,10 +1,12 @@
 import { Link, useParams } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
-import { getPublicOfferingBySlug } from "../lib/publicMarketingCatalog";
+import { getPublicAccessRoute, getPublicOfferingBySlug, getPublicOfferingPrimaryCta, getPublicOfferingVitalAiPath } from "../lib/publicMarketingCatalog";
 
 export default function PublicServiceDetail() {
   const { slug } = useParams();
   const service = getPublicOfferingBySlug(slug);
+  const primaryCta = service ? getPublicOfferingPrimaryCta(service) : null;
+  const vitalAiPath = service ? getPublicOfferingVitalAiPath(service) : "/vital-ai";
 
   return (
     <PublicSiteLayout
@@ -12,15 +14,15 @@ export default function PublicServiceDetail() {
       subtitle="Review the service, then choose the clearest public next step before scheduling is finalized."
       rightAction={
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-          <Link to="/services" className="btn btn-ghost">
+          <Link to="/services" className="btn btn-secondary">
             Back to Services
           </Link>
-          {service ? (
-            <Link to={`/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
-              Request Visit
+          {primaryCta ? (
+            <Link to={primaryCta.to} className="btn btn-primary">
+              {primaryCta.label}
             </Link>
           ) : null}
-          <Link to="/login" className="btn btn-ghost">
+          <Link to={getPublicAccessRoute("login")} className="btn btn-secondary">
             Sign In
           </Link>
         </div>
@@ -76,13 +78,13 @@ export default function PublicServiceDetail() {
             </div>
 
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-              <Link to={`/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
-                Request Visit
+              <Link to={primaryCta?.to ?? `/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
+                {primaryCta?.label ?? "Request Visit"}
               </Link>
-              <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-ghost">
+              <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-secondary">
                 Contact Us
               </Link>
-              <Link to="/vital-ai" className="btn btn-ghost">
+              <Link to={vitalAiPath} className="btn btn-secondary">
                 Start with Vital AI
               </Link>
             </div>
@@ -151,18 +153,18 @@ export default function PublicServiceDetail() {
                 </div>
               </div>
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                <Link to={`/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
-                  Request Visit
-                </Link>
-                <Link to="/vital-ai" className="btn btn-ghost">
-                  Start with Vital AI
-                </Link>
-                <Link to="/login" className="btn btn-ghost">
-                  Sign In
-                </Link>
-                <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-ghost">
-                  Contact Us
-                </Link>
+                 <Link to={primaryCta?.to ?? `/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
+                   {primaryCta?.label ?? "Request Visit"}
+                 </Link>
+                 <Link to={vitalAiPath} className="btn btn-secondary">
+                   Start with Vital AI
+                 </Link>
+                 <Link to={getPublicAccessRoute("login")} className="btn btn-secondary">
+                   Sign In
+                 </Link>
+                 <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-secondary">
+                   Contact Us
+                 </Link>
               </div>
             </div>
           </div>

@@ -33,10 +33,10 @@ export default function RouteHeader({ title, backTo, homeTo, subtitle, rightActi
       <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ display: "grid", gap: 6 }}>
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            <button className="btn btn-ghost" type="button" onClick={() => (backTo ? navigate(backTo) : navigate(-1))}>
+            <button className="btn btn-secondary" type="button" onClick={() => (backTo ? navigate(backTo) : navigate(-1))}>
               Back
             </button>
-            <button className="btn btn-ghost" type="button" onClick={() => navigate(resolvedHome)}>
+            <button className="btn btn-secondary" type="button" onClick={() => navigate(resolvedHome)}>
               Home
             </button>
           </div>

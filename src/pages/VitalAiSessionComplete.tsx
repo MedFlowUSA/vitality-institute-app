@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
+import { trackFunnelEvent } from "../lib/analytics";
 import VitalAI from "../lib/vital-ai/vitalAiService";
 import {
   loadVitalAiFiles,
@@ -304,6 +305,7 @@ export default function VitalAiSessionComplete() {
   const [guidance, setGuidance] = useState<ReturnType<typeof VitalAI.generatePatientGuidance> | null>(null);
   const [insights, setInsights] = useState<ReturnType<typeof VitalAI.generateInsights> | null>(null);
   const [answers, setAnswers] = useState<ResponseMap>({});
+  const trackedViewRef = useRef(false);
 
   useEffect(() => {
     const load = async () => {
@@ -359,6 +361,25 @@ export default function VitalAiSessionComplete() {
     });
   }, [answers, leadMetadata]);
 
+  useEffect(() => {
+    if (trackedViewRef.current || !sessionId) return;
+    if (!pathway && !session) return;
+    trackedViewRef.current = true;
+    void trackFunnelEvent({
+      eventName: "care_summary_viewed",
+      pathway: pathway?.slug ?? session?.current_step_key ?? evaluationKind,
+      leadType: leadMetadata.leadType,
+      urgencyLevel: leadMetadata.urgencyLevel,
+      valueLevel: leadMetadata.valueLevel,
+      primaryOffer: revenueRecommendation.primaryOffer,
+      secondaryOffer: revenueRecommendation.secondaryOffer ?? null,
+      metadata: {
+        sessionId,
+        consultRequired: revenueRecommendation.consultRequired,
+      },
+    });
+  }, [evaluationKind, leadMetadata.leadType, leadMetadata.urgencyLevel, leadMetadata.valueLevel, pathway, revenueRecommendation.consultRequired, revenueRecommendation.primaryOffer, revenueRecommendation.secondaryOffer, session, sessionId]);
+
   const handleBookConsultation = () => {
     const params = new URLSearchParams();
     params.set("notes", evaluation.bookingNote);
@@ -378,6 +399,19 @@ export default function VitalAiSessionComplete() {
   };
 
   const handlePrimaryOffer = () => {
+    void trackFunnelEvent({
+      eventName: "care_summary_primary_action_clicked",
+      pathway: pathway?.slug ?? session?.current_step_key ?? evaluationKind,
+      leadType: leadMetadata.leadType,
+      urgencyLevel: leadMetadata.urgencyLevel,
+      valueLevel: leadMetadata.valueLevel,
+      primaryOffer: revenueRecommendation.primaryOffer,
+      secondaryOffer: revenueRecommendation.secondaryOffer ?? null,
+      metadata: {
+        sessionId,
+        action: revenueRecommendation.primaryAction,
+      },
+    });
     switch (revenueRecommendation.primaryAction) {
       case "start_program":
         handleContinueWithoutConsult();
@@ -401,6 +435,20 @@ export default function VitalAiSessionComplete() {
   };
 
   const handleSecondaryOffer = () => {
+    if (!revenueRecommendation.secondaryAction) return;
+    void trackFunnelEvent({
+      eventName: "care_summary_secondary_action_clicked",
+      pathway: pathway?.slug ?? session?.current_step_key ?? evaluationKind,
+      leadType: leadMetadata.leadType,
+      urgencyLevel: leadMetadata.urgencyLevel,
+      valueLevel: leadMetadata.valueLevel,
+      primaryOffer: revenueRecommendation.primaryOffer,
+      secondaryOffer: revenueRecommendation.secondaryOffer ?? null,
+      metadata: {
+        sessionId,
+        action: revenueRecommendation.secondaryAction,
+      },
+    });
     switch (revenueRecommendation.secondaryAction) {
       case "book_consultation":
         handleBookConsultation();

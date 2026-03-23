@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { getPublicAccessRoute } from "../../lib/publicMarketingCatalog";
 
 type Props = {
   title: string;
@@ -12,7 +13,7 @@ type Props = {
 
 const navItems = [
   { to: "/services", label: "Services" },
-  { to: "/login", label: "Sign In" },
+  { to: getPublicAccessRoute("login"), label: "Sign In" },
 ];
 
 function getBackFallback(pathname: string) {

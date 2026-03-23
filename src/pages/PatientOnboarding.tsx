@@ -10,7 +10,7 @@ import VitalityHero from "../components/VitalityHero";
 type LocationRow = { id: string; name: string; city: string | null; state: string | null };
 
 export default function PatientOnboarding() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading } = useAuth();
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
   const nextPath = useMemo(() => normalizeRedirectTarget(searchParams.get("next"), "/patient"), [searchParams]);
@@ -57,6 +57,11 @@ export default function PatientOnboarding() {
         return;
       }
 
+      if (role && role !== "patient") {
+        nav(role === "super_admin" || role === "location_admin" ? "/admin" : "/provider", { replace: true });
+        return;
+      }
+
       setLoading(true);
       setErr(null);
 
@@ -100,7 +105,7 @@ export default function PatientOnboarding() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, handoff, nextPath, user?.id, nav, user?.email]);
+  }, [authLoading, handoff, nav, nextPath, role, user?.email, user?.id]);
 
   const save = async () => {
     if (!user?.id) return;

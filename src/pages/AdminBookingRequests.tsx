@@ -19,6 +19,7 @@ type BookingRequestRow = {
   id: string;
   location_id: string | null;
   service_id: string | null;
+  service_label: string | null;
   requested_start: string;
   notes: string | null;
   source: string;
@@ -66,7 +67,7 @@ type ServiceOption = {
 type QueueFilter = "open" | "wound" | "linked" | "all";
 
 const BOOKING_REQUEST_SELECT =
-  "id,location_id,service_id,requested_start,notes,source,status,patient_id,email,phone,internal_notes,assigned_to,contacted_at,resolved_at,created_at,updated_at";
+  "id,location_id,service_id,service_label,requested_start,notes,source,status,patient_id,email,phone,internal_notes,assigned_to,contacted_at,resolved_at,created_at,updated_at";
 
 const LINKED_VITAL_AI_SELECT = "id,booking_request_id,pathway,status,summary,answers_json,lead_type,urgency_level,value_level,created_at";
 
@@ -104,7 +105,7 @@ export default function AdminBookingRequests() {
   const enrichedRequests = useMemo(() => {
     return requests.map((request) => {
       const linkedSubmission = linkedVitalAiByBookingId.get(request.id) ?? null;
-      const serviceName = request.service_id ? serviceNameById.get(request.service_id) ?? request.service_id : null;
+      const serviceName = request.service_label ?? (request.service_id ? serviceNameById.get(request.service_id) ?? request.service_id : null);
       const isWound = isWoundRelated({
         pathway: linkedSubmission?.pathway ?? null,
         serviceName,
@@ -287,7 +288,7 @@ export default function AdminBookingRequests() {
           backTo="/admin"
           homeTo="/admin"
           rightAction={
-            <button className="btn btn-ghost" type="button" onClick={loadRequests}>
+            <button className="btn btn-secondary" type="button" onClick={loadRequests}>
               Refresh
             </button>
           }
@@ -310,16 +311,16 @@ export default function AdminBookingRequests() {
                   </div>
                 </div>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                  <button className={filter === "open" ? "btn btn-primary" : "btn btn-ghost"} type="button" onClick={() => setFilter("open")}>
+                    <button className={filter === "open" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("open")}>
                     Open ({filterSummary.open})
                   </button>
-                  <button className={filter === "wound" ? "btn btn-primary" : "btn btn-ghost"} type="button" onClick={() => setFilter("wound")}>
+                    <button className={filter === "wound" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("wound")}>
                     Wound Priority ({filterSummary.wound})
                   </button>
-                  <button className={filter === "linked" ? "btn btn-primary" : "btn btn-ghost"} type="button" onClick={() => setFilter("linked")}>
+                    <button className={filter === "linked" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("linked")}>
                     Linked Vital AI ({filterSummary.linked})
                   </button>
-                  <button className={filter === "all" ? "btn btn-primary" : "btn btn-ghost"} type="button" onClick={() => setFilter("all")}>
+                    <button className={filter === "all" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("all")}>
                     All ({filterSummary.all})
                   </button>
                 </div>
@@ -342,17 +343,25 @@ export default function AdminBookingRequests() {
                     <button
                       key={request.id}
                       type="button"
-                      className={selectedId === request.id ? "btn btn-primary" : "btn btn-ghost"}
-                      style={{ width: "100%", justifyContent: "space-between", marginBottom: 8, textAlign: "left" }}
+                      className={selectedId === request.id ? "btn btn-primary" : "btn btn-secondary"}
+                      style={{ width: "100%", justifyContent: "space-between", marginBottom: 8, textAlign: "left", minHeight: 88 }}
                       onClick={() => setSelectedId(request.id)}
                     >
-                      <span>
+                      <span style={{ display: "grid", gap: 4 }}>
                         <div style={{ fontWeight: 800 }}>
                           {request.serviceName || "Public visit request"}
                           {request.isWound ? " • wound priority" : ""}
                         </div>
                         <div style={{ fontSize: 12, marginTop: 4 }}>
                           {getBookingRequestStatusLabel(request.status)} | {request.originLabel} | {new Date(request.requested_start).toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: 12, opacity: 0.85 }}>
+                          Next step: {getBookingNextStep({
+                            status: request.status,
+                            hasVitalAiSubmission: !!request.linkedSubmission,
+                            patientLinked: !!request.patient_id,
+                            isWound: request.isWound,
+                          })}
                         </div>
                       </span>
                       <span style={{ fontSize: 12 }}>{request.linkedSubmission ? "Linked intake" : "Booking only"}</span>

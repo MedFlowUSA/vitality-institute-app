@@ -23,12 +23,10 @@ import AdminBookingRequests from "./pages/AdminBookingRequests";
 import PatientAuth from "./pages/PatientAuth";
 import PatientHome from "./pages/PatientHome";
 import PatientOnboarding from "./pages/PatientOnboarding";
-import PatientIntake from "./pages/PatientIntake";
 import PatientLabs from "./pages/PatientLabs";
 import PatientChat from "./pages/PatientChat";
 import PatientTreatments from "./pages/PatientTreatments";
 import PatientTreatmentDetail from "./pages/PatientTreatmentDetail";
-import PatientWoundIntake from "./pages/PatientWoundIntake";
 import PatientServices from "./pages/PatientServices";
 import PatientBookAppointment from "./pages/PatientBookAppointment";
 import PatientAssessment from "./pages/PatientAssessment";
@@ -500,7 +498,7 @@ export default function App() {
               path="/patient/intake"
               element={
                 <RequireRole allow={["patient"]}>
-                  <PatientIntake />
+                  <Navigate to="/intake" replace />
                 </RequireRole>
               }
             />
@@ -508,7 +506,7 @@ export default function App() {
               path="/patient/intake/wound"
               element={
                 <RequireRole allow={["patient"]}>
-                  <PatientWoundIntake />
+                  <Navigate to="/intake?pathway=wound-care&autostart=1" replace />
                 </RequireRole>
               }
             />

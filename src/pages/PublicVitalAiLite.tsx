@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { trackFunnelEvent } from "../lib/analytics";
 import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import {
@@ -52,6 +53,7 @@ export default function PublicVitalAiLite() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const trackedStartRef = useRef(false);
 
   const pathwayDef = useMemo(() => getPublicVitalAiPathway(pathway), [pathway]);
   const questions = useMemo(() => getPathwayQuestions(pathway), [pathway]);
@@ -60,6 +62,22 @@ export default function PublicVitalAiLite() {
     () => buildFollowUpMessage(leadMetadata.leadType, leadMetadata.urgencyLevel),
     [leadMetadata.leadType, leadMetadata.urgencyLevel]
   );
+
+  useEffect(() => {
+    if (trackedStartRef.current) return;
+    trackedStartRef.current = true;
+    void trackFunnelEvent({
+      eventName: "vital_ai_started",
+      pathway,
+      leadType: leadMetadata.leadType,
+      urgencyLevel: leadMetadata.urgencyLevel,
+      valueLevel: leadMetadata.valueLevel,
+      metadata: {
+        bookingRequestId: bookingDraft?.requestId ?? null,
+        serviceId: bookingDraft?.serviceId ?? null,
+      },
+    });
+  }, [bookingDraft?.requestId, bookingDraft?.serviceId, leadMetadata.leadType, leadMetadata.urgencyLevel, leadMetadata.valueLevel, pathway]);
 
   useEffect(() => {
     let cancelled = false;
@@ -135,6 +153,17 @@ export default function PublicVitalAiLite() {
         urgencyLevel: leadMetadata.urgencyLevel,
         patientMessage: followUp.patientMessage,
         staffNote: followUp.staffNote,
+      });
+      void trackFunnelEvent({
+        eventName: "vital_ai_submitted",
+        pathway,
+        leadType: leadMetadata.leadType,
+        urgencyLevel: leadMetadata.urgencyLevel,
+        valueLevel: leadMetadata.valueLevel,
+        metadata: {
+          submissionId: data.id ?? null,
+          bookingRequestId: bookingDraft?.requestId ?? null,
+        },
       });
       setSubmissionId(data.id ?? null);
       setStep("success");
@@ -521,12 +550,11 @@ export default function PublicVitalAiLite() {
       <div className="space" />
 
       <PublicFlowStatusCard
-        eyebrow="What Happens Next"
-        title="A calm, guided next step for the clinic and for you"
-        body="Choose a care direction, answer a few short questions, and send your contact details so the clinic can review your request and route you appropriately."
+        title="What Happens Next"
+        body="Once you send your request, our team will review it and follow up with the right next step."
         detail={pathway === "wound_care"
-          ? "For wound-care concerns, your answers help the team understand urgency, infection concerns, and whether faster follow-up or additional review is needed."
-          : "Depending on your concern, a coordinator may help with scheduling first or a provider may review the request before the next visit step is confirmed."}
+          ? "Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit. For wound-care concerns, your answers also help us understand urgency and whether faster follow-up is needed."
+          : "Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit."}
       />
     </PublicSiteLayout>
   );

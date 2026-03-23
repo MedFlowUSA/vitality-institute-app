@@ -623,7 +623,7 @@ export default function PatientHome() {
         title: "Your intake needs an update",
         message: "The clinic requested additional information before moving forward.",
         ctaLabel: "Update Intake",
-        ctaAction: () => navigate("/patient/intake/wound"),
+        ctaAction: () => navigate("/intake?pathway=wound-care&autostart=1"),
       });
     }
 
@@ -751,7 +751,7 @@ export default function PatientHome() {
         title: "Update Your Intake",
         message: "The clinic requested additional information before continuing your care review.",
         ctaLabel: "Update Intake",
-        ctaAction: () => navigate("/patient/intake/wound"),
+        ctaAction: () => navigate("/intake?pathway=wound-care&autostart=1"),
         tone: "warning",
       };
     }

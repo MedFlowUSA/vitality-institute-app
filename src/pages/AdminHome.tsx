@@ -33,6 +33,18 @@ type AppointmentRow = {
   notes: string | null;
 };
 
+type AnalyticsEventRow = {
+  id: string;
+  event_name: string;
+  pathway: string | null;
+  lead_type: string | null;
+  urgency_level: string | null;
+  value_level: string | null;
+  primary_offer: string | null;
+  secondary_offer: string | null;
+  created_at: string;
+};
+
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function toHHMM(t: string) {
@@ -73,6 +85,9 @@ export default function AdminHome() {
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
   const [apptsLoading, setApptsLoading] = useState(false);
   const [apptsErr, setApptsErr] = useState<string | null>(null);
+  const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEventRow[]>([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsErr, setAnalyticsErr] = useState<string | null>(null);
 
   const selectedLocation = useMemo(
     () => locations.find((l) => l.id === selectedLocationId) ?? null,
@@ -80,6 +95,41 @@ export default function AdminHome() {
   );
 
   const locName = (id: string) => locations.find((l) => l.id === id)?.name ?? id;
+
+  const analyticsSummary = useMemo(() => {
+    const last30Days = analyticsEvents.filter((event) => {
+      const age = Date.now() - new Date(event.created_at).getTime();
+      return age <= 30 * 24 * 60 * 60 * 1000;
+    });
+
+    const countBy = (predicate: (event: AnalyticsEventRow) => boolean) => last30Days.filter(predicate).length;
+    const offerCounts = new Map<string, number>();
+    for (const event of last30Days) {
+      if (!event.primary_offer) continue;
+      offerCounts.set(event.primary_offer, (offerCounts.get(event.primary_offer) ?? 0) + 1);
+    }
+
+    const topOffer = [...offerCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "No offers tracked yet";
+
+    return {
+      totalSubmissions: countBy((event) => event.event_name === "public_booking_submitted" || event.event_name === "vital_ai_submitted"),
+      highUrgencyWounds: countBy((event) => event.lead_type === "wound" && event.urgency_level === "high"),
+      highValueGlp1: countBy((event) => event.lead_type === "glp1" && event.value_level === "high"),
+      hormoneConsultPaths: countBy((event) => event.lead_type === "hormone" && event.event_name === "care_summary_viewed"),
+      careSummaryClicks: countBy(
+        (event) =>
+          event.event_name === "care_summary_primary_action_clicked" ||
+          event.event_name === "care_summary_secondary_action_clicked"
+      ),
+      topOffer,
+      leadTypeCounts: {
+        wound: countBy((event) => event.lead_type === "wound" && event.event_name === "vital_ai_submitted"),
+        glp1: countBy((event) => event.lead_type === "glp1" && event.event_name === "vital_ai_submitted"),
+        hormone: countBy((event) => event.lead_type === "hormone" && event.event_name === "care_summary_viewed"),
+        general: countBy((event) => event.lead_type === "general" && event.event_name === "vital_ai_submitted"),
+      },
+    };
+  }, [analyticsEvents]);
 
   const loadLocations = async () => {
     setErr(null);
@@ -198,9 +248,25 @@ export default function AdminHome() {
     setApptsLoading(false);
   };
 
+  const loadAnalytics = async () => {
+    setAnalyticsErr(null);
+    setAnalyticsLoading(true);
+
+    const { data, error } = await supabase
+      .from("analytics_events")
+      .select("id,event_name,pathway,lead_type,urgency_level,value_level,primary_offer,secondary_offer,created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (error) setAnalyticsErr(error.message);
+    setAnalyticsEvents((data as AnalyticsEventRow[]) ?? []);
+    setAnalyticsLoading(false);
+  };
+
   useEffect(() => {
     loadLocations();
     loadAppointments();
+    loadAnalytics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -251,19 +317,19 @@ export default function AdminHome() {
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <button className="btn btn-ghost" type="button" onClick={() => navigate("/")}>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/")}>
                 Home
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => navigate("/admin/staff")}>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/admin/staff")}>
                 Staff Management
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => navigate("/admin/inquiries")}>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/admin/inquiries")}>
                 Public Inquiries
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => navigate("/admin/booking-requests")}>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/admin/booking-requests")}>
                 Booking Requests
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => navigate("/admin/vital-ai-lite")}>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/admin/vital-ai-lite")}>
                 Vital AI Lite
               </button>
               <button
@@ -273,7 +339,7 @@ export default function AdminHome() {
               >
                 AI Plan Builder
               </button>
-              <button className="btn btn-ghost" onClick={signOut}>
+              <button className="btn btn-secondary" onClick={signOut}>
                 Sign out
               </button>
             </div>
@@ -333,6 +399,73 @@ export default function AdminHome() {
         <LocationPicker />
 
         <div className="space" />
+
+        <div className="card card-pad" style={{ marginBottom: 16 }}>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="h2">Funnel Analytics</div>
+              <div className="muted" style={{ marginTop: 4 }}>
+                Lightweight visibility into public submissions, Care Summary actions, and next-step conversion signals.
+              </div>
+            </div>
+            <button className="btn btn-secondary" type="button" onClick={loadAnalytics}>
+              Refresh Analytics
+            </button>
+          </div>
+
+          <div className="space" />
+
+          {analyticsLoading ? <div className="muted">Loading analytics...</div> : null}
+          {analyticsErr ? <div style={{ color: "crimson" }}>{analyticsErr}</div> : null}
+
+          {!analyticsLoading && !analyticsErr ? (
+            <>
+              <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                  <div className="muted" style={{ fontSize: 12 }}>New submissions</div>
+                  <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.totalSubmissions}</div>
+                </div>
+                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                  <div className="muted" style={{ fontSize: 12 }}>High urgency wound leads</div>
+                  <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.highUrgencyWounds}</div>
+                </div>
+                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                  <div className="muted" style={{ fontSize: 12 }}>High value GLP-1 leads</div>
+                  <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.highValueGlp1}</div>
+                </div>
+                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                  <div className="muted" style={{ fontSize: 12 }}>Hormone consult paths</div>
+                  <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.hormoneConsultPaths}</div>
+                </div>
+                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                  <div className="muted" style={{ fontSize: 12 }}>Care Summary clicks</div>
+                  <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.careSummaryClicks}</div>
+                </div>
+              </div>
+
+              <div className="space" />
+
+              <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+                <div className="card card-pad" style={{ flex: "1 1 280px" }}>
+                  <div className="h2">Lead Type Mix</div>
+                  <div className="space" />
+                  <div className="muted">Wound: {analyticsSummary.leadTypeCounts.wound}</div>
+                  <div className="muted">GLP-1: {analyticsSummary.leadTypeCounts.glp1}</div>
+                  <div className="muted">Hormone: {analyticsSummary.leadTypeCounts.hormone}</div>
+                  <div className="muted">General: {analyticsSummary.leadTypeCounts.general}</div>
+                </div>
+                <div className="card card-pad" style={{ flex: "2 1 420px" }}>
+                  <div className="h2">Most Common Recommended Next Step</div>
+                  <div className="space" />
+                  <div style={{ fontWeight: 700 }}>{analyticsSummary.topOffer}</div>
+                  <div className="muted" style={{ marginTop: 8 }}>
+                    Based on tracked primary offers across public funnel submissions and Care Summary views.
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
 
         {/* LOCATIONS */}
         <div className="card card-pad" style={{ marginBottom: 16 }}>
@@ -400,7 +533,7 @@ export default function AdminHome() {
                     </div>
 
                     <button
-                      className="btn btn-ghost"
+                      className="btn btn-secondary"
                       type="button"
                       onClick={() => setSelectedLocationId(l.id)}
                       title="Edit business hours"
@@ -527,7 +660,7 @@ export default function AdminHome() {
               </div>
             </div>
 
-            <button className="btn btn-ghost" type="button" onClick={loadAppointments}>
+            <button className="btn btn-secondary" type="button" onClick={loadAppointments}>
               Refresh
             </button>
           </div>

@@ -64,14 +64,14 @@ export default function PublicFlowStatusCard({
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             {actions.map((action) =>
               action.to ? (
-                <Link key={`${action.label}-${action.to}`} to={action.to} className={action.variant === "ghost" ? "btn btn-ghost" : "btn btn-primary"}>
+                <Link key={`${action.label}-${action.to}`} to={action.to} className={action.variant === "ghost" ? "btn btn-secondary" : "btn btn-primary"}>
                   {action.label}
                 </Link>
               ) : (
                 <button
                   key={action.label}
                   type="button"
-                  className={action.variant === "ghost" ? "btn btn-ghost" : "btn btn-primary"}
+                  className={action.variant === "ghost" ? "btn btn-secondary" : "btn btn-primary"}
                   onClick={action.onClick}
                 >
                   {action.label}
