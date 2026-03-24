@@ -22,34 +22,36 @@ export default function ProviderVisitQueue() {
   const [visits, setVisits] = useState<VisitRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const loadVisits = async () => {
-    setLoading(true);
-
-    const { data } = await supabase
-      .from("patient_visits")
-      .select(`
-        id,
-        visit_date,
-        location_id,
-        patient_id,
-        status,
-        patients(first_name,last_name)
-      `)
-      .order("visit_date", { ascending: false })
-      .limit(50);
-
-    setVisits(data ?? []);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    loadVisits();
+    let cancelled = false;
+
+    void (async () => {
+      const { data } = await supabase
+        .from("patient_visits")
+        .select(`
+          id,
+          visit_date,
+          location_id,
+          patient_id,
+          status,
+          patients(first_name,last_name)
+        `)
+        .order("visit_date", { ascending: false })
+        .limit(50);
+
+      if (cancelled) return;
+      setVisits(data ?? []);
+      setLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
     <div className="app-bg">
       <div className="shell">
-
         <VitalityHero
           title="Provider Visit Queue"
           subtitle="Active patient visits"
@@ -63,15 +65,13 @@ export default function ProviderVisitQueue() {
         <div className="space" />
 
         <div className="card card-pad">
-
-          {loading && <div className="muted">Loading visits…</div>}
+          {loading && <div className="muted">Loading visits...</div>}
 
           {!loading && visits.length === 0 && (
             <div className="muted">No visits found.</div>
           )}
 
           {!loading && visits.map((v) => {
-
             const p = Array.isArray(v.patients) ? v.patients[0] : null;
             const name = `${p?.first_name ?? ""} ${p?.last_name ?? ""}`;
 
@@ -82,7 +82,7 @@ export default function ProviderVisitQueue() {
                 style={{
                   justifyContent: "space-between",
                   padding: 12,
-                  borderBottom: "1px solid #eee"
+                  borderBottom: "1px solid #eee",
                 }}
               >
                 <div>
@@ -99,16 +99,14 @@ export default function ProviderVisitQueue() {
 
                 <button
                   className="btn btn-primary"
-                  onClick={() => nav(`/provider/visit/${v.id}`)}
+                  onClick={() => nav(`/provider/visits/${v.id}`)}
                 >
                   Open Visit
                 </button>
               </div>
             );
           })}
-
         </div>
-
       </div>
     </div>
   );

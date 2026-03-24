@@ -195,7 +195,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
       {
         id: "clear_fields",
         label: "Clear Fields",
-        apply: (_cur) => ({
+        apply: () => ({
           subjective: "",
           objective: "",
           assessment: "",
@@ -423,10 +423,10 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
     setPrinting(true);
     setErr(null);
     try {
-      const title = "Vitality Institute — SOAP Note";
-      const createdAt = row.created_at ? new Date(row.created_at).toLocaleString() : "—";
-      const updatedAt = row.updated_at ? new Date(row.updated_at).toLocaleString() : "—";
-      const signedAt = row.signed_at ? new Date(row.signed_at).toLocaleString() : "—";
+      const title = "Vitality Institute â€” SOAP Note";
+      const createdAt = row.created_at ? new Date(row.created_at).toLocaleString() : "â€”";
+      const updatedAt = row.updated_at ? new Date(row.updated_at).toLocaleString() : "â€”";
+      const signedAt = row.signed_at ? new Date(row.signed_at).toLocaleString() : "â€”";
 
       const html = `<!doctype html>
 <html>
@@ -455,8 +455,8 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
       <span class="pill">Status: ${escapeHtml(statusLabel)}</span>
     </div>
     <div style="margin-top:10px">
-      Created: ${escapeHtml(createdAt)} • Updated: ${escapeHtml(updatedAt)}<br/>
-      Signed: ${escapeHtml(signedAt)} • Signed By: ${escapeHtml(row.signed_by ?? "—")}
+      Created: ${escapeHtml(createdAt)} â€¢ Updated: ${escapeHtml(updatedAt)}<br/>
+      Signed: ${escapeHtml(signedAt)} â€¢ Signed By: ${escapeHtml(row.signed_by ?? "â€”")}
     </div>
     ${
       row.amended_from_id
@@ -542,17 +542,17 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
         </div>
         <div style={{ marginTop: 6 }}>
           Status: <strong style={{ color: "rgba(255,255,255,.92)" }}>{statusLabel}</strong>
-          {" • "}
+          {" â€¢ "}
           Created: {new Date(row.created_at).toLocaleString()}
-          {" • "}
+          {" â€¢ "}
           Updated: {new Date(row.updated_at).toLocaleString()}
         </div>
         <div style={{ marginTop: 4 }}>
           Signed: <strong style={{ color: "rgba(255,255,255,.92)" }}>{signedAt ?? "No"}</strong>
           {signedAt ? (
             <>
-              {" • "}Signed By:{" "}
-              <strong style={{ color: "rgba(255,255,255,.92)" }}>{row.signed_by ?? "—"}</strong>
+              {" â€¢ "}Signed By:{" "}
+              <strong style={{ color: "rgba(255,255,255,.92)" }}>{row.signed_by ?? "â€”"}</strong>
             </>
           ) : null}
         </div>
@@ -564,7 +564,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
               From: <strong style={{ color: "rgba(255,255,255,.92)" }}>{row.amended_from_id}</strong>
             </div>
             <div style={{ marginTop: 4 }}>
-              Reason: <strong style={{ color: "rgba(255,255,255,.92)" }}>{row.amendment_reason ?? "—"}</strong>
+              Reason: <strong style={{ color: "rgba(255,255,255,.92)" }}>{row.amendment_reason ?? "â€”"}</strong>
             </div>
           </div>
         ) : null}
@@ -577,7 +577,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
       <div className="card card-pad">
         <div className="h2">SOAP Note</div>
         <div className="space" />
-        <div className="muted">Loading SOAP note…</div>
+        <div className="muted">Loading SOAP noteâ€¦</div>
       </div>
     );
   }
@@ -665,7 +665,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
             value={row.subjective ?? ""}
             onChange={(e) => updateField("subjective", e.target.value)}
             disabled={!canEdit || isSigned}
-            placeholder="Patient complaints, HPI, symptoms…"
+            placeholder="Patient complaints, HPI, symptomsâ€¦"
           />
         </div>
 
@@ -679,7 +679,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
             value={row.objective ?? ""}
             onChange={(e) => updateField("objective", e.target.value)}
             disabled={!canEdit || isSigned}
-            placeholder="Vitals, exam findings, wound measurements…"
+            placeholder="Vitals, exam findings, wound measurementsâ€¦"
           />
         </div>
 
@@ -693,7 +693,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
             value={row.assessment ?? ""}
             onChange={(e) => updateField("assessment", e.target.value)}
             disabled={!canEdit || isSigned}
-            placeholder="Dx, clinical impression, problem list…"
+            placeholder="Dx, clinical impression, problem listâ€¦"
           />
         </div>
 
@@ -707,7 +707,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
             value={row.plan ?? ""}
             onChange={(e) => updateField("plan", e.target.value)}
             disabled={!canEdit || isSigned}
-            placeholder="Orders, procedures, follow-up, education…"
+            placeholder="Orders, procedures, follow-up, educationâ€¦"
           />
         </div>
       </div>
@@ -726,17 +726,17 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
           disabled={printing}
           title="Opens print dialog. Choose Save as PDF."
         >
-          {printing ? "Preparing…" : "Print / PDF"}
+          {printing ? "Preparingâ€¦" : "Print / PDF"}
         </button>
 
         {!isSigned ? (
           <>
             <button className="btn btn-ghost" type="button" onClick={saveDraft} disabled={!canEdit || saving}>
-              {saving ? "Saving…" : "Save Draft"}
+              {saving ? "Savingâ€¦" : "Save Draft"}
             </button>
 
             <button className="btn btn-primary" type="button" onClick={signNote} disabled={!canEdit || signing}>
-              {signing ? "Signing…" : "Sign Note"}
+              {signing ? "Signingâ€¦" : "Sign Note"}
             </button>
           </>
         ) : (
@@ -804,7 +804,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
                 Cancel
               </button>
               <button className="btn btn-primary" type="button" disabled={amending} onClick={createAmendmentDraft}>
-                {amending ? "Creating…" : "Create Amendment Draft"}
+                {amending ? "Creatingâ€¦" : "Create Amendment Draft"}
               </button>
             </div>
           </div>

@@ -14,7 +14,7 @@ type WorkspaceItem = {
 
 const WORKSPACE_ITEMS: WorkspaceItem[] = [
   { label: "Queue", to: "/provider/queue" },
-  { label: "Intake Review", to: "/provider/intake" },
+  { label: "Intakes", to: "/provider/intakes" },
   { label: "Vital AI Requests", to: "/provider/vital-ai" },
   { label: "Referrals", to: "/provider/referrals" },
   { label: "Labs", to: "/provider/labs" },

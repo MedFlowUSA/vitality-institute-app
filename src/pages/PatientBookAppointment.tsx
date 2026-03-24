@@ -32,7 +32,7 @@ function getBookingErrorMessage(error: unknown) {
 }
 
 export default function PatientBookAppointment() {
-  const { user, signOut, resumeKey } = useAuth();
+  const { user, signOut } = useAuth();
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -49,7 +49,7 @@ export default function PatientBookAppointment() {
   const [startTimeLocal, setStartTimeLocal] = useState(""); // datetime-local
   const [notes, setNotes] = useState("");
 
-  const storedDraft = useMemo(() => readPublicBookingDraft(), [resumeKey]);
+  const storedDraft = readPublicBookingDraft();
   const prefillLocationId = searchParams.get("locationId") ?? storedDraft?.locationId ?? "";
   const prefillServiceId = searchParams.get("serviceId") ?? storedDraft?.serviceId ?? "";
   const prefillStart = searchParams.get("start") ?? storedDraft?.startTimeLocal ?? "";
@@ -164,8 +164,7 @@ export default function PatientBookAppointment() {
     };
 
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nav, prefillLocationId, prefillNotes, prefillServiceId, prefillStart, resumeKey, user?.id]);
+  }, [nav, prefillLocationId, prefillNotes, prefillServiceId, prefillStart, user?.id]);
 
   useEffect(() => {
     const selectedStillVisible = servicesForLocation.some((service) => service.id === serviceId);
@@ -280,7 +279,7 @@ export default function PatientBookAppointment() {
       .insert([
         {
           location_id: renderedLocationId,
-          patient_id: patient.id,          // ✅ patients.id (NOT auth uid)
+          patient_id: patient.id,          // patients.id (not auth uid)
           provider_user_id: null,          // can be assigned later
           service_id: renderedServiceId,
           start_time: startIso,
@@ -316,7 +315,7 @@ export default function PatientBookAppointment() {
     <div className="app-bg">
       <div className="shell">
         <RouteHeader
-          title="Book Appointment"
+          title="Book Visit"
           subtitle="Choose a service and time to continue."
           backTo="/patient"
           homeTo="/patient"
@@ -330,14 +329,14 @@ export default function PatientBookAppointment() {
         <div className="space" />
 
         <div className="card card-pad">
-          <div className="h2">Book Appointment</div>
+          <div className="h2">Book Visit</div>
           <div className="muted" style={{ marginTop: 6 }}>
-            Choose a location, service, and time — then you’ll be taken straight to intake.
+            Choose a location, service, and time, then you'll be taken straight to intake.
           </div>
 
           <div className="space" />
 
-          {loading && <div className="muted">Loading…</div>}
+          {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading && hasRenderableFormState && (
@@ -357,7 +356,7 @@ export default function PatientBookAppointment() {
                   {servicesForLocation.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
-                      {s.duration_minutes ? ` • ${s.duration_minutes} min` : ""}
+                      {s.duration_minutes ? ` - ${s.duration_minutes} min` : ""}
                     </option>
                   ))}
                 </select>
@@ -403,7 +402,7 @@ export default function PatientBookAppointment() {
               </div>
 
               <button className="btn btn-primary" onClick={createAppointment} disabled={ctaDisabled} type="button">
-                {saving ? "Creating…" : "Continue to Intake"}
+                {saving ? "Creating..." : "Continue to Intake"}
               </button>
             </>
           )}
@@ -413,3 +412,4 @@ export default function PatientBookAppointment() {
     </div>
   );
 }
+

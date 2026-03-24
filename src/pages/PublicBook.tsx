@@ -9,7 +9,7 @@ import { createBookingRequest } from "../lib/bookingRequests";
 import { buildFollowUpMessage, resolveBookingRequestLead } from "../lib/publicFollowUpEngine";
 import { getPublicOfferingBySlug, PUBLIC_OFFERINGS, type PublicOffering } from "../lib/publicMarketingCatalog";
 import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
-import { buildAuthRoute, buildOnboardingRoute } from "../lib/routeFlow";
+import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath } from "../lib/routeFlow";
 import {
   getIntakeOnlyPathwayForService,
   getPublicVitalAiPathwayParam,
@@ -255,7 +255,7 @@ export default function PublicBook() {
     hydratedSelectionRef.current = true;
     setLocationId(nextLocationId);
     setServiceId(nextServiceId);
-  }, [bookingOptions, draft?.locationId, draft?.serviceId, loading, locationId, locations, matchedInterestService?.service.id, matchedInterestService?.service.location_id, searchParams, serviceId, services]);
+  }, [bookingOptions, draft?.locationId, draft?.serviceId, loading, locationId, locations, matchedInterestService?.service.id, matchedInterestService?.service.location_id, searchParams, selectedInterestSlug, serviceId, services]);
 
   useEffect(() => {
     if (loading || !renderedLocationId) return;
@@ -341,7 +341,20 @@ export default function PublicBook() {
 
     if (intakeOnlyPathway) {
       const nextPathway = selectedServiceRow ? getPublicVitalAiPathwayParam(selectedServiceRow) : intakeOnlyPathway;
-      navigate(`/vital-ai?pathway=${encodeURIComponent(nextPathway)}`);
+      const intakePath = buildPatientIntakePath({ pathway: nextPathway, autostart: true });
+
+      if (user?.id && role === "patient") {
+        navigate(intakePath);
+        return;
+      }
+
+      if (user?.id && role && role !== "patient") {
+        navigate(getHomeRouteForRole(role), { replace: true });
+        return;
+      }
+
+      const onboardingPath = buildOnboardingRoute({ next: intakePath });
+      navigate(buildAuthRoute({ mode: "signup", next: onboardingPath }));
       return;
     }
 
@@ -416,7 +429,11 @@ export default function PublicBook() {
         requestId: request.id,
       });
 
-      const onboardingPath = buildOnboardingRoute({ next: "/intake", handoff: "booking_request" });
+      const nextIntakePath = buildPatientIntakePath({
+        pathway: selectedServiceRow ? getPublicVitalAiPathwayParam(selectedServiceRow) : null,
+        autostart: Boolean(selectedServiceRow),
+      });
+      const onboardingPath = buildOnboardingRoute({ next: nextIntakePath, handoff: "booking_request" });
       navigate(buildAuthRoute({ mode: "signup", next: onboardingPath, handoff: "booking_request" }));
     } catch {
       setSubmitError("Something went wrong. Please try again.");
@@ -438,8 +455,8 @@ export default function PublicBook() {
         <div className="h2">{user?.id ? "Continue Your Booking" : "Start Your Visit Request"}</div>
         <div className="muted" style={{ marginTop: 4 }}>
           {user?.id
-            ? "We’ll carry your visit details straight into booking and intake."
-            : "Start with the essentials first. We’ll save your preferred visit details, then guide you into account setup and intake."}
+            ? "We'll carry your visit details straight into booking and intake."
+            : "Start with the essentials first. We'll save your preferred visit details, then guide you into account setup and intake."}
         </div>
 
         {interestMessage ? (
@@ -472,20 +489,6 @@ export default function PublicBook() {
           </>
         ) : (
           <>
-            {false ? (
-              <>
-                <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
-                  <div className="h2">Selected Program Interest</div>
-                  <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                    <strong>{selectedInterest.title}</strong> — {selectedInterest.price}
-                  </div>
-                  <div className="surface-light-helper" style={{ marginTop: 8 }}>
-                    This public pricing item may map to a consultation, monthly program, or package. Choose the best-fit visit request below and the clinic will confirm the exact next step after review.
-                  </div>
-                </div>
-              </>
-            ) : null}
-
             {hasSelectedInterest ? (
               <div style={{ marginBottom: 14 }}>
                 <PublicFlowStatusCard
@@ -502,7 +505,7 @@ export default function PublicBook() {
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
                 {user?.id
                   ? "Choose your service and preferred time now, then continue into a guided intake before your visit."
-                  : "Choose your service and preferred time now. We’ll save your request, then guide you through account setup and intake while the clinic reviews availability."}
+                  : "Choose your service and preferred time now. We'll save your request, then guide you through account setup and intake while the clinic reviews availability."}
               </div>
             </div>
 
@@ -612,3 +615,4 @@ export default function PublicBook() {
     </PublicSiteLayout>
   );
 }
+

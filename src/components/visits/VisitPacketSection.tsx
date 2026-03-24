@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 type Props = {
@@ -7,42 +7,46 @@ type Props = {
 };
 
 export default function VisitPacketSection({ visitId, patientId }: Props) {
-  const [loading, setLoading] = useState(true);
   const [wounds, setWounds] = useState<any[]>([]);
   const [plan, setPlan] = useState<any>(null);
   const [files, setFiles] = useState<any[]>([]);
-
-  const load = async () => {
-    setLoading(true);
-
-    const { data: woundRows } = await supabase
-      .from("wound_assessments")
-      .select("*")
-      .eq("visit_id", visitId);
-
-    const { data: planRow } = await supabase
-      .from("patient_treatment_plans")
-      .select("*")
-      .eq("visit_id", visitId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const { data: fileRows } = await supabase
-      .from("patient_files")
-      .select("*")
-      .eq("patient_id", patientId);
-
-    setWounds(woundRows ?? []);
-    setPlan(planRow ?? null);
-    setFiles(fileRows ?? []);
-
-    setLoading(false);
-  };
+  const [loadedPacketKey, setLoadedPacketKey] = useState<string | null>(null);
+  const packetKey = useMemo(() => `${visitId}:${patientId}`, [patientId, visitId]);
+  const loading = loadedPacketKey !== packetKey;
 
   useEffect(() => {
-    load();
-  }, [visitId]);
+    let cancelled = false;
+
+    void (async () => {
+      const { data: woundRows } = await supabase
+        .from("wound_assessments")
+        .select("*")
+        .eq("visit_id", visitId);
+
+      const { data: planRow } = await supabase
+        .from("patient_treatment_plans")
+        .select("*")
+        .eq("visit_id", visitId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const { data: fileRows } = await supabase
+        .from("patient_files")
+        .select("*")
+        .eq("patient_id", patientId);
+
+      if (cancelled) return;
+      setWounds(woundRows ?? []);
+      setPlan(planRow ?? null);
+      setFiles(fileRows ?? []);
+      setLoadedPacketKey(packetKey);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [packetKey, patientId, visitId]);
 
   if (loading) {
     return (

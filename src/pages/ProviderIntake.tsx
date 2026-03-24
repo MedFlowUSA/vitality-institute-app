@@ -1,10 +1,11 @@
 // src/pages/ProviderIntake.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import DictationTextarea from "../components/DictationTextarea";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
+import { getErrorMessage } from "../lib/patientRecords";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
@@ -12,6 +13,7 @@ import { buildProviderIntakeGuide } from "../lib/provider/providerGuide";
 import { getSignedUrl } from "../lib/patientFiles";
 
 type LocationRow = { id: string; name: string };
+type LocationAssignmentRow = { location_id: string };
 
 type IntakeStatus = "submitted" | "approved" | "needs_info" | "locked" | "rejected" | string;
 
@@ -125,7 +127,7 @@ export default function ProviderIntake() {
   const active = rows.find((r) => r.id === activeId) ?? null;
   const guide = buildProviderIntakeGuide(!!active);
 
-  const loadAllowedLocations = async () => {
+  const loadAllowedLocations = useCallback(async () => {
     if (!user?.id) {
       setAllowedLocationIds([]);
       return [] as string[];
@@ -145,7 +147,7 @@ export default function ProviderIntake() {
       .eq("user_id", user.id);
 
     if (!ulrErr && ulr && ulr.length > 0) {
-      ids = (ulr ?? []).map((r: any) => r.location_id).filter(Boolean);
+      ids = (ulr as LocationAssignmentRow[]).map((row) => row.location_id).filter(Boolean);
     } else {
       const { data: ul, error: ulErr2 } = await supabase
         .from("user_locations")
@@ -153,7 +155,7 @@ export default function ProviderIntake() {
         .eq("user_id", user.id);
 
       if (ulErr2) throw new Error(ulErr2.message);
-      ids = (ul ?? []).map((r: any) => r.location_id).filter(Boolean);
+      ids = (ul as LocationAssignmentRow[]).map((row) => row.location_id).filter(Boolean);
     }
 
     setAllowedLocationIds(ids);
@@ -161,9 +163,9 @@ export default function ProviderIntake() {
     if (!locationId && ids.length > 0) setLocationId(ids[0]);
 
     return ids;
-  };
+  }, [isAdmin, locationId, user?.id]);
 
-  const loadLocations = async (allowedIds: string[]) => {
+  const loadLocations = useCallback(async (allowedIds: string[]) => {
     if (isAdmin) {
       const { data, error } = await supabase.from("locations").select("id,name").order("name");
       if (error) throw new Error(error.message);
@@ -179,9 +181,9 @@ export default function ProviderIntake() {
     const { data, error } = await supabase.from("locations").select("id,name").in("id", allowedIds).order("name");
     if (error) throw new Error(error.message);
     setLocations((data as LocationRow[]) ?? []);
-  };
+  }, [isAdmin]);
 
-  const loadPatientsForRows = async (list: WoundIntakeRow[]) => {
+  const loadPatientsForRows = useCallback(async (list: WoundIntakeRow[]) => {
     const ids = Array.from(new Set(list.map((r) => r.patient_id).filter(Boolean)));
     if (ids.length === 0) {
       setPatientsById({});
@@ -200,9 +202,9 @@ export default function ProviderIntake() {
       map[p.id] = p;
     });
     setPatientsById(map);
-  };
+  }, []);
 
-  const loadIntakes = async (allowedIds: string[]) => {
+  const loadIntakes = useCallback(async (allowedIds: string[]) => {
     setErr(null);
 
     let q = supabase
@@ -243,13 +245,13 @@ export default function ProviderIntake() {
     const { data, error } = await q;
     if (error) throw new Error(error.message);
 
-    const list = ((data ?? []) as unknown as WoundIntakeRow[]);
+    const list = ((data as unknown) as WoundIntakeRow[] | null) ?? [];
     setRows(list);
 
     await loadPatientsForRows(list);
 
     if (!activeId && list.length > 0) setActiveId(list[0].id);
-  };
+  }, [activeId, isAdmin, loadPatientsForRows, locationId, statusFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -267,8 +269,8 @@ export default function ProviderIntake() {
         if (cancelled) return;
 
         await loadIntakes(allowed);
-      } catch (e: any) {
-        if (!cancelled) setErr(e?.message ?? "Failed to load wound intake review.");
+      } catch (error: unknown) {
+        if (!cancelled) setErr(getErrorMessage(error, "Failed to load wound intake review."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -277,8 +279,7 @@ export default function ProviderIntake() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resumeKey, user?.id, isAdmin]);
+  }, [isAdmin, loadAllowedLocations, loadIntakes, loadLocations, resumeKey, user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -288,16 +289,15 @@ export default function ProviderIntake() {
       try {
         const allowed = isAdmin ? [] : allowedLocationIds;
         await loadIntakes(allowed);
-      } catch (e: any) {
-        if (!cancelled) setErr(e?.message ?? "Failed to refresh intakes.");
+      } catch (error: unknown) {
+        if (!cancelled) setErr(getErrorMessage(error, "Failed to refresh intakes."));
       }
     })();
 
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationId, statusFilter, isAdmin, allowedLocationIds.join(","), resumeKey]);
+  }, [allowedLocationIds, isAdmin, loadIntakes, locationId, resumeKey, statusFilter, user?.id]);
 
   const updateStatus = async (id: string, status: string, providerNotes: string) => {
     if (!user?.id) return;
@@ -309,12 +309,18 @@ export default function ProviderIntake() {
         p_intake_id: id,
         p_status: status,
         p_provider_notes: providerNotes || null,
-      } as any);
+      });
       if (error) throw error;
     };
 
     const tryDirect = async () => {
-      const patch: any = {
+      const patch: {
+        status: string;
+        provider_notes: string | null;
+        reviewed_by: string;
+        reviewed_at: string;
+        locked_at?: string;
+      } = {
         status,
         provider_notes: providerNotes || null,
         reviewed_by: user.id,
@@ -334,8 +340,8 @@ export default function ProviderIntake() {
       // Fallback to direct update
       try {
         await tryDirect();
-      } catch (e: any) {
-        alert(e?.message ?? "Failed to update intake.");
+      } catch (error: unknown) {
+        alert(getErrorMessage(error, "Failed to update intake."));
         return;
       }
     }
@@ -348,7 +354,7 @@ export default function ProviderIntake() {
     <div className="app-bg">
       <div className="shell">
         <RouteHeader
-          title="Intake Review"
+          title="Intakes"
           subtitle="Review and work submitted wound intakes."
           backTo="/provider"
           homeTo="/provider"
@@ -545,7 +551,7 @@ function WoundIntakeDetail({
 
   useEffect(() => {
     setNote(row.provider_notes ?? "");
-  }, [row.id]);
+  }, [row.id, row.provider_notes]);
 
   const wound = (row.wound_data ?? {}) as WoundData;
   const uploads = (wound.uploads ?? []) as WoundUpload[];
@@ -587,7 +593,6 @@ function WoundIntakeDetail({
     setSignedUploads([]);
     setLoadingLinks(false);
     // don’t auto-fetch links on every selection; keep it user-triggered for speed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row.id]);
 
   return (

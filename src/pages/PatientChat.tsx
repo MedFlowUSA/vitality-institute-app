@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { getErrorMessage, getPatientRecordIdForProfile } from "../lib/patientRecords";
 import { supabase } from "../lib/supabase";
 import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
 import VitalityHero from "../components/VitalityHero";
@@ -30,7 +31,6 @@ type MessageRow = {
 };
 
 type LocationRow = { id: string; name: string };
-
 function threadStatusBadge(status: string) {
   const s = (status || "").toLowerCase();
   const base = {
@@ -99,13 +99,13 @@ export default function PatientChat() {
     return "Message Thread";
   };
 
-  const loadLocations = async () => {
+  const loadLocations = useCallback(async () => {
     const { data, error } = await supabase.from("locations").select("id,name").order("name");
     if (error) throw new Error(error.message);
     setLocations((data as LocationRow[]) ?? []);
-  };
+  }, []);
 
-  const loadThreads = async () => {
+  const loadThreads = useCallback(async () => {
     if (!user) return;
 
     const { data, error } = await supabase
@@ -127,9 +127,9 @@ export default function PatientChat() {
     }
 
     if (!activeThreadId && rows.length > 0) setActiveThreadId(rows[0].id);
-  };
+  }, [activeThreadId, preselectThreadId, user]);
 
-  const loadMessages = async (threadId: string) => {
+  const loadMessages = useCallback(async (threadId: string) => {
     const { data, error } = await supabase
       .from("chat_messages")
       .select("id,created_at,thread_id,sender_id,body,is_internal,attachment_file_id,attachment_name,attachment_url")
@@ -141,7 +141,7 @@ export default function PatientChat() {
 
     const safe = ((data as MessageRow[]) ?? []).filter((m) => m.is_internal !== true);
     setMessages(safe);
-  };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -150,13 +150,13 @@ export default function PatientChat() {
       try {
         await loadLocations();
         await loadThreads();
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load.");
+      } catch (error: unknown) {
+        setErr(getErrorMessage(error, "Failed to load."));
       } finally {
         setLoading(false);
       }
     })();
-  }, [user?.id, preselectThreadId]); // eslint-disable-line
+  }, [loadLocations, loadThreads, preselectThreadId, user?.id]);
 
   useEffect(() => {
     if (!activeThreadId) {
@@ -167,11 +167,11 @@ export default function PatientChat() {
     (async () => {
       try {
         await loadMessages(activeThreadId);
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load messages.");
+      } catch (error: unknown) {
+        setErr(getErrorMessage(error, "Failed to load messages."));
       }
     })();
-  }, [activeThreadId]);
+  }, [activeThreadId, loadMessages]);
 
   useEffect(() => {
     if (!activeThreadId) return;
@@ -191,7 +191,7 @@ export default function PatientChat() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeThreadId]); // eslint-disable-line
+  }, [activeThreadId, loadMessages, loadThreads]);
 
   const createThread = async () => {
     if (!user) return;
@@ -225,8 +225,8 @@ export default function PatientChat() {
 
       await loadThreads();
       if (data?.id) setActiveThreadId(data.id);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to create thread.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to create thread."));
     } finally {
       setCreatingThread(false);
     }
@@ -262,15 +262,7 @@ export default function PatientChat() {
       if (attachmentFile) {
         setUploadingAttachment(true);
 
-        const { data: p, error: pErr } = await supabase
-          .from("patients")
-          .select("id")
-          .eq("profile_id", user.id)
-          .maybeSingle();
-
-        if (pErr) throw pErr;
-
-        const patientId = (p as any)?.id as string | undefined;
+        const patientId = await getPatientRecordIdForProfile(user.id);
         if (!patientId) throw new Error("Patient record not found for file upload.");
 
         const uploaded = await uploadPatientFile({
@@ -290,7 +282,7 @@ export default function PatientChat() {
         }
 
         attachmentPayload = {
-          attachment_file_id: (uploaded as any)?.id ?? null,
+          attachment_file_id: null,
           attachment_name: attachmentFile.name,
           attachment_url: signedUrl,
         };
@@ -313,8 +305,8 @@ export default function PatientChat() {
 
       await loadMessages(activeThreadId);
       await loadThreads();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to send message.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to send message."));
     } finally {
       setSending(false);
       setUploadingAttachment(false);

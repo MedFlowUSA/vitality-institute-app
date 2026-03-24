@@ -19,7 +19,7 @@ export async function uploadReferralFile(opts: {
   bucket?: string; // default patient-files
 }) {
   const bucket = opts.bucket ?? "patient-files";
-  const safeName = opts.file.name.replace(/[^\w.\-]+/g, "_");
+  const safeName = opts.file.name.replace(/[^\\w.-]+/g, "_");
   const path = `referrals/${opts.referralId}/${Date.now()}_${safeName}`;
 
   // 1) upload to storage

@@ -244,7 +244,7 @@ export default function PatientBooking() {
     <div className="app-bg">
       <div className="shell">
         <RouteHeader
-          title="Book Appointment"
+          title="Book Visit"
           subtitle="Choose a service, time, and next step."
           backTo="/patient"
           homeTo="/patient"
@@ -258,7 +258,7 @@ export default function PatientBooking() {
         <div className="space" />
 
         <VitalityHero
-          title="Book Appointment"
+          title="Book Visit"
           subtitle="Select your service, pick a time, and continue to intake."
           secondaryCta={{ label: "Back", to: "/patient" }}
           rightActions={null}

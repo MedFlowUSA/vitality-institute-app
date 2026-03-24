@@ -8,12 +8,23 @@ import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
 import { ensureLegacyAppointmentThread } from "../lib/messaging/legacyChat";
+import { getErrorMessage } from "../lib/patientRecords";
 import { buildProviderHomeGuide } from "../lib/provider/providerGuide";
 import { getVirtualVisitState } from "../lib/virtualVisits";
 
 type LocationRow = { id: string; name: string };
 type ServiceRow = { id: string; name: string; location_id: string };
 type UserLocationRow = { location_id: string; is_primary: boolean };
+type PatientNameRow = {
+  id?: string | null;
+  profile_id?: string | null;
+  first_name: string | null;
+  last_name: string | null;
+};
+type AppointmentStatusRow = { status: string | null };
+type IntakeStatusRow = { id: string };
+type VisitRpcResult = { id?: string | null } | string | null;
+type ExistingVisitRow = { id: string };
 
 type ApptRow = {
   id: string;
@@ -83,6 +94,11 @@ export default function ProviderHome() {
   }, [services]);
 
   const patientLabel = (id: string) => patientNames[id] ?? "Patient";
+  const getVisitIdFromRpc = (result: VisitRpcResult) => {
+    if (typeof result === "string") return result;
+    if (result && typeof result === "object" && "id" in result) return result.id ?? null;
+    return null;
+  };
 
   const nextAppointments = useMemo(() => appointments.slice(0, 3), [appointments]);
   const guide = useMemo(() => buildProviderHomeGuide(), []);
@@ -105,7 +121,7 @@ export default function ProviderHome() {
   const fmtDateTime = (iso: string) =>
     new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-  const getLocationScopeFilter = (query: any) => {
+  const getLocationScopeFilter = <T extends { eq(column: string, value: string): T }>(query: T) => {
     if (!activeLocationId) return query;
     return query.eq("location_id", activeLocationId);
   };
@@ -217,8 +233,8 @@ export default function ProviderHome() {
       if (byProfileErr) throw byProfileErr;
 
       const names: Record<string, string> = {};
-      [((byIdRows as any[]) ?? []), ((byProfileRows as any[]) ?? [])].forEach((group) => {
-        group.forEach((row: any) => {
+      [((byIdRows as PatientNameRow[] | null) ?? []), ((byProfileRows as PatientNameRow[] | null) ?? [])].forEach((group) => {
+        group.forEach((row) => {
           const key = row.id ?? row.profile_id;
           if (!key) return;
           names[key] = `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || "Patient";
@@ -226,8 +242,8 @@ export default function ProviderHome() {
       });
 
       setPatientNames(names);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load appointments.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to load appointments."));
       setAppointments([]);
       setPatientNames({});
     } finally {
@@ -292,15 +308,15 @@ export default function ProviderHome() {
 
       setCounts({
         apptsToday: (todayRows ?? []).length,
-        requestedToday: (todayRows ?? []).filter((item: any) => (item.status || "").toLowerCase() === "requested").length,
-        confirmedToday: (todayRows ?? []).filter((item: any) => (item.status || "").toLowerCase() === "confirmed").length,
-        completedToday: (todayRows ?? []).filter((item: any) => (item.status || "").toLowerCase() === "completed").length,
-        requestedUpcoming: (upcomingRows ?? []).filter((item: any) => (item.status || "").toLowerCase() === "requested").length,
-        confirmedUpcoming: (upcomingRows ?? []).filter((item: any) => (item.status || "").toLowerCase() === "confirmed").length,
-        woundIntakesPending: (intakeRows ?? []).length,
+        requestedToday: ((todayRows as AppointmentStatusRow[] | null) ?? []).filter((item) => (item.status || "").toLowerCase() === "requested").length,
+        confirmedToday: ((todayRows as AppointmentStatusRow[] | null) ?? []).filter((item) => (item.status || "").toLowerCase() === "confirmed").length,
+        completedToday: ((todayRows as AppointmentStatusRow[] | null) ?? []).filter((item) => (item.status || "").toLowerCase() === "completed").length,
+        requestedUpcoming: ((upcomingRows as AppointmentStatusRow[] | null) ?? []).filter((item) => (item.status || "").toLowerCase() === "requested").length,
+        confirmedUpcoming: ((upcomingRows as AppointmentStatusRow[] | null) ?? []).filter((item) => (item.status || "").toLowerCase() === "confirmed").length,
+        woundIntakesPending: ((intakeRows as IntakeStatusRow[] | null) ?? []).length,
       });
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load provider counts.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to load provider counts."));
     } finally {
       setCountsLoading(false);
     }
@@ -315,8 +331,8 @@ export default function ProviderHome() {
       setLoading(true);
       try {
         await loadBase(user.id);
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load base data.");
+      } catch (e: unknown) {
+        setErr(getErrorMessage(e, "Failed to load base data."));
       } finally {
         setLoading(false);
       }
@@ -337,8 +353,8 @@ export default function ProviderHome() {
       try {
         await loadBase(user.id);
         await refreshAll();
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to recover the provider dashboard after returning to the app.");
+      } catch (e: unknown) {
+        setErr(getErrorMessage(e, "Failed to recover the provider dashboard after returning to the app."));
       }
     })();
   }, [resumeKey, user?.id]);
@@ -353,8 +369,8 @@ export default function ProviderHome() {
     setErr(null);
     try {
       await setActiveLocationId(nextLocationId || null);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to update active location.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to update active location."));
     } finally {
       setLocationSaving(false);
     }
@@ -390,8 +406,8 @@ export default function ProviderHome() {
       });
 
       navigate(`/provider/chat?threadId=${threadId}`);
-    } catch (error: any) {
-      setErr(error?.message ?? "Could not open conversation.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Could not open conversation."));
     }
   };
 
@@ -405,7 +421,7 @@ export default function ProviderHome() {
         .from("patient_visits")
         .select("id")
         .eq("appointment_id", appt.id)
-        .maybeSingle();
+        .maybeSingle<ExistingVisitRow>();
 
       if (visitErr) throw visitErr;
 
@@ -422,13 +438,13 @@ export default function ProviderHome() {
 
       if (rpcErr) throw rpcErr;
 
-      const nextVisitId = typeof visitId === "string" ? visitId : (visitId as any)?.id;
+      const nextVisitId = getVisitIdFromRpc(visitId as VisitRpcResult);
       if (!nextVisitId) throw new Error("Visit created but no visitId was returned.");
 
       navigate(`/provider/patients/${visitPatientId}?visitId=${nextVisitId}`);
       await refreshAll();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to start visit.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to start visit."));
     } finally {
       setStartingVisitId(null);
     }
@@ -645,8 +661,8 @@ export default function ProviderHome() {
                         <button className="btn btn-secondary" type="button" onClick={() => navigate(`/provider/patients/${appt.patient_id}`)}>
                           Open Patient
                         </button>
-                        <button className="btn btn-secondary" type="button" onClick={() => navigate("/provider/intake")}>
-                          Intake Review
+                        <button className="btn btn-secondary" type="button" onClick={() => navigate("/provider/intakes")}>
+                          Intakes
                         </button>
                       </div>
 

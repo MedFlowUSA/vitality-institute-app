@@ -59,7 +59,7 @@ export type ConversationMessage = {
   edited_at: string | null;
   mentions: MessageMention[];
   attachments: ConversationAttachment[];
-  metadata_json: Record<string, any> | null;
+  metadata_json: Record<string, unknown> | null;
 };
 
 type PatientRow = {
@@ -105,7 +105,7 @@ type MessageRow = {
   created_at: string;
   edited_at: string | null;
   reply_to_message_id: string | null;
-  metadata_json: Record<string, any> | null;
+  metadata_json: Record<string, unknown> | null;
 };
 
 type AttachmentRow = {
@@ -674,7 +674,7 @@ export async function sendConversationMessage(args: {
 
       let signedUrl: string | null = null;
       try {
-        signedUrl = await getSignedUrl((uploaded as any).bucket, (uploaded as any).path);
+        signedUrl = await getSignedUrl(uploaded.bucket, uploaded.path);
       } catch {
         signedUrl = null;
       }
@@ -682,7 +682,7 @@ export async function sendConversationMessage(args: {
       const { error: attachmentErr } = await supabase.from("message_attachments").insert([
         {
           message_id: (message as MessageRow).id,
-          patient_file_id: (uploaded as any).id ?? null,
+          patient_file_id: uploaded.id ?? null,
           file_name: file.name,
           file_url: signedUrl,
           mime_type: file.type || null,

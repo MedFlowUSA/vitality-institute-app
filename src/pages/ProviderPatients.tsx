@@ -203,8 +203,8 @@ export default function ProviderPatients() {
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <button className="btn btn-primary" type="button" onClick={() => nav("/provider/intake")}>
-                Intake Review
+              <button className="btn btn-primary" type="button" onClick={() => nav("/provider/intakes")}>
+                Intakes
               </button>
               <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/labs")}>
                 Labs
@@ -307,7 +307,7 @@ export default function ProviderPatients() {
                           New Visit
                         </button>
 
-                        <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/intake`)}>
+                        <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/intakes`)}>
                           Intake
                         </button>
 

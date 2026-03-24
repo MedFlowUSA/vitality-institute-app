@@ -1,6 +1,6 @@
 // src/App.tsx
 import { useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthProvider";
 import { supabase } from "./lib/supabase";
 
@@ -42,7 +42,6 @@ import ProviderPatients from "./pages/ProviderPatients";
 import ProviderPatientCenter from "./pages/ProviderPatientCenter";
 import WoundTimeline from "./pages/WoundTimeline";
 import ProviderIntake from "./pages/ProviderIntake";
-import ProviderIntakeQueue from "./pages/ProviderIntakeQueue";
 import ProviderChat from "./pages/ProviderChat";
 import ProviderLabs from "./pages/ProviderLabs";
 import ProviderAI from "./pages/ProviderAI";
@@ -60,6 +59,7 @@ import ServicesPanel from "./pages/ServicesPanel";
 import AdminVitalAiQueue from "./pages/AdminVitalAiQueue";
 import AdminVitalAiLeadDetail from "./pages/AdminVitalAiLeadDetail";
 import AdminPublicVitalAiSubmissions from "./pages/AdminPublicVitalAiSubmissions";
+import { buildOnboardingRoute } from "./lib/routeFlow";
 
 function FullscreenLoader({
   text = "Loading...",
@@ -239,6 +239,85 @@ function PatientEntryRouter() {
   return <PatientHome />;
 }
 
+function RequirePatientProfile({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const location = useLocation();
+  const [loading, setLoading] = useState(true);
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let cancelled = false;
+
+    (async () => {
+      setErr(null);
+      setLoading(true);
+
+      try {
+        const { data, error } = await supabase
+          .from("patients")
+          .select("id")
+          .eq("profile_id", user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+        if (error) throw error;
+
+        setHasProfile(!!data?.id);
+      } catch (e: unknown) {
+        if (!cancelled) setErr(getErrorMessage(e, "Failed to check patient profile."));
+        if (!cancelled) setHasProfile(false);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  if (loading) return <FullscreenLoader />;
+
+  if (err) {
+    return (
+      <FullscreenLoader
+        text={`Patient profile check failed:\n${err}`}
+        secondary="Retry"
+        onSecondary={() => window.location.reload()}
+      />
+    );
+  }
+
+  if (!hasProfile) {
+    const nextPath = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to={buildOnboardingRoute({ next: nextPath })} replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function withPatientProfile(element: React.ReactNode) {
+  return withRole(PATIENT_ROLES, <RequirePatientProfile>{element}</RequirePatientProfile>);
+}
+
+function LegacyPathRedirect({ to }: { to: string }) {
+  const location = useLocation();
+
+  return <Navigate to={`${to}${location.search}${location.hash}`} replace />;
+}
+
+function LegacyProviderVisitRedirect() {
+  const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+
+  if (!id) return <Navigate to="/provider/queue" replace />;
+
+  return <Navigate to={`/provider/visits/${id}${location.search}${location.hash}`} replace />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -250,7 +329,7 @@ export default function App() {
             <Route path="/contact" element={<PublicContact />} />
             <Route path="/book" element={<PublicBook />} />
             <Route path="/vital-ai" element={<PublicVitalAiLite />} />
-            <Route path="/start" element={<PublicVitalAiLite />} />
+            <Route path="/start" element={<LegacyPathRedirect to="/vital-ai" />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/login" element={<Login />} />
             <Route path="/login/reset-password" element={<ResetPassword />} />
@@ -305,7 +384,7 @@ export default function App() {
             />
             <Route
               path="/provider/visit/:id"
-              element={withRole(PROVIDER_ROLES, <ProviderVisitChart />)}
+              element={withRole(PROVIDER_ROLES, <LegacyProviderVisitRedirect />)}
             />
             <Route
               path="/provider/visit-builder/:patientId"
@@ -333,11 +412,11 @@ export default function App() {
             />
             <Route
               path="/provider/intake"
-              element={withRole(PROVIDER_ROLES, <ProviderIntake />)}
+              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to="/provider/intakes" />)}
             />
             <Route
               path="/provider/intakes"
-              element={withRole(PROVIDER_ROLES, <ProviderIntakeQueue />)}
+              element={withRole(PROVIDER_ROLES, <ProviderIntake />)}
             />
             <Route
               path="/provider/chat"
@@ -374,12 +453,12 @@ export default function App() {
 
             {/* patient */}
             <Route path="/access" element={<PatientAuth />} />
-            <Route path="/patient/auth" element={<PatientAuth />} />
+            <Route path="/patient/auth" element={<LegacyPathRedirect to="/access" />} />
             <Route path="/patient/onboarding" element={withRole(PATIENT_ROLES, <PatientOnboarding />)} />
-            <Route path="/patient/services" element={withRole(PATIENT_ROLES, <PatientServices />)} />
-            <Route path="/patient/book" element={withRole(PATIENT_ROLES, <PatientBookAppointment />)} />
-            <Route path="/patient/assessment" element={withRole(PATIENT_ROLES, <PatientAssessment />)} />
-            <Route path="/patient/visits" element={withRole(PATIENT_ROLES, <PatientVisitChart />)} />
+            <Route path="/patient/services" element={withPatientProfile(<PatientServices />)} />
+            <Route path="/patient/book" element={withPatientProfile(<PatientBookAppointment />)} />
+            <Route path="/patient/assessment" element={withPatientProfile(<PatientAssessment />)} />
+            <Route path="/patient/visits" element={withPatientProfile(<PatientVisitChart />)} />
             <Route
               path="/patient"
               element={withRole(PATIENT_ROLES, <PatientGate />)}
@@ -394,35 +473,35 @@ export default function App() {
             />
             <Route
               path="/patient/labs"
-              element={withRole(PATIENT_ROLES, <PatientLabs />)}
+              element={withPatientProfile(<PatientLabs />)}
             />
             <Route
               path="/patient/chat"
-              element={withRole(PATIENT_ROLES, <PatientChat />)}
+              element={withPatientProfile(<PatientChat />)}
             />
             <Route
               path="/patient/treatments"
-              element={withRole(PATIENT_ROLES, <PatientTreatments />)}
+              element={withPatientProfile(<PatientTreatments />)}
             />
             <Route
               path="/patient/treatments/:visitId"
-              element={withRole(PATIENT_ROLES, <PatientTreatmentDetail />)}
+              element={withPatientProfile(<PatientTreatmentDetail />)}
             />
             <Route
               path="/intake"
-              element={withRole(PATIENT_ROLES, <VitalAiIntakeHome />)}
+              element={withPatientProfile(<VitalAiIntakeHome />)}
             />
             <Route
               path="/intake/session/:sessionId"
-              element={withRole(PATIENT_ROLES, <VitalAiSession />)}
+              element={withPatientProfile(<VitalAiSession />)}
             />
             <Route
               path="/intake/session/:sessionId/review"
-              element={withRole(PATIENT_ROLES, <VitalAiSessionReview />)}
+              element={withPatientProfile(<VitalAiSessionReview />)}
             />
             <Route
               path="/intake/session/:sessionId/complete"
-              element={withRole(PATIENT_ROLES, <VitalAiSessionComplete />)}
+              element={withPatientProfile(<VitalAiSessionComplete />)}
             />
 
             <Route path="*" element={<Navigate to="/" replace />} />

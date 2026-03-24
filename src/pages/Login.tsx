@@ -369,8 +369,8 @@ export default function Login() {
                   }}
                 >
                   Need help or product information?{" "}
-                  <button type="button" onClick={() => navigate("/resources")} style={inlineLinkStyle}>
-                    Resources
+                  <button type="button" onClick={() => navigate("/services")} style={inlineLinkStyle}>
+                    Services
                   </button>
                 </div>
               </>

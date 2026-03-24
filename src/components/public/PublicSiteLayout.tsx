@@ -47,12 +47,13 @@ export default function PublicSiteLayout({ title, subtitle, children, rightActio
           style={{
             background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,241,255,0.95))",
             border: "1px solid rgba(184,164,255,0.18)",
+            paddingTop: 18,
+            paddingBottom: showBack ? 18 : 16,
           }}
         >
           <div className="row" style={{ justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
             <BrandLockup
               to="/"
-              eyebrow="Vitality Institute"
               title={compactHeader ? "Vitality Institute" : title}
               subtitle={compactHeader ? undefined : subtitle}
               compact={compactHeader}

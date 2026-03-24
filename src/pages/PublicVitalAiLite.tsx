@@ -17,6 +17,7 @@ import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { submitPublicVitalAiRequest } from "../lib/publicVitalAiSubmission";
 import { loadCatalogLocations, type CatalogLocation } from "../lib/services/catalog";
 import { scoreConversionLead } from "../lib/vitalAi/conversionEngine";
+import { buildPatientIntakePath } from "../lib/routeFlow";
 
 type StepKey = "pathway" | "questions" | "contact" | "review" | "success";
 
@@ -215,7 +216,7 @@ export default function PublicVitalAiLite() {
             title="Prefer the full guided intake?"
             body="Your full Vital AI intake is available in the patient portal if you want the richer workflow with saved sessions, uploads, and provider review routing."
             detail="This public version is still useful for a lightweight request, but the full portal experience keeps more of your progress and care context together."
-            actions={[{ label: "Open Full Intake", to: "/intake" }]}
+            actions={[{ label: "Open Full Intake", to: buildPatientIntakePath({ pathway, autostart: true }) }]}
           />
           <div className="space" />
         </>

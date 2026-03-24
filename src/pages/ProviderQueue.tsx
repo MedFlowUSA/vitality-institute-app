@@ -295,7 +295,7 @@ export default function ProviderQueue() {
                         padding: "14px 16px",
                         minHeight: 96,
                       }}
-                      onClick={() => nav(`/provider/visit/${v.id}`)}
+                      onClick={() => nav(`/provider/visits/${v.id}`)}
                       title="Open Visit Chart"
                     >
                       <span>

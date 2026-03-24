@@ -1457,7 +1457,7 @@ button,
 .brand-lockup {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   max-width: min(100%, 560px);
 }
 
@@ -1484,7 +1484,8 @@ button,
 .brand-lockup-copy {
   min-width: 0;
   display: grid;
-  gap: 4px;
+  gap: 2px;
+  align-content: center;
 }
 
 .brand-lockup-eyebrow {
@@ -1500,7 +1501,8 @@ button,
   font-family: var(--font-heading);
   font-size: clamp(1.1rem, 2.2vw, 1.5rem);
   line-height: 1.06;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
+  font-weight: 700;
   color: #1f1633;
 }
 
@@ -1513,19 +1515,20 @@ button,
 }
 
 .brand-lockup-compact {
-  gap: 12px;
+  gap: 13px;
 }
 
 .brand-lockup-compact .brand-lockup-mark {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  min-height: 34px;
   border-radius: 12px;
 }
 
 .brand-lockup-compact .brand-lockup-title {
-  font-size: clamp(0.98rem, 2vw, 1.25rem);
+  font-size: clamp(1.02rem, 2vw, 1.28rem);
+  letter-spacing: 0.005em;
 }
 
 .brand-lockup-compact .brand-lockup-subtitle {
@@ -1536,7 +1539,7 @@ button,
 @media (max-width: 640px) {
   .brand-lockup {
     gap: 10px;
-    align-items: flex-start;
+    align-items: center;
   }
 
   .brand-lockup-mark {

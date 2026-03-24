@@ -69,7 +69,7 @@ function categoryIcon(cat: string | null) {
   }
 }
 
-function categoryEmoji(cat: string | null, _name?: string) {
+function categoryEmoji(cat: string | null) {
   return categoryIcon(cat);
 }
 
@@ -490,7 +490,7 @@ export default function PatientServices() {
                                   handoffToBooking(service);
                                 }}
                               >
-                                Book Appointment
+                                Book Visit
                               </button>
 
                               <button
@@ -560,7 +560,7 @@ export default function PatientServices() {
                         background: categoryAccent(serviceDisplayKey(selectedService)),
                       }}
                     >
-                      {categoryEmoji(serviceDisplayKey(selectedService), selectedService.name)}
+                      {categoryEmoji(serviceDisplayKey(selectedService))}
                     </div>
 
                     <div>
@@ -663,7 +663,7 @@ export default function PatientServices() {
                     setSelectedService(null);
                   }}
                 >
-                  Book Appointment
+                  Book Visit
                 </button>
 
                 <button

@@ -190,31 +190,33 @@ export default function VitalAiAvatarAssistant({
     () => guidanceOverride || guidanceForStep(stepKey, isComplete, pathwaySlug, answers),
     [answers, guidanceOverride, isComplete, pathwaySlug, stepKey]
   );
-  const [visibleGuidance, setVisibleGuidance] = useState(guidance);
+  const [visibleGuidance, setVisibleGuidance] = useState("");
   const avatarRadius = avatarCircular ? "999px" : 22;
+  const shouldAnimateGuidance =
+    typeof window !== "undefined" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const renderedGuidance = shouldAnimateGuidance ? visibleGuidance : guidance;
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      setVisibleGuidance(guidance);
+    if (!shouldAnimateGuidance) {
       return;
     }
 
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion) {
-      setVisibleGuidance(guidance);
-      return;
-    }
-
-    setVisibleGuidance("");
     let index = 0;
-    const timer = window.setInterval(() => {
-      index += 2;
-      setVisibleGuidance(guidance.slice(0, index));
-      if (index >= guidance.length) window.clearInterval(timer);
-    }, 18);
+    let intervalId = 0;
+    const startId = window.setTimeout(() => {
+      setVisibleGuidance("");
+      intervalId = window.setInterval(() => {
+        index += 2;
+        setVisibleGuidance(guidance.slice(0, index));
+        if (index >= guidance.length) window.clearInterval(intervalId);
+      }, 18);
+    }, 0);
 
-    return () => window.clearInterval(timer);
-  }, [guidance]);
+    return () => {
+      window.clearTimeout(startId);
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [guidance, shouldAnimateGuidance]);
 
   return (
     <div
@@ -277,8 +279,8 @@ export default function VitalAiAvatarAssistant({
           <div style={{ fontSize: 12, color: "#5B4E86", fontWeight: 800 }}>{eyebrow}</div>
           <div style={{ fontWeight: 900, color: "#241B3D", fontSize: 18, marginTop: 4 }}>{title}</div>
           <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.7, color: "#3E355C", minHeight: 44 }}>
-            {visibleGuidance}
-            {visibleGuidance.length < guidance.length ? (
+            {renderedGuidance}
+            {renderedGuidance.length < guidance.length ? (
               <span
                 aria-hidden="true"
                 style={{

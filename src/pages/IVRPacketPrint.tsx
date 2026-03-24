@@ -12,14 +12,14 @@ type SoapRow = { subjective: string | null; objective: string | null; assessment
 type PlanItem = { name: string; qty?: string | null; notes?: string | null };
 
 function fmtDate(iso?: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "â€”";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
+  return Number.isNaN(d.getTime()) ? "â€”" : d.toLocaleString();
 }
 function fmtDob(iso?: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "â€”";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
+  return Number.isNaN(d.getTime()) ? "â€”" : d.toLocaleDateString();
 }
 function calcAge(dob?: string | null) {
   if (!dob) return null;
@@ -30,9 +30,9 @@ function calcAge(dob?: string | null) {
   return Math.abs(ageDt.getUTCFullYear() - 1970);
 }
 function addr(d: DemoRow | null) {
-  if (!d) return "—";
+  if (!d) return "â€”";
   const parts = [d.address_line1, d.address_line2, [d.city, d.state, d.zip].filter(Boolean).join(" ")].filter(Boolean);
-  return parts.length ? parts.join(", ") : "—";
+  return parts.length ? parts.join(", ") : "â€”";
 }
 function areaCm2(l?: number | null, w?: number | null) {
   if (l == null || w == null) return null;
@@ -159,7 +159,9 @@ export default function IVRPacketPrint() {
         for (const p of chosen) {
           try {
             map[p.id] = await getSignedUrl(p.bucket, p.path, 300);
-          } catch {}
+          } catch {
+        // Ignore files that cannot be signed for print preview.
+      }
         }
         setPhotoUrls(map);
 
@@ -175,7 +177,7 @@ export default function IVRPacketPrint() {
 
   const age = calcAge(demo?.dob);
 
-  if (loading) return <div style={{ padding: 24, fontFamily: "system-ui" }}>Loading packet preview…</div>;
+  if (loading) return <div style={{ padding: 24, fontFamily: "system-ui" }}>Loading packet previewâ€¦</div>;
   if (err) return <div style={{ padding: 24, fontFamily: "system-ui", color: "crimson" }}>{err}</div>;
   if (!visit) return <div style={{ padding: 24, fontFamily: "system-ui" }}>Visit not found.</div>;
 
@@ -219,11 +221,11 @@ export default function IVRPacketPrint() {
           </div>
           <div>
             <div className="muted">DOB / Age / Sex</div>
-            <div>{fmtDob(demo?.dob)}{age != null ? ` • ${age}` : ""} • {demo?.sex ?? "—"}</div>
+            <div>{fmtDob(demo?.dob)}{age != null ? ` â€¢ ${age}` : ""} â€¢ {demo?.sex ?? "â€”"}</div>
           </div>
           <div>
             <div className="muted">Phone / Email</div>
-            <div>{demo?.phone ?? "—"} • {demo?.email ?? "—"}</div>
+            <div>{demo?.phone ?? "â€”"} â€¢ {demo?.email ?? "â€”"}</div>
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
             <div className="muted">Address</div>
@@ -235,10 +237,10 @@ export default function IVRPacketPrint() {
       <div className="box">
         <div className="h2">Insurance</div>
         <div className="row">
-          <div className="chip">Payer: <strong>{ins?.payer_name ?? "—"}</strong></div>
-          <div className="chip">Plan: <strong>{ins?.plan_name ?? "—"}</strong></div>
-          <div className="chip">Member ID: <strong>{ins?.member_id ?? "—"}</strong></div>
-          <div className="chip">Group: <strong>{ins?.group_id ?? "—"}</strong></div>
+          <div className="chip">Payer: <strong>{ins?.payer_name ?? "â€”"}</strong></div>
+          <div className="chip">Plan: <strong>{ins?.plan_name ?? "â€”"}</strong></div>
+          <div className="chip">Member ID: <strong>{ins?.member_id ?? "â€”"}</strong></div>
+          <div className="chip">Group: <strong>{ins?.group_id ?? "â€”"}</strong></div>
         </div>
       </div>
 
@@ -254,12 +256,12 @@ export default function IVRPacketPrint() {
                 <div key={idx} style={{ borderTop: idx ? "1px solid #eee" : "none", paddingTop: idx ? 10 : 0 }}>
                   <div><strong>{w.wound_label}</strong></div>
                   <div className="muted">
-                    {[w.laterality, w.body_site].filter(Boolean).join(" ") || "—"}
-                    {w.wound_type ? ` • ${w.wound_type}` : ""}{w.stage ? ` • Stage ${w.stage}` : ""}
+                    {[w.laterality, w.body_site].filter(Boolean).join(" ") || "â€”"}
+                    {w.wound_type ? ` â€¢ ${w.wound_type}` : ""}{w.stage ? ` â€¢ Stage ${w.stage}` : ""}
                   </div>
                   <div className="row" style={{ marginTop: 6 }}>
-                    <div className="chip">L×W×D (cm): <strong>{w.length_cm ?? "—"} × {w.width_cm ?? "—"} × {w.depth_cm ?? "—"}</strong></div>
-                    <div className="chip">Area (cm²): <strong>{a ?? "—"}</strong></div>
+                    <div className="chip">LÃ—WÃ—D (cm): <strong>{w.length_cm ?? "â€”"} Ã— {w.width_cm ?? "â€”"} Ã— {w.depth_cm ?? "â€”"}</strong></div>
+                    <div className="chip">Area (cmÂ²): <strong>{a ?? "â€”"}</strong></div>
                     {w.exudate ? <div className="chip">Exudate: <strong>{w.exudate}</strong></div> : null}
                     {w.infection_signs ? <div className="chip">Infection: <strong>{w.infection_signs}</strong></div> : null}
                   </div>
@@ -277,12 +279,12 @@ export default function IVRPacketPrint() {
           <div className="muted">No SOAP note found for this visit.</div>
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
-            <div><strong>Subjective:</strong> {soap.subjective || "—"}</div>
-            <div><strong>Objective:</strong> {soap.objective || "—"}</div>
-            <div><strong>Assessment:</strong> {soap.assessment || "—"}</div>
-            <div><strong>Plan:</strong> {soap.plan || "—"}</div>
+            <div><strong>Subjective:</strong> {soap.subjective || "â€”"}</div>
+            <div><strong>Objective:</strong> {soap.objective || "â€”"}</div>
+            <div><strong>Assessment:</strong> {soap.assessment || "â€”"}</div>
+            <div><strong>Plan:</strong> {soap.plan || "â€”"}</div>
             <div className="muted">
-              {soap.is_signed || soap.is_locked ? `Signed/Locked • ${fmtDate(soap.signed_at)}` : "Draft (not signed)"}
+              {soap.is_signed || soap.is_locked ? `Signed/Locked â€¢ ${fmtDate(soap.signed_at)}` : "Draft (not signed)"}
             </div>
           </div>
         )}
@@ -297,8 +299,8 @@ export default function IVRPacketPrint() {
             {planItems.map((p, idx) => (
               <li key={idx}>
                 <strong>{p.name}</strong>
-                {p.qty ? ` • Qty: ${p.qty}` : ""}
-                {p.notes ? ` • ${p.notes}` : ""}
+                {p.qty ? ` â€¢ Qty: ${p.qty}` : ""}
+                {p.notes ? ` â€¢ ${p.notes}` : ""}
               </li>
             ))}
           </ul>
@@ -314,7 +316,7 @@ export default function IVRPacketPrint() {
             {photos.map((p) => (
               <div key={p.id}>
                 {photoUrls[p.id] ? <img src={photoUrls[p.id]} alt={p.filename} /> : <div className="muted">Image unavailable</div>}
-                <div className="muted" style={{ marginTop: 6 }}>{p.filename} • {fmtDate(p.created_at)}</div>
+                <div className="muted" style={{ marginTop: 6 }}>{p.filename} â€¢ {fmtDate(p.created_at)}</div>
               </div>
             ))}
           </div>

@@ -359,6 +359,7 @@ export default function ProviderPatientCenter() {
     setFollowUpModeDraft((activeVisit.follow_up_mode as "none" | "virtual" | "in_person" | null) ?? "none");
     setRequiresLabsBeforeFollowUpDraft(!!activeVisit.requires_labs_before_followup);
   }, [
+    activeVisit,
     activeVisit?.id,
     activeVisit?.next_action_due_at,
     activeVisit?.next_action_notes,
@@ -390,7 +391,7 @@ export default function ProviderPatientCenter() {
     };
   }, [activeVisitId, timeline, labsByVisit, notesByVisit, filesByVisit]);
 
-  const planSnapshot = !activeVisitId ? "â€”" : activePlan ? (activePlan.is_locked || activePlan.signed_at ? "Signed" : "Draft") : "None";
+  const planSnapshot = !activeVisitId ? "-" : activePlan ? (activePlan.is_locked || activePlan.signed_at ? "Signed" : "Draft") : "None";
 
   const planStatusLabel = !activeVisitId ? "-" : activePlan ? (activePlan.is_locked || activePlan.signed_at ? "Signed" : "Draft") : "None";
   const soapStatusLabel = !activeVisitId ? "-" : activeSoap ? (activeSoap.is_locked || activeSoap.is_signed || activeSoap.signed_at ? "Signed" : "Draft") : "None";
@@ -2308,3 +2309,4 @@ export default function ProviderPatientCenter() {
     </div>
   );
 }
+

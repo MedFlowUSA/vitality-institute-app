@@ -10,6 +10,7 @@ import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistan
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
 import { countLegacyOpenThreadsForPatient, ensureLegacyAppointmentThread } from "../lib/messaging/legacyChat";
+import { getErrorMessage, getPatientRecordIdForProfile, isDatabaseErrorWithCode } from "../lib/patientRecords";
 import { getVirtualVisitState } from "../lib/virtualVisits";
 
 type LocationRow = { id: string; name: string; city: string | null; state: string | null };
@@ -99,7 +100,12 @@ type PatientSafeTreatmentPlan = {
   status: string | null;
   summary: string | null;
   patient_instructions: string | null;
-  plan: any;
+  plan: TreatmentPlanPayload | null;
+};
+
+type TreatmentPlanPayload = {
+  follow_up_days?: number | string | null;
+  [key: string]: unknown;
 };
 
 type PatientLabRow = {
@@ -148,6 +154,19 @@ type AppointmentFileRow = {
   content_type: string | null;
   size_bytes: number | null;
 };
+
+type PatientFileRow = {
+  id: string;
+  created_at: string | null;
+  filename: string;
+  category: string | null;
+  bucket: string;
+  path: string;
+  content_type: string | null;
+  size_bytes: number | null;
+};
+
+type VisitIdRow = { id: string };
 
 function toLocalTimeLabel(iso: string) {
   const d = new Date(iso);
@@ -339,14 +358,14 @@ function compactDescription(value: string | null | undefined, maxLength = 120) {
   return `${text.slice(0, maxLength).trimEnd()}...`;
 }
 
-function getFollowUpDaysFromPlan(plan: any): number | null {
+function getFollowUpDaysFromPlan(plan: TreatmentPlanPayload | null | undefined): number | null {
   const v = plan?.follow_up_days;
   if (v == null) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
-function getFollowUpDate(plan: any, referenceDate: string) {
+function getFollowUpDate(plan: TreatmentPlanPayload | null | undefined, referenceDate: string) {
   const days = Number(plan?.follow_up_days);
 
   if (!Number.isFinite(days)) return null;
@@ -359,7 +378,7 @@ function getFollowUpDate(plan: any, referenceDate: string) {
   return next;
 }
 
-function documentDisplayTitle(file: any) {
+function documentDisplayTitle(file: PatientFileRow) {
   const dateLabel = file.created_at
     ? new Date(file.created_at).toLocaleDateString()
     : "";
@@ -379,7 +398,7 @@ function documentDisplayTitle(file: any) {
   return file.filename || "Document";
 }
 
-function documentDisplaySubtitle(file: any) {
+function documentDisplaySubtitle(file: PatientFileRow) {
   if (file.category === "visit_packet_patient_copy") {
     return "Patient-safe PDF summary from your provider visit.";
   }
@@ -502,7 +521,7 @@ export default function PatientHome() {
   const [loadingPatientSafePlan, setLoadingPatientSafePlan] = useState(false);
   const [recentLabs, setRecentLabs] = useState<PatientLabRow[]>([]);
   const [loadingLabsPreview, setLoadingLabsPreview] = useState(false);
-  const [patientFiles, setPatientFiles] = useState<any[]>([]);
+  const [patientFiles, setPatientFiles] = useState<PatientFileRow[]>([]);
   const [latestVitalAiSession, setLatestVitalAiSession] = useState<VitalAiSessionRow | null>(null);
 
   // latest wound intake status
@@ -548,9 +567,7 @@ export default function PatientHome() {
     if (!user?.id) return [] as string[];
 
     const ids = new Set<string>([user.id]);
-    const { data, error } = await supabase.from("patients").select("id").eq("profile_id", user.id).maybeSingle();
-    if (error) throw error;
-    const patientId = (data as any)?.id as string | undefined;
+    const patientId = await getPatientRecordIdForProfile(user.id);
     if (patientId) ids.add(patientId);
     return Array.from(ids);
   };
@@ -966,8 +983,8 @@ export default function PatientHome() {
         }
 
         if (!cancelled) setAppointmentFileUrls(out);
-      } catch (e: any) {
-        if (!cancelled) setErr(e?.message ?? "Failed to load appointment files.");
+      } catch (e: unknown) {
+        if (!cancelled) setErr(getErrorMessage(e, "Failed to load appointment files."));
       } finally {
         if (!cancelled) setLoadingAppointmentFiles(false);
       }
@@ -992,15 +1009,7 @@ export default function PatientHome() {
       setLoadingAppointmentIntakeStatus(true);
 
       try {
-        const { data: p, error: pErr } = await supabase
-          .from("patients")
-          .select("id")
-          .eq("profile_id", user.id)
-          .maybeSingle();
-
-        if (pErr) throw pErr;
-
-        const patientId = (p as any)?.id as string | undefined;
+        const patientId = await getPatientRecordIdForProfile(user.id);
         if (!patientId) {
           setAppointmentIntakeStatus(null);
           return;
@@ -1025,8 +1034,8 @@ export default function PatientHome() {
         if (!cancelled) {
           setAppointmentIntakeStatus((data?.[0] as AppointmentIntakeStatusRow) ?? null);
         }
-      } catch (e: any) {
-        if (!cancelled) setErr(e?.message ?? "Failed to load intake status.");
+      } catch (e: unknown) {
+        if (!cancelled) setErr(getErrorMessage(e, "Failed to load intake status."));
       } finally {
         if (!cancelled) setLoadingAppointmentIntakeStatus(false);
       }
@@ -1062,8 +1071,8 @@ export default function PatientHome() {
         if (!cancelled) {
           setAppointmentVisit((data as AppointmentVisitRow) ?? null);
         }
-      } catch (e: any) {
-        if (!cancelled) setErr(e?.message ?? "Failed to load visit info.");
+      } catch (e: unknown) {
+        if (!cancelled) setErr(getErrorMessage(e, "Failed to load visit info."));
       } finally {
         if (!cancelled) setLoadingAppointmentVisit(false);
       }
@@ -1154,16 +1163,16 @@ export default function PatientHome() {
     if (!user?.id) return;
 
     try {
-      const { data: visits, error: vErr } = await supabase
-        .from("patient_visits")
-        .select("id")
-        .eq("patient_id", user.id)
+        const { data: visits, error: vErr } = await supabase
+          .from("patient_visits")
+          .select("id")
+          .eq("patient_id", user.id)
         .order("created_at", { ascending: false })
         .limit(10);
 
       if (vErr) throw vErr;
 
-      const visitIds = (visits ?? []).map((v: any) => v.id);
+        const visitIds = ((visits as VisitIdRow[] | null) ?? []).map((v) => v.id);
       if (visitIds.length === 0) {
         setLatestTreatmentPlan(null);
         return;
@@ -1190,16 +1199,16 @@ export default function PatientHome() {
     setLoadingPatientSafePlan(true);
 
     try {
-      const { data: visits, error: vErr } = await supabase
-        .from("patient_visits")
-        .select("id")
-        .eq("patient_id", user.id)
+        const { data: visits, error: vErr } = await supabase
+          .from("patient_visits")
+          .select("id")
+          .eq("patient_id", user.id)
         .order("created_at", { ascending: false })
         .limit(15);
 
       if (vErr) throw vErr;
 
-      const visitIds = (visits ?? []).map((v: any) => v.id);
+        const visitIds = ((visits as VisitIdRow[] | null) ?? []).map((v) => v.id);
       if (visitIds.length === 0) {
         setPatientSafePlan(null);
         return;
@@ -1231,18 +1240,10 @@ export default function PatientHome() {
     setLoadingLabsPreview(true);
 
     try {
-      const { data: p, error: pErr } = await supabase
-        .from("patients")
-        .select("id")
-        .eq("profile_id", user.id)
-        .maybeSingle();
-
-      if (pErr) throw pErr;
-
-      const patientId = (p as any)?.id as string | undefined;
-      if (!patientId) {
-        setRecentLabs([]);
-        return;
+        const patientId = await getPatientRecordIdForProfile(user.id);
+        if (!patientId) {
+          setRecentLabs([]);
+          return;
       }
 
       const { data, error } = await supabase
@@ -1278,28 +1279,20 @@ export default function PatientHome() {
     if (!user?.id) return;
 
     try {
-      const { data: p, error: pErr } = await supabase
-        .from("patients")
-        .select("id")
-        .eq("profile_id", user.id)
-        .maybeSingle();
-
-      if (pErr) throw pErr;
-
-      const patientId = (p as any)?.id as string | undefined;
-      if (!patientId) {
-        setPatientFiles([]);
-        return;
+        const patientId = await getPatientRecordIdForProfile(user.id);
+        if (!patientId) {
+          setPatientFiles([]);
+          return;
       }
 
-      const { data: files } = await supabase
-        .from("patient_files")
-        .select("*")
-        .eq("patient_id", patientId)
+        const { data: files } = await supabase
+          .from("patient_files")
+          .select("*")
+          .eq("patient_id", patientId)
         .order("created_at", { ascending: false })
         .limit(10);
 
-      if (files) setPatientFiles(files);
+        if (files) setPatientFiles((files as PatientFileRow[]) ?? []);
     } catch (e) {
       console.error("Patient files load failed:", e);
       setPatientFiles([]);
@@ -1312,18 +1305,10 @@ export default function PatientHome() {
 
     try {
       // patient_id in patient_intakes references patients.id, so we need patients.id first
-      const { data: p, error: pErr } = await supabase
-        .from("patients")
-        .select("id")
-        .eq("profile_id", user.id)
-        .maybeSingle();
-
-      if (pErr) throw pErr;
-
-      const patientId = (p as any)?.id as string | undefined;
-      if (!patientId) {
-        setLatestWoundIntake(null);
-        return;
+        const patientId = await getPatientRecordIdForProfile(user.id);
+        if (!patientId) {
+          setLatestWoundIntake(null);
+          return;
       }
 
       const { data, error } = await supabase
@@ -1438,8 +1423,8 @@ export default function PatientHome() {
         await loadPatientSafePlan();
         await loadRecentLabsPreview();
         await loadPatientFiles();
-      } catch (e: any) {
-        if (!cancelled) setErr(e?.message ?? "Failed to load patient portal.");
+      } catch (e: unknown) {
+        if (!cancelled) setErr(getErrorMessage(e, "Failed to load patient portal."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -1565,7 +1550,7 @@ export default function PatientHome() {
         .maybeSingle();
 
       if (apptErr) {
-        if ((apptErr as any).code === "23505") {
+        if (isDatabaseErrorWithCode(apptErr, "23505")) {
           setErr("That time just got booked — please choose a different slot.");
           return;
         }
@@ -1582,15 +1567,7 @@ export default function PatientHome() {
       if (woundPhotos.length > 0) {
         setUploadingApptFiles(true);
 
-        const { data: p, error: pErr } = await supabase
-          .from("patients")
-          .select("id")
-          .eq("profile_id", user.id)
-          .maybeSingle();
-
-        if (pErr) throw pErr;
-
-        const patientId = (p as any)?.id as string | undefined;
+        const patientId = await getPatientRecordIdForProfile(user.id);
         if (!patientId) throw new Error("Patient record not found for file uploads.");
 
         for (const f of woundPhotos) {
@@ -1622,9 +1599,9 @@ export default function PatientHome() {
       setNotes("");
       setWoundPhotos([]);
       setSelectedSlotIso("");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setErr(e?.message || "Failed to submit appointment request.");
+      setErr(getErrorMessage(e, "Failed to submit appointment request."));
     } finally {
       setUploadingApptFiles(false);
     }
@@ -1639,8 +1616,8 @@ export default function PatientHome() {
         title: `Appointment - ${new Date(appt.start_time).toLocaleString()}`,
       });
       navigate(`/patient/chat?threadId=${threadId}`);
-    } catch (error: any) {
-      alert(error?.message ?? "Failed to open conversation.");
+    } catch (error: unknown) {
+      alert(getErrorMessage(error, "Failed to open conversation."));
     }
   };
 
@@ -1655,16 +1632,8 @@ export default function PatientHome() {
     setUploadingDrawerFiles(true);
 
     try {
-      const { data: p, error: pErr } = await supabase
-        .from("patients")
-        .select("id")
-        .eq("profile_id", user.id)
-        .maybeSingle();
-
-      if (pErr) throw pErr;
-
-      const patientId = (p as any)?.id as string | undefined;
-      if (!patientId) throw new Error("Patient record not found for file uploads.");
+        const patientId = await getPatientRecordIdForProfile(user.id);
+        if (!patientId) throw new Error("Patient record not found for file uploads.");
 
       for (const file of appointmentDrawerFiles) {
         await uploadPatientFile({
@@ -1700,8 +1669,8 @@ export default function PatientHome() {
         setAppointmentFileUrls(out);
       }
       alert("Files uploaded to appointment successfully.");
-    } catch (e: any) {
-      setErr(e?.message || "Failed to upload files to appointment.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to upload files to appointment."));
     } finally {
       setUploadingDrawerFiles(false);
     }
@@ -1727,7 +1696,7 @@ export default function PatientHome() {
     );
   };
 
-  async function openPatientFile(file: any) {
+  async function openPatientFile(file: PatientFileRow) {
     const { data } = await supabase.storage
       .from(file.bucket || "patient-files")
       .createSignedUrl(file.path, 60);
@@ -1856,7 +1825,7 @@ export default function PatientHome() {
                 </button>
               ))}
               <button className="btn btn-secondary" type="button" onClick={scrollToBooking}>
-                Book Appointment
+                Book Visit
               </button>
               <button className="btn btn-secondary" type="button" onClick={() => navigate("/patient/chat")}>
                 Messages
@@ -2104,14 +2073,14 @@ export default function PatientHome() {
             >
               <div style={{ ...sectionEyebrowStyle, color: "rgba(232,224,255,0.86)" }}>Primary Action</div>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC" }}>Book Appointment</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC" }}>Book Visit</div>
                 <div style={{ marginTop: 8, color: "rgba(226,232,240,0.82)", lineHeight: 1.6 }}>
                   Reserve your next visit or follow-up without leaving the dashboard.
                 </div>
               </div>
               <div>
                 <button className="btn btn-primary" {...quickBtnProps} onClick={scrollToBooking}>
-                  Book Appointment
+                  Book Visit
                 </button>
               </div>
             </div>
@@ -2278,7 +2247,7 @@ export default function PatientHome() {
                           );
                         }}
                       >
-                        Book Appointment
+                        Book Visit
                       </button>
 
                       <button
@@ -2302,7 +2271,7 @@ export default function PatientHome() {
         <div className="space" />
 
         <div id="book-appointment" className="card card-pad" style={lightSurfaceCardStyle}>
-          <div style={sectionEyebrowStyle}>Book Appointment</div>
+          <div style={sectionEyebrowStyle}>Book Visit</div>
           <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Request Your Next Visit</div>
           <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
             Choose your location, service, date, and an available time slot.

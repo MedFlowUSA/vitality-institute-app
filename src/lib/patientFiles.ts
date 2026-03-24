@@ -10,7 +10,14 @@ type UploadArgs = {
   file: File;
 };
 
-export async function uploadPatientFile(args: UploadArgs) {
+export type UploadedPatientFile = {
+  id?: string | null;
+  bucket: string;
+  path: string;
+  filename: string;
+};
+
+export async function uploadPatientFile(args: UploadArgs): Promise<UploadedPatientFile> {
   const { patientId, locationId, visitId, appointmentId = null, category, file } = args;
 
   if (!patientId) throw new Error("Missing patientId");

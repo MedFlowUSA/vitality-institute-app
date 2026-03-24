@@ -1,16 +1,10 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
-import { PUBLIC_OFFERINGS, PUBLIC_SERVICE_GROUPS, type PublicOffering } from "../lib/publicMarketingCatalog";
+import { PUBLIC_OFFERINGS, PUBLIC_SERVICE_GROUPS } from "../lib/publicMarketingCatalog";
 
 export default function PublicLanding() {
-  const [services, setServices] = useState<PublicOffering[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setServices(PUBLIC_OFFERINGS.slice(0, 6));
-    setLoading(false);
-  }, []);
+  const services = PUBLIC_OFFERINGS.slice(0, 6);
+  const loading = false;
 
   return (
     <PublicSiteLayout
@@ -33,7 +27,7 @@ export default function PublicLanding() {
             Vitality Institute
           </div>
           <div className="h1" style={{ marginTop: 10 }}>
-            Modern wellness, aesthetics, and medical care — all in one place.
+            Modern wellness, aesthetics, and medical care, all in one place.
           </div>
           <div style={{ marginTop: 10, lineHeight: 1.7, maxWidth: 760, color: "#334155" }}>
             Feel better, look better, and stay on track with personalized care, seamless booking, and direct access to your care team.
@@ -109,7 +103,7 @@ export default function PublicLanding() {
 
       <div className="card card-pad">
         <div className="h2">Featured Categories</div>
-        <div className="muted" style={{ marginTop: 4 }}>Explore the clinic’s major service lines and pricing programs.</div>
+        <div className="muted" style={{ marginTop: 4 }}>Explore the clinic's major service lines and pricing programs.</div>
         <div className="space" />
         <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
           {PUBLIC_SERVICE_GROUPS.map((title) => (

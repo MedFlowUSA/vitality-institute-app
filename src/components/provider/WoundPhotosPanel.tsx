@@ -1,7 +1,8 @@
-﻿// src/components/provider/WoundPhotosPanel.tsx
+// src/components/provider/WoundPhotosPanel.tsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../auth/AuthProvider";
+import { getErrorMessage } from "../../lib/patientRecords";
 import { uploadPatientFile, getSignedUrl } from "../../lib/patientFiles";
 
 type FileRow = {
@@ -58,8 +59,8 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId }: Pro
 
       if (error) throw error;
       setRows((data as FileRow[]) ?? []);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load wound photos.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to load wound photos."));
       setRows([]);
     } finally {
       setLoading(false);
@@ -76,8 +77,8 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId }: Pro
     try {
       const url = await getSignedUrl(r.bucket, r.path, 120);
       window.open(url, "_blank", "noopener,noreferrer");
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to open file.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to open file."));
     }
   };
 
@@ -102,8 +103,8 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId }: Pro
       setPicked(null);
       setNotes("");
       await load();
-    } catch (e: any) {
-      setErr(e?.message ?? "Upload failed.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Upload failed."));
     } finally {
       setUploading(false);
     }
@@ -126,8 +127,8 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId }: Pro
       // await supabase.storage.from(r.bucket).remove([r.path]);
 
       await load();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to delete photo.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to delete photo."));
     }
   };
 
@@ -166,7 +167,7 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId }: Pro
 
         <input
           className="input"
-          placeholder="Optional notes (e.g., day 0, post-debridement, week 2)â€¦"
+          placeholder="Optional notes (e.g., day 0, post-debridement, week 2)..."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           disabled={!isStaff || uploading}
@@ -174,14 +175,14 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId }: Pro
         />
 
         <button className="btn btn-primary" type="button" onClick={upload} disabled={!isStaff || uploading || !picked}>
-          {uploading ? "Uploadingâ€¦" : "Upload Photo"}
+          {uploading ? "Uploading..." : "Upload Photo"}
         </button>
       </div>
 
       <div className="space" />
 
       {loading ? (
-        <div className="muted">Loadingâ€¦</div>
+        <div className="muted">Loading...</div>
       ) : rows.length === 0 ? (
         <div className="muted">No wound photos for this visit yet.</div>
       ) : (
@@ -226,4 +227,5 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId }: Pro
     </div>
   );
 }
+
 

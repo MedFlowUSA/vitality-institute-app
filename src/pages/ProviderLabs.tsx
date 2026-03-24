@@ -275,7 +275,7 @@ export default function ProviderLabs() {
     </div>
     <div className="v-stat">
       <div className="k">Patient Flows</div>
-      <div className="v">Intake • Booking • Chat</div>
+      <div className="v">Intake • Booking • Messages</div>
     </div>
     <div className="v-stat">
       <div className="k">Provider Tools</div>
@@ -421,7 +421,7 @@ export default function ProviderLabs() {
                             <button
                               className="btn btn-ghost"
                               type="button"
-                              onClick={() => nav(`/provider/intake?activeId=${encodeURIComponent(active.intake_submission_id!)}`)}
+                              onClick={() => nav(`/provider/intakes?activeId=${encodeURIComponent(active.intake_submission_id!)}`)}
                             >
                               Open Intake
                             </button>

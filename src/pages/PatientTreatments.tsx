@@ -1,7 +1,8 @@
 // src/pages/PatientTreatments.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { getErrorMessage } from "../lib/patientRecords";
 import { supabase } from "../lib/supabase";
 import { getSignedUrl } from "../lib/patientFiles";
 import VitalityHero from "../components/VitalityHero";
@@ -59,7 +60,7 @@ type TreatmentPlanRow = {
   status: string | null;
   summary: string | null;
   patient_instructions: string | null;
-  plan: any;
+  plan: unknown;
 };
 
 type PatientFileRow = {
@@ -77,6 +78,16 @@ type PatientFileRow = {
 
 type VisitFileMap = Record<string, PatientFileRow[]>;
 type FileUrlMap = Record<string, string>;
+type QueryError = { message?: string | null };
+type QueryArrayResult<T> = { data?: T[] | null; error?: QueryError | null };
+
+function getRows<T>(result: unknown): T[] {
+  if (typeof result !== "object" || result === null) return [];
+  const queryResult = result as QueryArrayResult<T>;
+  const errorMessage = queryResult.error?.message;
+  if (errorMessage) throw new Error(errorMessage);
+  return queryResult.data ?? [];
+}
 
 function fmt(iso?: string | null) {
   if (!iso) return "—";
@@ -218,7 +229,7 @@ export default function PatientTreatments() {
     });
   }, [visits]);
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     setErr(null);
     setLoading(true);
 
@@ -229,8 +240,7 @@ export default function PatientTreatments() {
         supabase.from("locations").select("id,name").order("name"),
         12000
       );
-      if ((locRes as any).error) throw new Error((locRes as any).error.message);
-      setLocations((((locRes as any).data) as LocationRow[]) ?? []);
+      setLocations(getRows<LocationRow>(locRes));
 
       const vRes = await withTimeout(
         supabase
@@ -242,9 +252,7 @@ export default function PatientTreatments() {
           .limit(200),
         12000
       );
-      if ((vRes as any).error) throw new Error((vRes as any).error.message);
-
-      const vList = (((vRes as any).data) as VisitRow[]) ?? [];
+      const vList = getRows<VisitRow>(vRes);
       setVisits(vList);
 
       const firstId = vList[0]?.id ?? "";
@@ -263,9 +271,7 @@ export default function PatientTreatments() {
           12000
         );
 
-        if ((aRes as any).error) throw new Error((aRes as any).error.message);
-
-        const appts = (((aRes as any).data) as AppointmentLiteRow[]) ?? [];
+        const appts = getRows<AppointmentLiteRow>(aRes);
         const apptMap: Record<string, AppointmentLiteRow> = {};
         for (const a of appts) apptMap[a.id] = a;
         setAppointmentsById(apptMap);
@@ -283,9 +289,7 @@ export default function PatientTreatments() {
             12000
           );
 
-          if ((svcRes as any).error) throw new Error((svcRes as any).error.message);
-
-          const svcRows = (((svcRes as any).data) as ServicePricingRow[]) ?? [];
+          const svcRows = getRows<ServicePricingRow>(svcRes);
           const svcMap: Record<string, ServicePricingRow> = {};
           for (const s of svcRows) svcMap[s.id] = s;
           setServicesById(svcMap);
@@ -318,9 +322,7 @@ export default function PatientTreatments() {
           .order("created_at", { ascending: false }),
         12000
       );
-      if ((nRes as any).error) throw new Error((nRes as any).error.message);
-
-      const notes = (((nRes as any).data) as VisitNoteRow[]) ?? [];
+      const notes = getRows<VisitNoteRow>(nRes);
       const byVisit: Record<string, VisitNoteRow[]> = {};
       for (const n of notes) {
         byVisit[n.visit_id] = byVisit[n.visit_id] ? [...byVisit[n.visit_id], n] : [n];
@@ -336,9 +338,7 @@ export default function PatientTreatments() {
           .order("created_at", { ascending: false }),
         12000
       );
-      if ((sRes as any).error) throw new Error((sRes as any).error.message);
-
-      const soaps = (((sRes as any).data) as SoapRow[]) ?? [];
+      const soaps = getRows<SoapRow>(sRes);
       const soapMap: Record<string, SoapRow | null> = {};
       for (const s of soaps) {
         if (!soapMap[s.visit_id]) soapMap[s.visit_id] = s;
@@ -355,9 +355,7 @@ export default function PatientTreatments() {
         12000
       );
 
-      if ((tpRes as any).error) throw new Error((tpRes as any).error.message);
-
-      const plans = (((tpRes as any).data) as TreatmentPlanRow[]) ?? [];
+      const plans = getRows<TreatmentPlanRow>(tpRes);
       const planMap: Record<string, TreatmentPlanRow | null> = {};
       for (const p of plans) {
         if (!planMap[p.visit_id]) planMap[p.visit_id] = p;
@@ -375,9 +373,7 @@ export default function PatientTreatments() {
         12000
       );
 
-      if ((fRes as any).error) throw new Error((fRes as any).error.message);
-
-      const fileRows = ((((fRes as any).data) as PatientFileRow[]) ?? []).filter(
+      const fileRows = getRows<PatientFileRow>(fRes).filter(
         (f) => !!f.visit_id
       );
 
@@ -405,17 +401,15 @@ export default function PatientTreatments() {
       }
       setFileUrls(nextUrls);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to load treatments.";
-      setErr(msg);
+      setErr(getErrorMessage(e, "Failed to load treatments."));
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
     loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [loadAll]);
 
   return (
     <div className="app-bg">

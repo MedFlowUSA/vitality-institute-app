@@ -1,4 +1,4 @@
-﻿// src/pages/PatientWoundIntake.tsx
+// src/pages/PatientWoundIntake.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -222,7 +222,7 @@ export default function PatientWoundIntake() {
       <div className="p-6">
         <VitalityHero
           title="We received your information"
-          subtitle="Next steps: our clinical team will review your wound care intake. If we need anything else, weâ€™ll notify you inside your portal."
+          subtitle="Next steps: our clinical team will review your wound care intake. If we need anything else, we'll notify you inside your portal."
         />
         <div className="max-w-3xl mx-auto mt-6 bg-white/70 rounded-xl p-5 border">
           <div className="text-sm opacity-80">
@@ -287,7 +287,7 @@ export default function PatientWoundIntake() {
 
           <div className="grid md:grid-cols-3 gap-4">
             <label className="form-control">
-              <span className="label-text">Pain level (0â€“10)</span>
+              <span className="label-text">Pain level (0-10)</span>
               <input
                 type="number"
                 min={0}
@@ -450,5 +450,6 @@ export default function PatientWoundIntake() {
     </div>
   );
 }
+
 
 

@@ -112,9 +112,9 @@ export default function ProviderLayout({
         <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
           <NavItem to="/provider" label="Home" />
           <NavItem to="/provider/patients" label="Patients" />
-          <NavItem to="/provider/intake" label="Intake Review" />
+          <NavItem to="/provider/intakes" label="Intakes" />
           <NavItem to="/provider/labs" label="Labs" />
-          <NavItem to="/provider/chat" label="Chat" />
+          <NavItem to="/provider/chat" label="Messages" />
           <NavItem to="/provider/ai" label="AI Assist" />
         </div>
 

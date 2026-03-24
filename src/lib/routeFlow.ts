@@ -65,3 +65,26 @@ export function buildCurrentPath(pathname: string, search = "") {
   const normalizedPath = sanitizeInternalPath(pathname, "/");
   return `${normalizedPath}${search || ""}`;
 }
+
+export function buildPatientIntakePath(input?: {
+  pathway?: string | null;
+  appointmentId?: string | null;
+  autostart?: boolean;
+}) {
+  const params = new URLSearchParams();
+
+  if (input?.appointmentId) {
+    params.set("appointmentId", input.appointmentId);
+  }
+
+  if (input?.pathway) {
+    params.set("pathway", input.pathway);
+  }
+
+  if (input?.autostart) {
+    params.set("autostart", "1");
+  }
+
+  const query = params.toString();
+  return `/intake${query ? `?${query}` : ""}`;
+}

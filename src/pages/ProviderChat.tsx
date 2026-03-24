@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { getErrorMessage } from "../lib/patientRecords";
 import { supabase } from "../lib/supabase";
 import AppShell from "../components/AppShell";
 
 type LocationRow = { id: string; name: string };
+type LocationAssignmentRow = { location_id: string };
 
 type ThreadRow = {
   id: string;
@@ -58,13 +60,13 @@ export default function ProviderChat() {
 
   const fmt = (iso: string) => new Date(iso).toLocaleString();
 
-  const loadLocations = async () => {
+  const loadLocations = useCallback(async () => {
     const { data, error } = await supabase.from("locations").select("id,name").order("name");
     if (error) throw new Error(error.message);
     setLocations((data as LocationRow[]) ?? []);
-  };
+  }, []);
 
-  const loadAllowed = async () => {
+  const loadAllowed = useCallback(async () => {
     if (!user) return;
 
     if (isAdmin) {
@@ -75,12 +77,12 @@ export default function ProviderChat() {
     const { data, error } = await supabase.from("user_locations").select("location_id").eq("user_id", user.id);
     if (error) throw new Error(error.message);
 
-    const ids = (data ?? []).map((r: any) => r.location_id).filter(Boolean);
+    const ids = ((data as LocationAssignmentRow[] | null) ?? []).map((row) => row.location_id).filter(Boolean);
     setAllowedLocationIds(ids);
     if (ids.length === 1) setLocationId(ids[0]);
-  };
+  }, [isAdmin, user]);
 
-  const loadThreads = async () => {
+  const loadThreads = useCallback(async () => {
     setErr(null);
 
     let q = supabase
@@ -116,9 +118,9 @@ export default function ProviderChat() {
     }
 
     if (!activeThreadId && rows.length > 0) setActiveThreadId(rows[0].id);
-  };
+  }, [activeThreadId, allowedLocationIds, isAdmin, locationId, preselectThreadId]);
 
-  const loadMessages = async (threadId: string) => {
+  const loadMessages = useCallback(async (threadId: string) => {
     const { data, error } = await supabase
       .from("chat_messages")
       .select("id,created_at,thread_id,sender_id,body,is_internal")
@@ -128,7 +130,7 @@ export default function ProviderChat() {
 
     if (error) throw new Error(error.message);
     setMessages((data as MessageRow[]) ?? []);
-  };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -138,19 +140,17 @@ export default function ProviderChat() {
         await loadLocations();
         await loadAllowed();
         await loadThreads();
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load.");
+      } catch (error: unknown) {
+        setErr(getErrorMessage(error, "Failed to load."));
       } finally {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, isAdmin, preselectThreadId]);
+  }, [isAdmin, loadAllowed, loadLocations, loadThreads, preselectThreadId, user?.id]);
 
   useEffect(() => {
-    loadThreads();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationId, allowedLocationIds.join(","), isAdmin, preselectThreadId]);
+    void loadThreads();
+  }, [loadThreads]);
 
   useEffect(() => {
     if (!activeThreadId) {
@@ -160,11 +160,11 @@ export default function ProviderChat() {
     (async () => {
       try {
         await loadMessages(activeThreadId);
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load messages.");
+      } catch (error: unknown) {
+        setErr(getErrorMessage(error, "Failed to load messages."));
       }
     })();
-  }, [activeThreadId]);
+  }, [activeThreadId, loadMessages]);
 
   // realtime updates
   useEffect(() => {
@@ -185,8 +185,7 @@ export default function ProviderChat() {
     return () => {
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeThreadId]);
+  }, [activeThreadId, loadMessages, loadThreads]);
 
   const send = async () => {
     setErr(null);
@@ -327,7 +326,7 @@ export default function ProviderChat() {
                     <button
                       className="btn btn-ghost"
                       type="button"
-                      onClick={() => navigate(`/provider/patient/${activeThread.patient_id}`)}
+                      onClick={() => navigate(`/provider/patients/${activeThread.patient_id}`)}
                     >
                       Patient Center
                     </button>

@@ -287,7 +287,7 @@ export default function ProviderConversationCenter() {
                         <button
                           className="btn btn-ghost"
                           type="button"
-                          onClick={() => navigate(`/provider/patient/${activeConversation.patient_id}`)}
+                          onClick={() => navigate(`/provider/patients/${activeConversation.patient_id}`)}
                         >
                           Patient Center
                         </button>

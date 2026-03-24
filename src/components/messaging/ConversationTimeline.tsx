@@ -54,7 +54,7 @@ export default function ConversationTimeline({
     <>
       <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div className="muted" style={{ fontSize: 12 }}>
-          Chat history
+          Message history
         </div>
         <input
           className="input"

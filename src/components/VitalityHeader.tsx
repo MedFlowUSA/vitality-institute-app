@@ -61,7 +61,7 @@ export default function VitalityHeader({
 
         <div className="v-stat">
           <div className="k">Patient Flows</div>
-          <div className="v">Intake • Booking • Chat</div>
+          <div className="v">Intake • Booking • Messages</div>
         </div>
 
         <div className="v-stat">

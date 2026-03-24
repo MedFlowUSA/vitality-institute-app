@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -6,11 +5,7 @@ export default function AppStatusFooter() {
   const { user, role, activeLocationId } = useAuth();
   const location = useLocation();
 
-  const userLabel = useMemo(() => {
-    if (user?.email) return user.email;
-    if (user?.id) return user.id.slice(0, 8);
-    return "guest";
-  }, [user?.email, user?.id]);
+  const userLabel = user?.email ?? user?.id?.slice(0, 8) ?? "guest";
 
   return (
     <div

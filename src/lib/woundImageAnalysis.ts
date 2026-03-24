@@ -39,7 +39,7 @@ export function analyzeWoundImage(input: WoundImageAnalysisInput): WoundImageAna
     };
   }
 
-  let quality: WoundImageAnalysisResult["quality"] = "Usable";
+  const quality: WoundImageAnalysisResult["quality"] = "Usable";
   let comparison: WoundImageAnalysisResult["comparison"] = "Unclear";
   const notes: string[] = [];
   const docPrompts: string[] = [];
