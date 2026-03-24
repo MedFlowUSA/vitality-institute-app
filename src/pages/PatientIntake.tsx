@@ -52,6 +52,7 @@ export default function PatientIntake() {
 
   const [selectedTemplate, setSelectedTemplate] = useState<FormTemplate | null>(null);
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [sex, setSex] = useState<"Male" | "Female" | "">("");
 
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [consentSignedName, setConsentSignedName] = useState("");
@@ -116,6 +117,15 @@ export default function PatientIntake() {
           throw new Error("No patient record linked to this login yet. Ask front desk to create your patient profile.");
         }
 
+        const { data: demo, error: demoErr } = await supabase
+          .from("patient_demographics")
+          .select("sex")
+          .eq("patient_id", patientRow.id)
+          .maybeSingle();
+
+        if (demoErr) throw demoErr;
+        setSex(((demo as { sex?: string | null } | null)?.sex as "Male" | "Female" | null) ?? "");
+
         // 2) Locations
         const { data: locs, error: locErr } = await supabase.from("locations").select("id,name").order("name");
         if (locErr) throw locErr;
@@ -162,6 +172,7 @@ export default function PatientIntake() {
     if (!patient?.id) return "No patient record linked to this login.";
     if (!selectedTemplate) return "No intake form template found for this therapy type.";
     if (!appointmentId) return "Please select the appointment this intake is for.";
+    if (!sex) return "Please select your gender.";
     if (!consentAccepted) return "Please accept the consent.";
     if (!consentSignedName.trim()) return "Please type your name to sign consent.";
 
@@ -193,12 +204,30 @@ export default function PatientIntake() {
 
     setSaving(true);
 
+    const { error: demographicsError } = await supabase.from("patient_demographics").upsert(
+      [
+        {
+          patient_id: patient.id,
+          sex,
+        },
+      ],
+      { onConflict: "patient_id" }
+    );
+
+    if (demographicsError) {
+      setSaving(false);
+      return setErr(demographicsError.message);
+    }
+
     // Store dynamic answers + useful pointers in wound_data (jsonb)
     const payload = {
       therapy_type: therapyType,
       form_id: selectedTemplate.id,
       appointment_id: appointmentId,
-      answers,
+      answers: {
+        ...answers,
+        gender: sex,
+      },
       template_name: selectedTemplate.name,
       submitted_at: new Date().toISOString(),
     };
@@ -291,6 +320,17 @@ export default function PatientIntake() {
                       {new Date(a.start_time).toLocaleString()} — {locName(a.location_id)} — {a.status}
                     </option>
                   ))}
+                </select>
+
+                <select
+                  className="input"
+                  style={{ flex: "1 1 220px" }}
+                  value={sex}
+                  onChange={(e) => setSex(e.target.value as "Male" | "Female" | "")}
+                >
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
                 </select>
               </div>
 

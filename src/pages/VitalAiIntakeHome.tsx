@@ -262,7 +262,7 @@ export default function VitalAiIntakeHome() {
             Gender
           </div>
           <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-            {(["Male", "Female", "Prefer not to say"] as IntakeGender[]).map((option) => (
+            {(["Male", "Female"] as IntakeGender[]).map((option) => (
               <button
                 key={option}
                 type="button"

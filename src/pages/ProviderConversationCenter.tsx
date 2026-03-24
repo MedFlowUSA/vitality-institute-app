@@ -15,8 +15,19 @@ import {
   sendConversationMessage,
 } from "../lib/messaging/conversationService";
 import { supabase } from "../lib/supabase";
+import ProviderPrerequisiteCard from "../components/provider/ProviderPrerequisiteCard";
 
 type LocationRow = { id: string; name: string };
+
+type ConversationListItem = import("../lib/messaging/conversationService").ConversationListItem;
+type ConversationMessage = import("../lib/messaging/conversationService").ConversationMessage;
+type StaffDirectoryUser = import("../lib/messaging/conversationService").StaffDirectoryUser;
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
 
 export default function ProviderConversationCenter() {
   const { user, role, signOut, resumeKey } = useAuth();
@@ -29,14 +40,14 @@ export default function ProviderConversationCenter() {
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [allowedLocationIds, setAllowedLocationIds] = useState<string[]>([]);
   const [locationId, setLocationId] = useState("");
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [body, setBody] = useState("");
   const [listSearch, setListSearch] = useState("");
   const [messageSearch, setMessageSearch] = useState("");
   const [internalNote, setInternalNote] = useState(false);
-  const [staffDirectory, setStaffDirectory] = useState<any[]>([]);
+  const [staffDirectory, setStaffDirectory] = useState<StaffDirectoryUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -49,8 +60,8 @@ export default function ProviderConversationCenter() {
     const needle = listSearch.trim().toLowerCase();
     return conversations.filter((item) =>
       [item.title, item.last_message_preview, item.patient_name, ...(item.participant_names ?? [])]
-        .filter(Boolean)
-        .some((value: string) => value.toLowerCase().includes(needle))
+        .filter((value): value is string => Boolean(value))
+        .some((value) => value.toLowerCase().includes(needle))
     );
   }, [conversations, listSearch]);
 
@@ -108,8 +119,8 @@ export default function ProviderConversationCenter() {
       setErr(null);
       try {
         await loadBase();
-      } catch (error: any) {
-        if (!cancelled) setErr(error?.message ?? "Failed to load chat access.");
+      } catch (error: unknown) {
+        if (!cancelled) setErr(getErrorMessage(error, "Failed to load messaging access."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -123,10 +134,10 @@ export default function ProviderConversationCenter() {
 
   useEffect(() => {
     if (!user?.id || allowedLocationIds.length === 0) return;
-    loadConversations().catch((error: any) => setErr(error?.message ?? "Failed to load conversations."));
+    loadConversations().catch((error: unknown) => setErr(getErrorMessage(error, "Failed to load conversations.")));
     loadStaffDirectory(locationId || undefined)
       .then(setStaffDirectory)
-      .catch((error: any) => setErr(error?.message ?? "Failed to load staff directory."));
+      .catch((error: unknown) => setErr(getErrorMessage(error, "Failed to load staff directory.")));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, locationId, allowedLocationIds.join(","), preselectConversationId, resumeKey]);
 
@@ -135,7 +146,7 @@ export default function ProviderConversationCenter() {
       setMessages([]);
       return;
     }
-    loadMessages(activeConversationId).catch((error: any) => setErr(error?.message ?? "Failed to load messages."));
+    loadMessages(activeConversationId).catch((error: unknown) => setErr(getErrorMessage(error, "Failed to load messages.")));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversationId]);
 
@@ -179,8 +190,8 @@ export default function ProviderConversationCenter() {
       setInternalNote(false);
       await loadMessages(activeConversationId);
       await loadConversations();
-    } catch (error: any) {
-      setErr(error?.message ?? "Failed to send message.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to send message."));
     } finally {
       setSending(false);
     }
@@ -195,8 +206,8 @@ export default function ProviderConversationCenter() {
       await closeConversation(activeConversationId);
       await loadConversations();
       await loadMessages(activeConversationId);
-    } catch (error: any) {
-      setErr(error?.message ?? "Failed to close conversation.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to close conversation."));
     } finally {
       setClosing(false);
     }
@@ -204,7 +215,7 @@ export default function ProviderConversationCenter() {
 
   return (
     <AppShell
-      title="Clinical Messaging"
+      title="Messages"
       subtitle="Conversation-based patient and care-team communication"
       actions={
         <>
@@ -234,6 +245,12 @@ export default function ProviderConversationCenter() {
         {!loading ? (
           <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
             <div style={{ flex: "1 1 320px", minWidth: 300, display: "grid", gap: 12 }}>
+              {!isAdmin && allowedLocationIds.length === 0 ? (
+                <ProviderPrerequisiteCard
+                  title="No Messaging Location Access"
+                  message="This provider account is not assigned to a location yet. Add a location assignment before opening patient conversations."
+                />
+              ) : null}
               <div className="card card-pad">
                 <div className="h2">Filter</div>
                 <div className="space" />
@@ -269,7 +286,14 @@ export default function ProviderConversationCenter() {
 
             <div className="card card-pad" style={{ flex: "2 1 640px", minWidth: 320 }}>
               {!activeConversation ? (
-                <div className="muted">Select a conversation to review patient messaging.</div>
+                <ProviderPrerequisiteCard
+                  title={filteredConversations.length === 0 ? "No Conversations Ready" : "Select A Conversation"}
+                  message={
+                    filteredConversations.length === 0
+                      ? "There are no conversations for the current location filter yet. Choose another location or wait for a patient or staff message to start the thread."
+                      : "Choose a conversation from the list to review messages, add an internal note, or reply to the patient."
+                  }
+                />
               ) : (
                 <>
                   <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -278,7 +302,7 @@ export default function ProviderConversationCenter() {
                       <div className="muted" style={{ marginTop: 4 }}>
                         {activeConversation.patient_name}
                         {activeConversation.participant_names.length
-                          ? ` • Team: ${activeConversation.participant_names.join(", ")}`
+                          ? ` � Team: ${activeConversation.participant_names.join(", ")}`
                           : ""}
                       </div>
                     </div>
@@ -340,3 +364,4 @@ export default function ProviderConversationCenter() {
     </AppShell>
   );
 }
+

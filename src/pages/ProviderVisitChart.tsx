@@ -1,25 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 import TreatmentPlanSection from "../components/provider/TreatmentPlanSection";
-import VisitPacketSection from "../components/provider/VisitPacketSection";
 import WoundAssessmentSection from "../components/provider/WoundAssessmentSection";
 import { getSignedUrl } from "../lib/patientFiles";
 import SoapNotePanel from "../components/SoapNotePanel";
-import WoundPacketPreview from "../components/provider/WoundPacketPreview";
-import VisitPacketSectionSummary from "../components/visits/VisitPacketSection";
 import { analyzeWoundProgression } from "../lib/woundProgression";
+import { getErrorMessage } from "../lib/patientRecords";
+import type { ProviderVisitSummary, SoapNoteRecord, TreatmentPlanRecord, WoundAssessmentRecord } from "../lib/provider/types";
 
-type VisitRow = {
-  id: string;
+const LazyVisitPacketSection = lazy(() => import("../components/provider/VisitPacketSection"));
+const LazyWoundPacketPreview = lazy(() => import("../components/provider/WoundPacketPreview"));
+const LazyVisitPacketSectionSummary = lazy(() => import("../components/visits/VisitPacketSection"));
+
+type VisitRow = ProviderVisitSummary & {
   created_at: string;
-  location_id: string;
-  patient_id: string;
   appointment_id: string | null;
-  visit_date: string;
-  status: string | null;
-  summary: string | null;
 };
 
 type PatientRow = {
@@ -30,37 +27,23 @@ type PatientRow = {
   email: string | null;
 };
 
-type AssessmentRow = {
-  id: string;
-  created_at: string;
+type AssessmentRow = Pick<
+  WoundAssessmentRecord,
+  "id" | "created_at" | "wound_label" | "body_site" | "laterality" | "wound_type" | "photo_file_id"
+> & {
   wound_label: string | null;
-  body_site: string | null;
-  laterality: string | null;
-  wound_type: string | null;
   photo_file_id?: string | null;
 };
 
-type SoapRow = {
-  id: string;
-  created_at: string;
-  subjective: string | null;
-  objective: string | null;
-  assessment: string | null;
-  plan: string | null;
-  is_signed: boolean | null;
-  is_locked: boolean | null;
-  signed_at: string | null;
-};
+type SoapRow = Pick<
+  SoapNoteRecord,
+  "id" | "created_at" | "subjective" | "objective" | "assessment" | "plan" | "is_signed" | "is_locked" | "signed_at"
+>;
 
-type PlanRow = {
-  id: string;
-  created_at: string;
-  status: string | null;
-  summary: string | null;
-  plan: any;
-  patient_instructions: string | null;
-  internal_notes: string | null;
-};
+type PlanRow = Pick<
+  TreatmentPlanRecord,
+  "id" | "created_at" | "status" | "summary" | "plan" | "patient_instructions" | "internal_notes"
+>;
 
 type FileRow = {
   id: string;
@@ -80,15 +63,21 @@ type TimelineVisitRow = {
   status: string | null;
 };
 
-type TimelineAssessmentRow = {
-  id: string;
-  visit_id: string;
-  created_at: string;
+type TimelineAssessmentRow = Pick<
+  WoundAssessmentRecord,
+  "id" | "visit_id" | "created_at" | "wound_label" | "body_site" | "laterality" | "wound_type" | "photo_file_id"
+> & {
   wound_label: string | null;
-  body_site: string | null;
-  laterality: string | null;
-  wound_type: string | null;
-  photo_file_id: string | null;
+};
+
+type WoundMeasurementRow = {
+  created_at: string;
+  length_cm: number | null;
+  width_cm: number | null;
+  depth_cm: number | null;
+  exudate: string | null;
+  infection_signs: boolean | null;
+  pain_score: number | null;
 };
 
 type TabKey = "overview" | "assessment" | "soap" | "treatment" | "files" | "packet";
@@ -116,7 +105,7 @@ export default function ProviderVisitChart() {
   const [timelineVisits, setTimelineVisits] = useState<TimelineVisitRow[]>([]);
   const [timelineAssessments, setTimelineAssessments] = useState<TimelineAssessmentRow[]>([]);
   const [timelineFiles, setTimelineFiles] = useState<FileRow[]>([]);
-  const [woundMeasurements, setWoundMeasurements] = useState<any[]>([]);
+  const [woundMeasurements, setWoundMeasurements] = useState<WoundMeasurementRow[]>([]);
 
   const patientName = useMemo(() => {
     if (!patient) return "Patient";
@@ -317,8 +306,8 @@ export default function ProviderVisitChart() {
         setTimelineAssessments([]);
         setTimelineFiles([]);
       }
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load visit chart.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to load visit chart."));
     } finally {
       setLoading(false);
     }
@@ -500,11 +489,13 @@ export default function ProviderVisitChart() {
                     patientId={visit.patient_id}
                     locationId={visit.location_id}
                   />
-                  <VisitPacketSection
-                    visitId={visit.id}
-                    patientId={visit.patient_id}
-                    locationId={visit.location_id}
-                  />
+                  <Suspense fallback={<div className="card card-pad"><div className="muted">Loading packet tools...</div></div>}>
+                    <LazyVisitPacketSection
+                      visitId={visit.id}
+                      patientId={visit.patient_id}
+                      locationId={visit.location_id}
+                    />
+                  </Suspense>
                 </div>
               )}
 
@@ -720,16 +711,18 @@ export default function ProviderVisitChart() {
 
               {tab === "packet" && (
                 <div>
-                  <VisitPacketSectionSummary
-                    visitId={visit.id}
-                    patientId={visit.patient_id}
-                  />
-                  <div className="space" />
-                  <WoundPacketPreview
-                    visitId={visit.id}
-                    patientId={visit.patient_id}
-                    locationId={visit.location_id}
-                  />
+                  <Suspense fallback={<div className="card card-pad"><div className="muted">Loading packet preview...</div></div>}>
+                    <LazyVisitPacketSectionSummary
+                      visitId={visit.id}
+                      patientId={visit.patient_id}
+                    />
+                    <div className="space" />
+                    <LazyWoundPacketPreview
+                      visitId={visit.id}
+                      patientId={visit.patient_id}
+                      locationId={visit.location_id}
+                    />
+                  </Suspense>
                 </div>
               )}
             </>

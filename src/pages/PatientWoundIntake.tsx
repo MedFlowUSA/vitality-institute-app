@@ -35,6 +35,7 @@ export default function PatientWoundIntake() {
   const [woundCause, setWoundCause] = useState("");
   const [priorTreatments, setPriorTreatments] = useState("");
   const [currentDressing, setCurrentDressing] = useState("");
+  const [sex, setSex] = useState<"Male" | "Female" | "">("");
   const [painLevel, setPainLevel] = useState<number>(0);
   const [hasDiabetes, setHasDiabetes] = useState<"unknown" | "yes" | "no">("unknown");
   const [smokes, setSmokes] = useState<"unknown" | "yes" | "no">("unknown");
@@ -78,6 +79,16 @@ export default function PatientWoundIntake() {
 
         if (!mounted) return;
         setPatient(p as PatientRow);
+
+        const { data: demographics, error: demographicsError } = await supabase
+          .from("patient_demographics")
+          .select("sex")
+          .eq("patient_id", (p as PatientRow).id)
+          .maybeSingle();
+
+        if (demographicsError) throw demographicsError;
+        if (!mounted) return;
+        setSex(((demographics as { sex?: string | null } | null)?.sex as "Male" | "Female" | null) ?? "");
 
         // Resolve location (prefer patients.location_id, else first assigned user_location_roles)
         let locId = (p as any).location_id as string | null;
@@ -159,8 +170,8 @@ export default function PatientWoundIntake() {
     }
 
     // Minimal validation for soft launch
-    if (!woundLocation.trim() || !woundDuration.trim()) {
-      alert("Please enter wound location and duration.");
+    if (!woundLocation.trim() || !woundDuration.trim() || !sex) {
+      alert("Please enter wound location, duration, and gender.");
       return;
     }
 
@@ -169,6 +180,7 @@ export default function PatientWoundIntake() {
 
     try {
       const wound_data = {
+        gender: sex,
         wound_location: woundLocation.trim(),
         wound_duration: woundDuration.trim(),
         wound_cause: woundCause.trim(),
@@ -196,6 +208,17 @@ export default function PatientWoundIntake() {
         consent_signed_name: typedSignature.trim(),
         consent_signed_at: new Date().toISOString(),
       };
+
+      const { error: demographicsError } = await supabase.from("patient_demographics").upsert(
+        [
+          {
+            patient_id: patient.id,
+            sex,
+          },
+        ],
+        { onConflict: "patient_id" }
+      );
+      if (demographicsError) throw demographicsError;
 
       const { error } = await supabase.from("patient_intakes").insert(payload);
       if (error) throw error;
@@ -269,6 +292,15 @@ export default function PatientWoundIntake() {
               <input className="input input-bordered" value={woundDuration} onChange={(e) => setWoundDuration(e.target.value)} />
             </label>
           </div>
+
+          <label className="form-control">
+            <span className="label-text">Gender</span>
+            <select className="select select-bordered" value={sex} onChange={(e) => setSex(e.target.value as "Male" | "Female" | "")}>
+              <option value="">Select gender</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </label>
 
           <label className="form-control">
             <span className="label-text">Cause (if known)</span>

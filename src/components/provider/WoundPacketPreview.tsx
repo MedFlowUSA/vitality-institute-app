@@ -5,6 +5,8 @@ import WoundHealingGraph from "./WoundHealingGraph";
 import { analyzeWoundRisk } from "../../lib/woundRiskAlerts";
 import { analyzeWoundImage } from "../../lib/woundImageAnalysis";
 
+type TreatmentPlanRecord = import("../../lib/provider/types").TreatmentPlanRecord;
+
 type Props = {
   visitId: string;
   patientId: string;
@@ -54,6 +56,20 @@ type HealingCurveRow = {
   created_at: string;
   visit_id: string;
   wound_label: string;
+  body_site: string | null;
+  laterality: string | null;
+  wound_type: string | null;
+  length_cm: number | null;
+  width_cm: number | null;
+  depth_cm: number | null;
+  area_cm2: number | null;
+};
+
+type LegacyHealingCurveRow = {
+  id: string;
+  created_at: string;
+  visit_id: string;
+  wound_label: string;
   length_cm: number | null;
   width_cm: number | null;
   depth_cm: number | null;
@@ -82,7 +98,7 @@ type PlanRow = {
   summary: string | null;
   patient_instructions: string | null;
   internal_notes: string | null;
-  plan: any;
+  plan: TreatmentPlanRecord["plan"];
 };
 
 type FileRow = {
@@ -95,6 +111,12 @@ type FileRow = {
   content_type: string | null;
   size_bytes: number | null;
 };
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
 
 function isImageFile(f: FileRow) {
   return (f.content_type ?? "").startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(f.filename);
@@ -424,7 +446,7 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
 
           if (hrErr) throw hrErr;
 
-          const curveRows: HealingCurveRow[] = ((hr as any[]) ?? []).map((r) => ({
+          const curveRows: HealingCurveRow[] = ((hr as LegacyHealingCurveRow[]) ?? []).map((r) => ({
             ...r,
             area_cm2:
               r.length_cm != null && r.width_cm != null
@@ -447,7 +469,7 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
 
           if (hrErr) throw hrErr;
 
-          const curveRows: HealingCurveRow[] = ((hr as any[]) ?? []).map((r) => ({
+          const curveRows: HealingCurveRow[] = ((hr as LegacyHealingCurveRow[]) ?? []).map((r) => ({
             ...r,
             area_cm2:
               r.length_cm != null && r.width_cm != null
@@ -549,8 +571,8 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
         } else {
           setPriorPhotoUrl("");
         }
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load packet preview.");
+      } catch (error: unknown) {
+        setErr(getErrorMessage(error, "Failed to load packet preview."));
       } finally {
         setLoading(false);
       }
@@ -709,8 +731,8 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
       );
 
       alert("Narrative sent to SOAP assessment.");
-    } catch (e: any) {
-      alert(e?.message ?? "Failed to send narrative to SOAP.");
+    } catch (error: unknown) {
+      alert(getErrorMessage(error, "Failed to send narrative to SOAP."));
     } finally {
       setSendingSoap(false);
     }
@@ -746,8 +768,8 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
       );
 
       alert("Justification sent to treatment plan internal notes.");
-    } catch (e: any) {
-      alert(e?.message ?? "Failed to send justification to treatment plan.");
+    } catch (error: unknown) {
+      alert(getErrorMessage(error, "Failed to send justification to treatment plan."));
     } finally {
       setSendingPlan(false);
     }

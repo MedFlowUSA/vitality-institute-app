@@ -270,7 +270,7 @@ export default function PatientVisitChart() {
 
         {loading && (
           <div className="card card-pad">
-            <div className="muted">Loading…</div>
+            <div className="muted">Loading...</div>
           </div>
         )}
 
@@ -348,7 +348,7 @@ export default function PatientVisitChart() {
 
               <div className="space" />
 
-              {loadingDetail && <div className="muted">Loading visit details…</div>}
+              {loadingDetail && <div className="muted">Loading visit details...</div>}
 
               {!loadingDetail && selectedVisit && (
                 <>

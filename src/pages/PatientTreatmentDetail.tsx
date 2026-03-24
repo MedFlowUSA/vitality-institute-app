@@ -151,7 +151,7 @@ export default function PatientTreatmentDetail() {
       <div className="shell">
         <VitalityHero
           title="Treatment Details"
-          subtitle="Visit summary • SOAP • notes • files"
+          subtitle="Visit Summary • SOAP • Notes • Files"
           primaryCta={{ label: "Back to Treatments", onClick: () => nav("/patient/treatments") }}
           secondaryCta={{ label: "Home", to: "/patient" }}
           rightActions={
@@ -184,7 +184,7 @@ export default function PatientTreatmentDetail() {
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
               <button className="btn btn-ghost" type="button" onClick={load} disabled={loading}>
-                {loading ? "Refreshing…" : "Refresh"}
+                {loading ? "Refreshing..." : "Refresh"}
               </button>
               <button className="btn btn-primary" type="button" onClick={() => nav("/patient/treatments")}>
                 Back
@@ -196,7 +196,7 @@ export default function PatientTreatmentDetail() {
         <div className="space" />
 
         <div className="card card-pad">
-          {loading && <div className="muted">Loading…</div>}
+          {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading && !err && !visit && <div className="muted">Visit not found.</div>}

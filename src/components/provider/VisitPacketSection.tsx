@@ -3,6 +3,8 @@ import { supabase } from "../../lib/supabase";
 import { getSignedUrl, uploadPatientFile } from "../../lib/patientFiles";
 import html2pdf from "html2pdf.js";
 
+type TreatmentPlanRecord = import("../../lib/provider/types").TreatmentPlanRecord;
+
 type Props = {
   visitId: string;
   patientId: string;
@@ -65,7 +67,7 @@ type TreatmentPlanRow = {
   summary: string | null;
   patient_instructions: string | null;
   internal_notes: string | null;
-  plan: any;
+  plan: TreatmentPlanRecord["plan"];
   signed_at: string | null;
 };
 
@@ -93,6 +95,26 @@ type HealingCurveRow = {
   depth_cm: number | null;
   area_cm2: number | null;
 };
+
+type LegacyHealingCurveRow = {
+  id: string;
+  created_at: string;
+  visit_id: string;
+  wound_label: string;
+  body_site: string | null;
+  laterality: string | null;
+  wound_type: string | null;
+  length_cm: number | null;
+  width_cm: number | null;
+  depth_cm: number | null;
+  area_cm2: number | null;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
 
 function fmtDate(v?: string | null) {
   if (!v) return "-";
@@ -277,7 +299,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
 
         if (curveErr) throw curveErr;
 
-        const normalized = (((curveRows as any[]) ?? []).map((r) => ({
+        const normalized = (((curveRows as LegacyHealingCurveRow[]) ?? []).map((r) => ({
           ...r,
           area_cm2:
             r.length_cm != null && r.width_cm != null
@@ -289,8 +311,8 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
       } else {
         setHealingCurve([]);
       }
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load visit packet.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to load visit packet."));
     } finally {
       setLoading(false);
     }
@@ -514,8 +536,8 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
       }
 
       alert("Patient PDF copy sent to portal files.");
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to send patient PDF to portal.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to send patient PDF to portal."));
     } finally {
       setSendingToPortal(false);
     }
@@ -582,8 +604,8 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
       }
 
       alert("Clinical PDF sent to internal files.");
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to send clinical PDF.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to send clinical PDF."));
     } finally {
       setSendingToPortal(false);
     }

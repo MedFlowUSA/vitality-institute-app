@@ -1,4 +1,4 @@
-// src/pages/ProviderPatientCenter.tsx
+ï»¿// src/pages/ProviderPatientCenter.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -12,6 +12,7 @@ import SystemStatusBar from "../components/SystemStatusBar";
 import InsightRibbon from "../components/InsightRibbon";
 import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
 import { auditWrite } from "../lib/audit";
+import { getErrorMessage } from "../lib/patientRecords";
 
 import SoapNotePanel from "../components/SoapNotePanel";
 import TreatmentPlanSection from "../components/provider/TreatmentPlanSection";
@@ -21,6 +22,7 @@ import WoundAssessmentPanel from "../components/provider/WoundAssessmentPanel";
 import WoundHealingCurvePanel from "../components/provider/WoundHealingCurvePanel";
 import IVRPacketPanel from "../components/provider/IVRPacketPanel";
 import ChargeCapturePanel from "../components/provider/ChargeCapturePanel";
+import ProviderPrerequisiteCard from "../components/provider/ProviderPrerequisiteCard";
 import { calculateHealingTrend, getWoundHistory, type WoundObservation } from "../lib/vital-ai/woundTracking";
 import {
   deriveEncounterState,
@@ -28,15 +30,12 @@ import {
   type EncounterSoapSummary,
 } from "../lib/provider/encounterState";
 import { buildProviderPatientCenterGuide } from "../lib/provider/providerGuide";
+import { getProviderPatientCenterRecommendation } from "../lib/provider/providerWorkflow";
+import { startVisitFromAppointment } from "../lib/provider/visitLaunch";
+import type { ProviderLabStatus, ProviderPatientSummary, ProviderVisitSummary } from "../lib/provider/types";
 
-type VisitRow = {
-  id: string;
-  patient_id: string;
-  location_id: string;
+type VisitRow = ProviderVisitSummary & {
   appointment_id: string | null;
-  visit_date: string; // timestamptz
-  status: string | null;
-  summary: string | null;
   next_action_type: string | null;
   next_action_due_at: string | null;
   next_action_notes: string | null;
@@ -151,6 +150,17 @@ type PlanSummaryRow = EncounterPlanSummary & {
   updated_at: string;
 };
 
+type AppointmentRow = {
+  id: string;
+  patient_id: string;
+  location_id: string;
+  start_time: string;
+  status: string | null;
+  notes: string | null;
+};
+
+type PatientProfileRow = ProviderPatientSummary;
+
 const VISIT_SELECT_FIELDS =
   "id,patient_id,location_id,appointment_id,visit_date,status,summary,next_action_type,next_action_due_at,next_action_notes,follow_up_required,follow_up_mode,requires_labs_before_followup,created_at";
 const VISIT_TIMELINE_SELECT_FIELDS =
@@ -188,8 +198,10 @@ export default function ProviderPatientCenter() {
   const visitIdFromRoute = params.visitId ?? "";
   const [resolvedPatientId, setResolvedPatientId] = useState<string>(patientIdFromRoute);
   const patientId = resolvedPatientId || patientIdFromRoute;
+  const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
 
   const [tab, setTab] = useState<PatientTab>("overview");
+  const [lastAutoVisitId, setLastAutoVisitId] = useState("");
 
   // Timeline (prefer v_patient_visit_timeline; fallback to patient_visits)
   const [timeline, setTimeline] = useState<VisitTimelineRow[]>([]);
@@ -207,6 +219,7 @@ export default function ProviderPatientCenter() {
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [woundHistory, setWoundHistory] = useState<WoundObservation[]>([]);
   const [woundImageUrls, setWoundImageUrls] = useState<Record<string, string>>({});
+  const [woundAssessmentVisitIds, setWoundAssessmentVisitIds] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -223,9 +236,7 @@ export default function ProviderPatientCenter() {
 
   // LABS (create)
   const [labName, setLabName] = useState("");
-  const [labStatus, setLabStatus] = useState<"ordered" | "collected" | "resulted" | "reviewed" | "cancelled">(
-    "ordered"
-  );
+  const [labStatus, setLabStatus] = useState<ProviderLabStatus>("ordered");
   const [labSaving, setLabSaving] = useState(false);
   const [labUpdatingId, setLabUpdatingId] = useState<string | null>(null);
 
@@ -270,6 +281,20 @@ export default function ProviderPatientCenter() {
     ].filter(Boolean);
     return parts.length ? parts.join(", ") : "-";
   };
+
+
+  const profileMissingFields = [
+    !demo?.dob ? "date of birth" : null,
+    !demo?.phone ? "phone" : null,
+    !demo?.email ? "email" : null,
+    !demo?.address_line1 ? "address" : null,
+  ].filter(Boolean) as string[];
+  const profileIsComplete = profileMissingFields.length === 0;
+  const hasIntakeOnFile = woundHistory.length > 0;
+  const hasPendingAppointment = appointments.length > 0;
+  const recommendedAppointment = appointments[0] ?? null;
+  const hasAppointmentContext = hasPendingAppointment || visitsFallback.some((visit) => !!visit.appointment_id);
+  const noActiveVisitMessage = "This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.";
 
   const filesByVisit = useMemo(() => {
     const map = new Map<string, FileRow[]>();
@@ -453,6 +478,42 @@ export default function ProviderPatientCenter() {
       activeVisit.next_action_type === "labs_before_followup" ||
       activeVisit.next_action_type === "pending_review");
 
+  const activeVisitFiles = filesByVisit.get(activeVisitId || "general") ?? [];
+  const activeVisitPhotos = activeVisitFiles.filter((file) => file.category === "wound_photo" || file.category === "clinical_image");
+  const hasWoundAssessment = !!activeVisitId && woundAssessmentVisitIds.includes(activeVisitId);
+  const recommendedAction = getProviderPatientCenterRecommendation({
+    profileIsComplete,
+    hasIntakeOnFile,
+    hasActiveVisit: !!activeVisit,
+    hasSoap: !!activeSoap,
+    hasWoundAssessment,
+    hasTreatmentPlan: !!activePlan,
+    hasPhotos: activeVisitPhotos.length > 0,
+    hasFiles: activeVisitFiles.length > 0,
+    canFinalizeVisit: !!activeVisit && encounterState.canComplete,
+  });
+  const progressionSteps = [
+    { id: "review_intake", label: "Review Intake", complete: profileIsComplete && hasIntakeOnFile },
+    { id: "start_visit", label: "Start Visit", complete: !!activeVisit },
+    { id: "create_soap", label: "Create SOAP Note", complete: !!activeSoap },
+    { id: "add_wound_assessment", label: "Add Wound Assessment", complete: hasWoundAssessment },
+    { id: "create_treatment_plan", label: "Create Treatment Plan", complete: !!activePlan },
+    { id: "upload_photos", label: "Upload Photos / Files", complete: activeVisitPhotos.length > 0 || activeVisitFiles.length > 0 },
+    { id: "finalize_visit", label: "Finalize Visit", complete: encounterState.state === "completed" },
+  ];
+
+
+  useEffect(() => {
+    if (!activeVisitId) {
+      if (lastAutoVisitId) setLastAutoVisitId("");
+      setTab("overview");
+      return;
+    }
+    if (lastAutoVisitId !== activeVisitId) {
+      setTab(recommendedAction.tab as PatientTab);
+      setLastAutoVisitId(activeVisitId);
+    }
+  }, [activeVisitId, lastAutoVisitId, recommendedAction.tab]);
   const TabButton = ({ id, label }: { id: PatientTab; label: string }) => {
     const active = tab === id;
     return (
@@ -534,6 +595,32 @@ export default function ProviderPatientCenter() {
       if (vErr) throw vErr;
       const visitRows = (v as VisitRow[]) ?? [];
       setVisitsFallback(visitRows);
+      const linkedAppointmentIds = new Set(visitRows.map((visit) => visit.appointment_id).filter(Boolean));
+
+      const { data: patientRow, error: patientErr } = await supabase
+        .from("patients")
+        .select("id,profile_id")
+        .eq("id", patientId)
+        .maybeSingle();
+      if (patientErr) throw patientErr;
+
+      const appointmentPatientIds = [patientId, (patientRow as PatientProfileRow | null)?.profile_id]
+        .filter(Boolean)
+        .filter((value, index, values) => values.indexOf(value) === index);
+
+      if (appointmentPatientIds.length > 0) {
+        const { data: appointmentRows, error: appointmentErr } = await supabase
+          .from("appointments")
+          .select("id,patient_id,location_id,start_time,status,notes")
+          .in("patient_id", appointmentPatientIds)
+          .order("start_time", { ascending: false });
+        if (appointmentErr) throw appointmentErr;
+        setAppointments(
+          ((appointmentRows as AppointmentRow[]) ?? []).filter((appointment) => !linkedAppointmentIds.has(appointment.id))
+        );
+      } else {
+        setAppointments([]);
+      }
 
       if (opts?.setDefaultActiveVisit && !activeVisitId) {
         if (timelineRows.length > 0) {
@@ -600,6 +687,15 @@ export default function ProviderPatientCenter() {
       }
       setPlanRows(Array.from(latestPlanByVisit.values()));
 
+      const { data: woundAssessmentRows, error: woundAssessmentErr } = await supabase
+        .from("wound_assessments")
+        .select("visit_id")
+        .eq("patient_id", patientId);
+      if (woundAssessmentErr) throw woundAssessmentErr;
+      setWoundAssessmentVisitIds(
+        Array.from(new Set(((woundAssessmentRows as Array<{ visit_id: string | null }>) ?? []).map((row) => row.visit_id).filter(Boolean) as string[]))
+      );
+
       const nextWoundHistory = await getWoundHistory(patientId);
       setWoundHistory(nextWoundHistory);
 
@@ -614,8 +710,8 @@ export default function ProviderPatientCenter() {
       if (hasTimelineView && timelineRows.length === 0) {
         // leave activeVisitId as-is
       }
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load patient center.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to load patient center."));
     } finally {
       setLoading(false);
     }
@@ -715,6 +811,24 @@ export default function ProviderPatientCenter() {
     if (!patientId) return;
     setErr(null);
 
+    if (recommendedAppointment) {
+      try {
+        const launched = await startVisitFromAppointment({
+          appointmentId: recommendedAppointment.id,
+          patientCandidateId: recommendedAppointment.patient_id,
+          locationId: recommendedAppointment.location_id,
+        });
+
+        await loadAll({ setDefaultActiveVisit: false });
+        setActiveVisitId(launched.visitId);
+        setTab("soap");
+        return;
+      } catch (error: unknown) {
+        setErr(getErrorMessage(error, "Failed to start visit from appointment."));
+        return;
+      }
+    }
+
     const fallbackLocationId =
       locationId ||
       timeline[0]?.location_id ||
@@ -776,6 +890,15 @@ export default function ProviderPatientCenter() {
     }
   };
 
+
+  const handleRecommendedAction = () => {
+    if (recommendedAction.id === "start_visit") {
+      void createVisit();
+      return;
+    }
+
+    setTab(recommendedAction.tab as PatientTab);
+  };
   const completeVisit = async () => {
     if (!user) return setErr("You must be signed in.");
     if (!activeVisit) return setErr("Select or create a visit first.");
@@ -857,8 +980,8 @@ export default function ProviderPatientCenter() {
       setCompletionBypassReason("");
       setTab("overview");
       await loadAll({ setDefaultActiveVisit: false });
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to complete visit.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to complete visit."));
     } finally {
       setCompletingVisit(false);
     }
@@ -935,8 +1058,8 @@ export default function ProviderPatientCenter() {
         metadata: { filename: f.filename, category: f.category },
       });
       window.open(url, "_blank", "noopener,noreferrer");
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to open file.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to open file."));
     }
   };
 
@@ -983,8 +1106,8 @@ export default function ProviderPatientCenter() {
       setPickedFile(null);
       setFileNotes("");
       await loadAll();
-    } catch (e: any) {
-      setErr(e?.message ?? "Upload failed.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Upload failed."));
     } finally {
       setUploading(false);
     }
@@ -1028,14 +1151,14 @@ export default function ProviderPatientCenter() {
       setLabName("");
       setLabStatus("ordered");
       await loadAll();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to create lab order.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to create lab order."));
     } finally {
       setLabSaving(false);
     }
   };
 
-  const updateLabStatus = async (labId: string, status: string) => {
+  const updateLabStatus = async (labId: string, status: ProviderLabStatus) => {
     setLabUpdatingId(labId);
     setErr(null);
     try {
@@ -1054,8 +1177,8 @@ export default function ProviderPatientCenter() {
         });
       }
       await loadAll();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to update lab.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to update lab."));
     } finally {
       setLabUpdatingId(null);
     }
@@ -1068,8 +1191,8 @@ export default function ProviderPatientCenter() {
       const { error } = await supabase.from("patient_labs").update({ result_file_id: fileId }).eq("id", labId);
       if (error) throw error;
       await loadAll();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to attach result file.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to attach result file."));
     } finally {
       setLabBusyId(null);
     }
@@ -1085,8 +1208,8 @@ export default function ProviderPatientCenter() {
         .eq("id", labId);
       if (error) throw error;
       await loadAll();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to save lab summary.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to save lab summary."));
     } finally {
       setLabBusyId(null);
     }
@@ -1159,8 +1282,8 @@ export default function ProviderPatientCenter() {
 
       setLabPickedFiles((prev) => ({ ...prev, [lab.id]: null }));
       await loadAll();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to upload lab result.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to upload lab result."));
     } finally {
       setLabUploadingId(null);
     }
@@ -1213,7 +1336,7 @@ export default function ProviderPatientCenter() {
 
         <VitalityHero
           title="Patient Center"
-          subtitle="Visits • SOAP • Plan • Labs • Notes • Files"
+          subtitle="Visits | SOAP | Plan | Labs | Notes | Files"
           secondaryCta={{ label: "Back", to: "/provider" }}
           primaryCta={{ label: "AI Plan Builder", to: "/provider/ai" }}
           rightActions={
@@ -1250,7 +1373,7 @@ export default function ProviderPatientCenter() {
                 Continue SOAP
               </button>
               <button className="btn btn-ghost" type="button" onClick={() => setTab("plan")} disabled={!activeVisitId}>
-                Continue Plan
+                Continue Treatment Plan
               </button>
             </>
           }
@@ -1300,7 +1423,7 @@ export default function ProviderPatientCenter() {
                       Insurance:{" "}
                       <strong>
                         {insurance?.payer_name
-                          ? `${insurance.payer_name}${insurance.plan_name ? ` • ${insurance.plan_name}` : ""}`
+                          ? `${insurance.payer_name}${insurance.plan_name ? ` | ${insurance.plan_name}` : ""}`
                           : "-"}
                       </strong>
                     </div>
@@ -1337,7 +1460,7 @@ export default function ProviderPatientCenter() {
                     {alerts.slice(0, 8).map((a) => (
                       <div key={a.id} className="v-chip" title={a.alert_type ?? ""}>
                         Alert: <strong>{a.label}</strong>
-                        {a.severity ? <span className="muted"> • {a.severity}</span> : null}
+                        {a.severity ? <span className="muted"> | {a.severity}</span> : null}
                       </div>
                     ))}
                   </div>
@@ -1345,10 +1468,106 @@ export default function ProviderPatientCenter() {
               )}
 
               {err && <div style={{ color: "crimson", marginTop: 12 }}>{err}</div>}
+
+              {!activeVisit && recommendedAppointment ? (
+                <>
+                  <div className="space" />
+                  <ProviderPrerequisiteCard
+                    title="Appointment Ready To Launch"
+                    message={`The next scheduled appointment is ${fmt(recommendedAppointment.start_time)}${recommendedAppointment.notes ? ` with note: ${recommendedAppointment.notes}` : ""}. Start the visit to move directly into SOAP and documentation.`}
+                    actionLabel="Start Visit"
+                    onAction={() => {
+                      void createVisit();
+                    }}
+                    secondaryLabel="Messages"
+                    onSecondaryAction={() => nav("/provider/chat")}
+                  />
+                </>
+              ) : null}
+
+              {(!profileIsComplete || !hasIntakeOnFile || !activeVisit || !activeVisit.appointment_id) && (
+                <>
+                  <div className="space" />
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {!profileIsComplete ? (
+                      <ProviderPrerequisiteCard
+                        title="Patient Profile Needs Review"
+                        message={`Complete or verify the patient profile before progressing with visit documentation. Missing: ${profileMissingFields.join(", ")}.`}
+                        actionLabel="Review Intake"
+                        onAction={() => setTab("overview")}
+                      />
+                    ) : null}
+                    {!hasIntakeOnFile ? (
+                      <ProviderPrerequisiteCard
+                        title="No Intake On File"
+                        message="This patient does not have a completed intake on file yet. Review intake history or gather the missing background before finalizing the encounter."
+                        actionLabel="Review Intake"
+                        onAction={() => setTab("wound")}
+                      />
+                    ) : null}
+                    {!activeVisit ? (
+                      <ProviderPrerequisiteCard
+                        title="No Active Visit"
+                        message={noActiveVisitMessage}
+                        actionLabel={hasAppointmentContext ? "Start Visit" : "Review Overview"}
+                        onAction={() => {
+                          if (hasAppointmentContext) {
+                            void createVisit();
+                            return;
+                          }
+                          setTab("overview");
+                        }}
+                      />
+                    ) : !activeVisit.appointment_id ? (
+                      <ProviderPrerequisiteCard
+                        title="Visit Is Not Linked To An Appointment"
+                        message="This visit was created without an appointment link. Confirm the encounter context before closing documentation or follow-up tasks."
+                        actionLabel="Review Overview"
+                        onAction={() => setTab("overview")}
+                      />
+                    ) : null}
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="space" />
 
+            <div className="card card-pad" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(184,164,255,0.18)" }}>
+              <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                <div style={{ flex: "1 1 320px" }}>
+                  <div className="h2">Recommended Next Step</div>
+                  <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+                    {recommendedAction.description}
+                  </div>
+                </div>
+                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <span className="v-chip">{recommendedAction.label}</span>
+                  <button className="btn btn-primary" type="button" onClick={handleRecommendedAction}>
+                    {recommendedAction.label}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space" />
+
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                {progressionSteps.map((step) => (
+                  <div
+                    key={step.id}
+                    className="v-chip"
+                    style={{
+                      borderColor: step.id === recommendedAction.id ? "rgba(184,164,255,0.4)" : undefined,
+                      background: step.complete ? "rgba(120, 210, 170, 0.12)" : step.id === recommendedAction.id ? "rgba(184,164,255,0.14)" : undefined,
+                    }}
+                  >
+                    {step.complete ? "Done" : step.id === recommendedAction.id ? "Next" : "Pending"} - <strong>{step.label}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space" />
             {/* TABS BAR */}
             <div className="card card-pad">
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -1367,20 +1586,20 @@ export default function ProviderPatientCenter() {
                 {activeVisit ? (
                   <>
                     Active visit: <strong>{new Date(activeVisit.visit_date).toLocaleDateString()}</strong>{" "}
-                    {activeVisit.status ? `• ${activeVisit.status}` : ""}{" "}
-                    {activeVisit.summary ? `• ${activeVisit.summary}` : ""}
+                    {activeVisit.status ? `â€¢ ${activeVisit.status}` : ""}{" "}
+                    {activeVisit.summary ? `â€¢ ${activeVisit.summary}` : ""}
                   </>
                 ) : (
                   "Select a visit in the timeline to unlock SOAP/Plan/Labs/Notes/Files."
                 )}
               </div>
               <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                Encounter state: <strong>{encounterState.state.replaceAll("_", " ")}</strong> • Next action:{" "}
+                Encounter state: <strong>{encounterState.state.replaceAll("_", " ")}</strong> | Next action:{" "}
                 <strong>{encounterState.nextActionLabel}</strong>
               </div>
               {activeVisit ? (
                 <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                  Follow-up plan: <strong>{currentNextActionLabel}</strong> • Mode: <strong>{currentFollowUpModeLabel}</strong> • Labs before follow-up:{" "}
+                  Follow-up plan: <strong>{currentNextActionLabel}</strong> | Mode: <strong>{currentFollowUpModeLabel}</strong> | Labs before follow-up:{" "}
                   <strong>{activeVisit.requires_labs_before_followup ? "Yes" : "No"}</strong>
                 </div>
               ) : null}
@@ -1458,7 +1677,7 @@ export default function ProviderPatientCenter() {
                         <div className="h2">{activeVisit ? `Visit: ${fmt(activeVisit.visit_date)}` : "Select a visit"}</div>
                         <div className="muted" style={{ marginTop: 4 }}>
                           {activeVisit
-                            ? `${activeVisit.status ?? "-"} • ${activeVisit.summary ?? ""}`
+                            ? `${activeVisit.status ?? "-"} | ${activeVisit.summary ?? ""}`
                             : "Pick a visit from the timeline."}
                         </div>
                       </div>
@@ -1545,7 +1764,7 @@ export default function ProviderPatientCenter() {
                                 Continue SOAP
                               </button>
                               <button className="btn btn-ghost" type="button" onClick={() => setTab("plan")} disabled={!activeVisitId}>
-                                Continue Plan
+                                Continue Treatment Plan
                               </button>
                               <button
                                 className="btn btn-ghost"
@@ -1553,7 +1772,7 @@ export default function ProviderPatientCenter() {
                                 onClick={completeVisit}
                                 disabled={!activeVisitId || completingVisit || (!encounterState.canComplete && !encounterState.requiresPlanBypass)}
                               >
-                                Complete Visit
+                                Finalize Visit
                               </button>
                             </div>
                           </div>
@@ -1561,7 +1780,7 @@ export default function ProviderPatientCenter() {
                           {activeVisit ? (
                             <>
                               <div className="space" />
-                              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.55)", border: "1px solid rgba(184,164,255,0.18)" }}>
+                              <div className="card card-pad surface-light" style={{ background: "rgba(255,255,255,0.55)", border: "1px solid rgba(184,164,255,0.18)" }}>
                                 <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                                   <div>
                                     <div className="h2">Next Action</div>
@@ -1681,7 +1900,7 @@ export default function ProviderPatientCenter() {
                           {activeVisit && encounterState.state === "completed" ? (
                             <>
                               <div className="space" />
-                              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.48)", border: "1px solid rgba(184,164,255,0.16)" }}>
+                              <div className="card card-pad surface-light" style={{ background: "rgba(255,255,255,0.48)", border: "1px solid rgba(184,164,255,0.16)" }}>
                                 <div className="h2">Post-Visit Follow-Up State</div>
                                 <div className="space" />
                                 <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
@@ -1743,7 +1962,18 @@ export default function ProviderPatientCenter() {
                     {tab === "wound" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
+                          <ProviderPrerequisiteCard
+  title="No Active Visit"
+  message={noActiveVisitMessage}
+  actionLabel={hasAppointmentContext ? "Start Visit" : "Review Overview"}
+  onAction={() => {
+    if (hasAppointmentContext) {
+      void createVisit();
+      return;
+    }
+    setTab("overview");
+  }}
+/>
                         ) : (
                           <>
                             <div
@@ -1905,6 +2135,7 @@ export default function ProviderPatientCenter() {
                               patientId={activeVisit.patient_id}
                               locationId={activeVisit.location_id}
                               visitId={activeVisit.id}
+                              onContinueToPlan={() => setTab("plan")}
                             />
                           </>
                         )}
@@ -1915,12 +2146,24 @@ export default function ProviderPatientCenter() {
                     {tab === "soap" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
+                          <ProviderPrerequisiteCard
+  title="No Active Visit"
+  message={noActiveVisitMessage}
+  actionLabel={hasAppointmentContext ? "Start Visit" : "Review Overview"}
+  onAction={() => {
+    if (hasAppointmentContext) {
+      void createVisit();
+      return;
+    }
+    setTab("overview");
+  }}
+/>
                         ) : (
                           <SoapNotePanel
                             visitId={activeVisit.id}
                             patientId={activeVisit.patient_id}
                             locationId={activeVisit.location_id}
+                            onContinueToWound={() => setTab("wound")}
                           />
                         )}
                       </div>
@@ -1930,12 +2173,25 @@ export default function ProviderPatientCenter() {
                     {tab === "plan" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
+                          <ProviderPrerequisiteCard
+  title="No Active Visit"
+  message={noActiveVisitMessage}
+  actionLabel={hasAppointmentContext ? "Start Visit" : "Review Overview"}
+  onAction={() => {
+    if (hasAppointmentContext) {
+      void createVisit();
+      return;
+    }
+    setTab("overview");
+  }}
+/>
                         ) : (
                           <TreatmentPlanSection
                             visitId={activeVisit.id}
                             patientId={activeVisit.patient_id}
                             locationId={activeVisit.location_id}
+                            onOpenWoundAssessment={() => setTab("wound")}
+                            onContinueToPhotos={() => setTab("photos")}
                           />
                         )}
                       </div>
@@ -1964,7 +2220,7 @@ export default function ProviderPatientCenter() {
                           <select
                             className="input"
                             value={labStatus}
-                            onChange={(e) => setLabStatus(e.target.value as any)}
+                            onChange={(e) => setLabStatus(e.target.value as ProviderLabStatus)}
                             style={{ flex: "0 0 180px" }}
                             disabled={!activeVisitId}
                           >
@@ -1990,7 +2246,7 @@ export default function ProviderPatientCenter() {
 
                         <div className="card card-pad" style={{ maxHeight: 420, overflow: "auto" }}>
                           {(labsByVisit.get(activeVisitId || "general") ?? []).length === 0 ? (
-                            <div className="muted">No labs for this visit yet.</div>
+                            <div className="muted">No lab orders for this visit yet.</div>
                           ) : (
                             (labsByVisit.get(activeVisitId || "general") ?? []).map((l) => {
                               const resultFile = l.result_file_id ? files.find((x) => x.id === l.result_file_id) : null;
@@ -2003,7 +2259,7 @@ export default function ProviderPatientCenter() {
                                     <div style={{ flex: "1 1 320px" }}>
                                       <div style={{ fontWeight: 750 }}>{l.lab_name}</div>
                                       <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>
-                                        Status: <strong>{l.status}</strong> • Ordered: {fmt(l.ordered_at)}
+                                        Status: <strong>{l.status}</strong> â€¢ Ordered: {fmt(l.ordered_at)}
                                       </div>
 
                                       {resultFile ? (
@@ -2023,7 +2279,7 @@ export default function ProviderPatientCenter() {
                                       <select
                                         className="input"
                                         value={l.status}
-                                        onChange={(e) => updateLabStatus(l.id, e.target.value)}
+                                        onChange={(e) => updateLabStatus(l.id, e.target.value as ProviderLabStatus)}
                                         disabled={labUpdatingId === l.id}
                                         style={{ flex: "0 0 160px" }}
                                       >
@@ -2112,7 +2368,7 @@ export default function ProviderPatientCenter() {
                       <div className="card card-pad">
                         <div className="h2">Notes</div>
                         <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-                          Add clinical/admin/billing notes.
+                          Add clinical, admin, or billing notes for this visit.
                         </div>
 
                         <div className="space" />
@@ -2121,7 +2377,7 @@ export default function ProviderPatientCenter() {
                           <select
                             className="input"
                             value={noteType}
-                            onChange={(e) => setNoteType(e.target.value as any)}
+                            onChange={(e) => setNoteType(e.target.value as "clinical" | "admin" | "billing")}
                             style={{ flex: "0 0 200px" }}
                             disabled={!activeVisitId}
                           >
@@ -2158,12 +2414,12 @@ export default function ProviderPatientCenter() {
 
                         <div className="card card-pad" style={{ maxHeight: 260, overflow: "auto" }}>
                           {(notesByVisit.get(activeVisitId || "general") ?? []).length === 0 ? (
-                            <div className="muted">No notes yet.</div>
+                            <div className="muted">No notes for this visit yet.</div>
                           ) : (
                             (notesByVisit.get(activeVisitId || "general") ?? []).map((n) => (
                               <div key={n.id} style={{ marginBottom: 10 }}>
                                 <div className="muted" style={{ fontSize: 12 }}>
-                                  {n.note_type ?? "note"} • {fmt(n.created_at)}
+                                  {n.note_type ?? "note"} â€¢ {fmt(n.created_at)}
                                 </div>
                                 <div>{n.body}</div>
                               </div>
@@ -2178,7 +2434,7 @@ export default function ProviderPatientCenter() {
                       <div className="card card-pad">
                         <div className="h2">Files</div>
                         <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-                          Upload files to this visit.
+                          Upload supporting files for this visit.
                         </div>
 
                         <div className="space" />
@@ -2198,7 +2454,7 @@ export default function ProviderPatientCenter() {
                             disabled={uploading || !pickedFile || !activeVisitId}
                             title={!activeVisitId ? "Select a visit first" : undefined}
                           >
-                            {uploading ? "Uploading..." : "Upload"}
+                            {uploading ? "Uploading..." : "Upload File"}
                           </button>
                         </div>
 
@@ -2216,7 +2472,7 @@ export default function ProviderPatientCenter() {
 
                         <div className="card card-pad" style={{ maxHeight: 320, overflow: "auto" }}>
                           {(filesByVisit.get(activeVisitId || "general") ?? []).length === 0 ? (
-                            <div className="muted">No files yet.</div>
+                            <div className="muted">No files for this visit yet.</div>
                           ) : (
                             (filesByVisit.get(activeVisitId || "general") ?? []).map((f) => (
                               <button
@@ -2234,7 +2490,7 @@ export default function ProviderPatientCenter() {
                                 <span>
                                   <div style={{ fontWeight: 700 }}>{f.filename}</div>
                                   <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>
-                                    {fmt(f.created_at)} {f.notes ? `• ${f.notes}` : ""}
+                                    {fmt(f.created_at)} {f.notes ? `â€¢ ${f.notes}` : ""}
                                   </div>
                                 </span>
                                 <span className="muted" style={{ fontSize: 12 }}>Open</span>
@@ -2249,12 +2505,24 @@ export default function ProviderPatientCenter() {
                     {tab === "photos" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
+                          <ProviderPrerequisiteCard
+  title="No Active Visit"
+  message={noActiveVisitMessage}
+  actionLabel={hasAppointmentContext ? "Start Visit" : "Review Overview"}
+  onAction={() => {
+    if (hasAppointmentContext) {
+      void createVisit();
+      return;
+    }
+    setTab("overview");
+  }}
+/>
                         ) : (
                           <WoundPhotosPanel
                             patientId={activeVisit.patient_id}
                             locationId={activeVisit.location_id}
                             visitId={activeVisit.id}
+                            onReturnToOverview={() => setTab("overview")}
                           />
                         )}
                       </div>
@@ -2263,7 +2531,18 @@ export default function ProviderPatientCenter() {
                     {tab === "ivr" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
+                          <ProviderPrerequisiteCard
+  title="No Active Visit"
+  message={noActiveVisitMessage}
+  actionLabel={hasAppointmentContext ? "Start Visit" : "Review Overview"}
+  onAction={() => {
+    if (hasAppointmentContext) {
+      void createVisit();
+      return;
+    }
+    setTab("overview");
+  }}
+/>
                         ) : (
                           <>
                             <div className="row" style={{ justifyContent: "flex-end" }}>
@@ -2290,7 +2569,18 @@ export default function ProviderPatientCenter() {
                     {tab === "charges" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
+                          <ProviderPrerequisiteCard
+  title="No Active Visit"
+  message={noActiveVisitMessage}
+  actionLabel={hasAppointmentContext ? "Start Visit" : "Review Overview"}
+  onAction={() => {
+    if (hasAppointmentContext) {
+      void createVisit();
+      return;
+    }
+    setTab("overview");
+  }}
+/>
                         ) : (
                           <ChargeCapturePanel
                             patientId={activeVisit.patient_id}
@@ -2312,6 +2602,9 @@ export default function ProviderPatientCenter() {
     </div>
   );
 }
+
+
+
 
 
 

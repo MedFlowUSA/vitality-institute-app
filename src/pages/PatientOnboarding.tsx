@@ -39,12 +39,13 @@ export default function PatientOnboarding() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [dob, setDob] = useState("");
+  const [sex, setSex] = useState<"Male" | "Female" | "">("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
   const canSave = useMemo(() => {
-    return !!(user?.id && firstName.trim() && lastName.trim() && locationId);
-  }, [user?.id, firstName, lastName, locationId]);
+    return !!(user?.id && firstName.trim() && lastName.trim() && sex && locationId);
+  }, [user?.id, firstName, lastName, sex, locationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,6 +134,7 @@ export default function PatientOnboarding() {
           {
             patient_id: patientId,
             dob: dob ? dob : null,
+            sex: sex || null,
             email: (email || user.email || "").trim() || null,
             phone: phone.trim() || null,
           },
@@ -221,6 +223,17 @@ export default function PatientOnboarding() {
                 Phone (optional)
               </div>
               <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(###) ###-####" />
+            </label>
+
+            <label style={{ flex: "1 1 220px" }}>
+              <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                Gender
+              </div>
+              <select className="input" value={sex} onChange={(e) => setSex(e.target.value as "Male" | "Female" | "")}>
+                <option value="">Select gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
             </label>
           </div>
 

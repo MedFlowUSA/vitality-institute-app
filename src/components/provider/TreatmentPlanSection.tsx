@@ -1,51 +1,40 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../auth/AuthProvider";
+import { getErrorMessage } from "../../lib/patientRecords";
+import type { TreatmentPlanData, TreatmentPlanRecord, TreatmentPlanStatus, WoundAssessmentRecord } from "../../lib/provider/types";
+import ProviderPrerequisiteCard from "./ProviderPrerequisiteCard";
 
 type Props = {
   visitId: string;
   patientId: string;
   locationId: string;
+  onOpenWoundAssessment?: () => void;
+  onContinueToPhotos?: () => void;
 };
 
-type PlanRow = {
-  id: string;
-  visit_id: string;
-  patient_id: string;
-  location_id: string;
-  status: string | null;
-  summary: string | null;
-  patient_instructions: string | null;
-  internal_notes: string | null;
-  plan: any;
-  signed_by: string | null;
-  signed_at: string | null;
-  is_locked: boolean | null;
-  created_at: string;
-  updated_at: string;
-};
+type PlanRow = TreatmentPlanRecord;
 
-type LatestWoundAssessmentRow = {
-  id: string;
-  wound_label: string;
-  body_site: string | null;
-  laterality: string | null;
-  wound_type: string | null;
-  stage: string | null;
-  length_cm: number | null;
-  width_cm: number | null;
-  depth_cm: number | null;
-  exudate: string | null;
-  odor: string | null;
-  infection_signs: string | null;
-  pain_score: number | null;
-  notes: string | null;
-};
+type LatestWoundAssessmentRow = Pick<
+  WoundAssessmentRecord,
+  | "id"
+  | "wound_label"
+  | "body_site"
+  | "laterality"
+  | "wound_type"
+  | "stage"
+  | "length_cm"
+  | "width_cm"
+  | "depth_cm"
+  | "exudate"
+  | "odor"
+  | "infection_signs"
+  | "pain_score"
+  | "notes"
+>;
 
 const TREATMENT_PLAN_SELECT_FIELDS =
   "id,visit_id,patient_id,location_id,status,summary,patient_instructions,internal_notes,plan,signed_by,signed_at,is_locked,created_at,updated_at";
-
-type TreatmentPlanStatus = "draft" | "active" | "completed";
 
 function normalizeTreatmentPlanStatus(status?: string | null): TreatmentPlanStatus {
   if (status === "active" || status === "completed" || status === "draft") return status;
@@ -54,7 +43,7 @@ function normalizeTreatmentPlanStatus(status?: string | null): TreatmentPlanStat
   return "draft";
 }
 
-function pretty(v: any) {
+function pretty(v: TreatmentPlanData) {
   try {
     return JSON.stringify(v, null, 2);
   } catch {
@@ -62,7 +51,13 @@ function pretty(v: any) {
   }
 }
 
-export default function TreatmentPlanSection({ visitId, patientId, locationId }: Props) {
+export default function TreatmentPlanSection({
+  visitId,
+  patientId,
+  locationId,
+  onOpenWoundAssessment,
+  onContinueToPhotos,
+}: Props) {
   const { user, role } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -89,7 +84,7 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
   const canEdit = useMemo(() => !!user?.id && !!role && role !== "patient", [user?.id, role]);
   const isLocked = !!row?.is_locked;
 
-  const buildPlanJson = () => ({
+  const buildPlanJson = (): TreatmentPlanData => ({
     dressing_plan: dressingPlan || null,
     frequency: frequency || null,
     offloading: offloading || null,
@@ -99,7 +94,14 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
   });
 
   const hydrateFromRow = (r: PlanRow) => {
-    const p = r.plan ?? {};
+    const p: TreatmentPlanData = r.plan ?? {
+      dressing_plan: null,
+      frequency: null,
+      offloading: null,
+      follow_up_days: null,
+      orders: null,
+      medications: null,
+    };
     setStatus(normalizeTreatmentPlanStatus(r.status));
     setSummary(r.summary ?? "");
     setPatientInstructions(r.patient_instructions ?? "");
@@ -148,8 +150,8 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
       } else {
         resetDraft();
       }
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load treatment plan.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to load treatment plan."));
     } finally {
       setLoading(false);
     }
@@ -342,8 +344,8 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
       }
 
       await loadPlan();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to save treatment plan.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to save treatment plan."));
     } finally {
       setSaving(false);
     }
@@ -369,8 +371,8 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
 
       if (error) throw error;
       await loadPlan();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to sign treatment plan.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to sign treatment plan."));
     } finally {
       setSigning(false);
     }
@@ -410,10 +412,26 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
 
       <div className="space" />
 
+      {!row ? (
+        <>
+          <ProviderPrerequisiteCard
+            title="No Treatment Plan Yet"
+            message="This visit does not have a treatment plan yet. Start with a template, generate from the wound assessment, or create a blank draft plan."
+            actionLabel="Create Treatment Plan"
+            onAction={() => {
+              void savePlan();
+            }}
+            secondaryLabel={onOpenWoundAssessment ? "Open Wound Assessment" : undefined}
+            onSecondaryAction={onOpenWoundAssessment}
+          />
+          <div className="space" />
+        </>
+      ) : null}
+
       <div className="card card-pad" style={{ background: "rgba(255,255,255,0.03)" }}>
         <div className="h2" style={{ fontSize: 16 }}>Quick Templates</div>
         <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-          Start from a preset or draft directly from the latest wound assessment for this visit.
+          Start from a template or draft directly from the latest wound assessment for this visit.
         </div>
 
         <div className="space" />
@@ -462,17 +480,27 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
               <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
                 {[latestWoundAssessment.laterality, latestWoundAssessment.body_site, latestWoundAssessment.wound_type]
                   .filter(Boolean)
-                  .join(" | ")}
+                  .join(" • ")}
               </div>
               <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
                 Size: {latestWoundAssessment.length_cm ?? "-"} x {latestWoundAssessment.width_cm ?? "-"} x {latestWoundAssessment.depth_cm ?? "-"} cm
               </div>
               <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
-                Exudate: {latestWoundAssessment.exudate ?? "-"} | Infection Signs: {latestWoundAssessment.infection_signs ?? "-"} | Pain: {latestWoundAssessment.pain_score ?? "-"}
+                Exudate: {latestWoundAssessment.exudate ?? "-"} • Infection Signs: {latestWoundAssessment.infection_signs ?? "-"} • Pain: {latestWoundAssessment.pain_score ?? "-"}
               </div>
             </div>
           </>
-        ) : null}
+        ) : (
+          <>
+            <div className="space" />
+            <ProviderPrerequisiteCard
+              title="No Wound Assessment On File"
+              message="Add a wound assessment for this visit before generating a treatment plan from measurements."
+              actionLabel={onOpenWoundAssessment ? "Open Wound Assessment" : undefined}
+              onAction={onOpenWoundAssessment}
+            />
+          </>
+        )}
       </div>
 
       <div className="space" />
@@ -611,6 +639,12 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
           Refresh
         </button>
 
+        {onContinueToPhotos ? (
+          <button className="btn btn-ghost" type="button" onClick={onContinueToPhotos}>
+            Next: Upload Photos
+          </button>
+        ) : null}
+
         {!isLocked ? (
           <>
             <button className="btn btn-ghost" type="button" onClick={savePlan} disabled={!canEdit || saving}>
@@ -642,3 +676,4 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
     </div>
   );
 }
+

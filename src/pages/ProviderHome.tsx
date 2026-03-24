@@ -452,7 +452,7 @@ export default function ProviderHome() {
 
   const StatCard = ({ label, value, note }: { label: string; value: string | number; note?: string }) => (
     <div
-      className="card card-pad"
+      className="card card-pad surface-light"
       style={{
         flex: "1 1 180px",
         minWidth: 160,

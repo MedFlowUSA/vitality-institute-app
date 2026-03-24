@@ -2,11 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../auth/AuthProvider";
 import { auditWrite } from "../../lib/audit";
+import { getErrorMessage } from "../../lib/patientRecords";
+import type { WoundAssessmentRecord, WoundExudateLevel, WoundLaterality } from "../../lib/provider/types";
+import ProviderPrerequisiteCard from "./ProviderPrerequisiteCard";
 
 type Props = {
   patientId: string;
   locationId: string;
   visitId: string;
+  onContinueToPlan?: () => void;
 };
 
 type FileRow = {
@@ -18,40 +22,8 @@ type FileRow = {
   category: string | null;
 };
 
-type WoundRow = {
-  id: string;
-  created_at: string;
-  location_id: string;
-  patient_id: string;
-  visit_id: string;
-
-  wound_label: string;
-  body_site: string | null;
-  laterality: string | null;
-  wound_type: string | null;
-  stage: string | null;
-
-  length_cm: number | null;
-  width_cm: number | null;
-  depth_cm: number | null;
-
-  undermining_cm: number | null;
-  tunneling_cm: number | null;
-
-  exudate: string | null;
-  odor: string | null;
-  infection_signs: string | null;
-
-  necrotic_pct: number | null;
-  slough_pct: number | null;
-  granulation_pct: number | null;
-  epithelial_pct: number | null;
-
-  pain_score: number | null;
-  notes: string | null;
-
-  photo_file_id: string | null;
-};
+type WoundRow = WoundAssessmentRecord;
+type InsertedWoundAssessmentRow = Pick<WoundAssessmentRecord, "id">;
 
 function toNum(v: string): number | null {
   const t = v.trim();
@@ -67,7 +39,7 @@ function clampPct(n: number | null): number | null {
   return n;
 }
 
-export default function WoundAssessmentPanel({ patientId, locationId, visitId }: Props) {
+export default function WoundAssessmentPanel({ patientId, locationId, visitId, onContinueToPlan }: Props) {
   const { user } = useAuth();
 
   const [rows, setRows] = useState<WoundRow[]>([]);
@@ -81,7 +53,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
   // Form
   const [woundLabel, setWoundLabel] = useState("Wound #1");
   const [bodySite, setBodySite] = useState("");
-  const [laterality, setLaterality] = useState<"left" | "right" | "bilateral" | "">("");
+  const [laterality, setLaterality] = useState<WoundLaterality>("");
   const [woundType, setWoundType] = useState("");
   const [stage, setStage] = useState("");
 
@@ -91,7 +63,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
   const [underminingCm, setUnderminingCm] = useState("");
   const [tunnelingCm, setTunnelingCm] = useState("");
 
-  const [exudate, setExudate] = useState<"none" | "low" | "moderate" | "high" | "">("");
+  const [exudate, setExudate] = useState<WoundExudateLevel>("");
   const [odor, setOdor] = useState("");
   const [infectionSigns, setInfectionSigns] = useState("");
 
@@ -146,8 +118,8 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
 
       if (fErr) throw fErr;
       setFiles((fileRows as FileRow[]) ?? []);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load wound assessments.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to load wound assessments."));
     } finally {
       setLoading(false);
     }
@@ -201,7 +173,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
     setEditingId(r.id);
     setWoundLabel(r.wound_label ?? "Wound");
     setBodySite(r.body_site ?? "");
-    setLaterality((r.laterality as any) ?? "");
+    setLaterality(r.laterality ?? "");
     setWoundType(r.wound_type ?? "");
     setStage(r.stage ?? "");
 
@@ -211,7 +183,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
     setUnderminingCm(r.undermining_cm == null ? "" : String(r.undermining_cm));
     setTunnelingCm(r.tunneling_cm == null ? "" : String(r.tunneling_cm));
 
-    setExudate((r.exudate as any) ?? "");
+    setExudate(r.exudate ?? "");
     setOdor(r.odor ?? "");
     setInfectionSigns(r.infection_signs ?? "");
 
@@ -315,10 +287,10 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
           metadata: { wound_label: payload.wound_label },
         });
       } else {
-        const { data, error } = await supabase.from("wound_assessments").insert([payload]).select("id").maybeSingle();
+        const { data, error } = await supabase.from("wound_assessments").insert([payload]).select("id").maybeSingle<InsertedWoundAssessmentRow>();
         if (error) throw error;
 
-        const newId = (data as any)?.id as string | undefined;
+        const newId = data?.id;
 
         await auditWrite({
           location_id: locationId,
@@ -333,8 +305,8 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
 
       await load();
       resetForm();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to save wound assessment.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to save wound assessment."));
     } finally {
       setSaving(false);
     }
@@ -362,8 +334,8 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
 
       await load();
       if (editingId === id) resetForm();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to delete wound assessment.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to delete wound assessment."));
     }
   };
 
@@ -380,7 +352,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
         <div>
           <div className="h2">Wound Assessment</div>
           <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-            Structured measurements + progression (this becomes your “wound intelligence” engine).
+            Structured wound measurements, tissue findings, and progression for this visit.
           </div>
         </div>
 
@@ -389,8 +361,13 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
             Refresh
           </button>
           <button className="btn btn-ghost" type="button" onClick={resetForm} disabled={saving}>
-            New Entry
+            New Assessment
           </button>
+          {onContinueToPlan ? (
+            <button className="btn btn-ghost" type="button" onClick={onContinueToPlan} disabled={saving}>
+              Next: Treatment Plan
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -400,7 +377,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
       <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
         {/* LEFT: Form */}
         <div className="card card-pad" style={{ flex: "1 1 420px", minWidth: 320 }}>
-          <div className="h2">{editingId ? "Edit measurement" : "New measurement"}</div>
+          <div className="h2">{editingId ? "Edit Assessment" : "New Assessment"}</div>
           <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
             Visit: <strong>{visitId}</strong>
           </div>
@@ -410,7 +387,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             <input className="input" value={woundLabel} onChange={(e) => setWoundLabel(e.target.value)} placeholder="Wound label (e.g., Left heel ulcer)" style={{ flex: "1 1 320px" }} />
 
-            <select className="input" value={laterality} onChange={(e) => setLaterality(e.target.value as any)} style={{ flex: "0 0 160px" }}>
+            <select className="input" value={laterality} onChange={(e) => setLaterality(e.target.value as WoundLaterality)} style={{ flex: "0 0 160px" }}>
               <option value="">Laterality</option>
               <option value="left">left</option>
               <option value="right">right</option>
@@ -437,7 +414,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
             <input className="input" value={tunnelingCm} onChange={(e) => setTunnelingCm(e.target.value)} placeholder="Tunneling" style={{ flex: "0 0 120px" }} />
 
             <div className="v-chip">
-              Area: <strong>{area == null ? "—" : `${area} cm²`}</strong>
+              Area: <strong>{area == null ? "-" : `${area} cm²`}</strong>
             </div>
 
             {currentImprovement != null ? (
@@ -453,7 +430,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
 
           <div className="h2" style={{ fontSize: 16 }}>Clinical</div>
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            <select className="input" value={exudate} onChange={(e) => setExudate(e.target.value as any)} style={{ flex: "0 0 160px" }}>
+            <select className="input" value={exudate} onChange={(e) => setExudate(e.target.value as WoundExudateLevel)} style={{ flex: "0 0 160px" }}>
               <option value="">Exudate</option>
               <option value="none">none</option>
               <option value="low">low</option>
@@ -511,7 +488,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
         <div className="card card-pad" style={{ flex: "1 1 420px", minWidth: 320 }}>
           <div className="h2">History</div>
           <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-            Click a row to edit. This will become your healing-curve data source.
+            Select an entry to review or update the recorded wound measurements.
           </div>
 
           <div className="space" />
@@ -519,7 +496,14 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
           {loading ? (
             <div className="card card-pad" style={{ background: "rgba(255,255,255,0.04)" }}><div className="muted">Loading wound measurements...</div></div>
           ) : rows.length === 0 ? (
-            <div className="muted">No wound measurements yet.</div>
+            <ProviderPrerequisiteCard
+              title="No Wound Assessment Yet"
+              message="Add the first wound assessment for this visit to capture measurements, tissue findings, and progression."
+              actionLabel="Add First Assessment"
+              onAction={resetForm}
+              secondaryLabel={onContinueToPlan ? "Open Treatment Plan" : undefined}
+              onSecondaryAction={onContinueToPlan}
+            />
           ) : (
             <div className="card card-pad" style={{ maxHeight: 520, overflow: "auto" }}>
               {rows.map((r) => {
@@ -540,7 +524,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
                           {r.wound_label} {r.laterality ? `• ${r.laterality}` : ""} {r.body_site ? `• ${r.body_site}` : ""}
                         </div>
                         <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>
-                          {fmt(r.created_at)} • Area: <strong>{a == null ? "—" : `${a} cm²`}</strong>
+                          {fmt(r.created_at)} • Area: <strong>{a == null ? "-" : `${a} cm²`}</strong>
                           {r.stage ? ` • Stage: ${r.stage}` : ""}
                           {r.exudate ? ` • Exudate: ${r.exudate}` : ""}
                         </div>
@@ -568,10 +552,12 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
 
       <div className="space" />
       <div className="muted" style={{ fontSize: 12 }}>
-        Next: we’ll add the healing curve chart + one-click “Packet Builder” (latest measurement + narrative + photos + plan) so it’s IVR-ready.
+        Next: weâ€™ll add the healing curve chart + one-click â€œPacket Builderâ€ (latest measurement + narrative + photos + plan) so itâ€™s IVR-ready.
       </div>
     </div>
   );
 }
+
+
 
 

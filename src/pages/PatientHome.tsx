@@ -1839,7 +1839,7 @@ export default function PatientHome() {
         {nextAppointment && nextVirtualVisitState ? (
           <>
             <div
-              className="card card-pad"
+              className="card card-pad surface-light"
               style={{
                 ...lightSurfaceCardStyle,
               }}
@@ -1938,7 +1938,7 @@ export default function PatientHome() {
 
         <div
           id="patient-portal-content"
-          className="card card-pad"
+          className="card card-pad surface-light"
           style={{
             ...lightSurfaceCardStyle,
           }}
@@ -1965,7 +1965,7 @@ export default function PatientHome() {
 
           <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
             <button
-              className="card card-pad"
+              className="card card-pad surface-light"
               type="button"
               style={glanceCardStyle}
               onClick={() => {
@@ -1991,7 +1991,7 @@ export default function PatientHome() {
             </button>
 
             <button
-              className="card card-pad"
+              className="card card-pad surface-light"
               type="button"
               style={glanceCardStyle}
               onClick={() => navigate("/intake")}
@@ -2010,7 +2010,7 @@ export default function PatientHome() {
             </button>
 
             <button
-              className="card card-pad"
+              className="card card-pad surface-light"
               type="button"
               style={glanceCardStyle}
               onClick={() => navigate("/patient/treatments")}
@@ -2029,7 +2029,7 @@ export default function PatientHome() {
             </button>
 
             <button
-              className="card card-pad"
+              className="card card-pad surface-light"
               type="button"
               style={glanceCardStyle}
               onClick={() => navigate("/patient/chat")}
@@ -2270,7 +2270,7 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div id="book-appointment" className="card card-pad" style={lightSurfaceCardStyle}>
+        <div id="book-appointment" className="card card-pad surface-light" style={lightSurfaceCardStyle}>
           <div style={sectionEyebrowStyle}>Book Visit</div>
           <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Request Your Next Visit</div>
           <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
@@ -2529,7 +2529,7 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad" style={lightSurfaceCardStyle}>
+        <div className="card card-pad surface-light" style={lightSurfaceCardStyle}>
           <div style={sectionEyebrowStyle}>Appointments</div>
           <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>My Appointments</div>
           <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
@@ -2545,7 +2545,7 @@ export default function PatientHome() {
             myAppointments.map((a) => (
               <div
                 key={a.id}
-                className="card card-pad"
+                className="card card-pad surface-light"
                 style={{
                   marginBottom: 12,
                   ...lightSurfaceCardStyle,
@@ -2629,7 +2629,7 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad" style={lightSurfaceCardStyle}>
+        <div className="card card-pad surface-light" style={lightSurfaceCardStyle}>
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
               <div style={sectionEyebrowStyle}>Care Instructions</div>
@@ -2695,7 +2695,7 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad">
+        <div className="card card-pad surface-light" style={lightSurfaceCardStyle}>
           <div className="h2">
             Recommended Follow-Up
           </div>
@@ -2708,7 +2708,7 @@ export default function PatientHome() {
             </div>
           ) : (
             <>
-              <div style={{ fontSize: 16, lineHeight: 1.6 }}>
+              <div className="surface-light-body" style={{ fontSize: 16, lineHeight: 1.6 }}>
                 Your provider recommends a follow-up visit around:
               </div>
 
@@ -2737,7 +2737,7 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad" style={lightSurfaceCardStyle}>
+        <div className="card card-pad surface-light" style={lightSurfaceCardStyle}>
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
               <div style={sectionEyebrowStyle}>Labs</div>
@@ -2791,7 +2791,7 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad" style={lightSurfaceCardStyle}>
+        <div className="card card-pad surface-light" style={lightSurfaceCardStyle}>
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
               <div style={sectionEyebrowStyle}>Timeline</div>
@@ -2861,7 +2861,7 @@ export default function PatientHome() {
 
         <div className="space" />
 
-        <div className="card card-pad" style={lightSurfaceCardStyle}>
+        <div className="card card-pad surface-light" style={lightSurfaceCardStyle}>
           <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
             <div>
               <div style={sectionEyebrowStyle}>Documents</div>

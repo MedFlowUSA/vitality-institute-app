@@ -2,42 +2,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
+import { getErrorMessage } from "../lib/patientRecords";
+import type { SoapNoteRecord, SoapNoteSectionFields } from "../lib/provider/types";
+import ProviderPrerequisiteCard from "./provider/ProviderPrerequisiteCard";
 
-type SoapRow = {
-  id: string;
-  visit_id: string;
-  patient_id: string;
-  location_id: string;
-  provider_profile_id: string | null;
-  created_by: string;
-  subjective: string | null;
-  objective: string | null;
-  assessment: string | null;
-  plan: string | null;
-  is_signed: boolean | null;
-  is_locked: boolean | null;
-  locked_at: string | null;
-  signed_at: string | null;
-  signed_by: string | null;
-  created_at: string;
-  updated_at: string;
-
-  amended_from_id: string | null;
-  amendment_reason: string | null;
-  amendment_at: string | null;
-  amendment_by: string | null;
-};
+type SoapRow = SoapNoteRecord;
 
 type Props = {
   visitId: string;
   patientId: string;
   locationId: string;
+  onContinueToWound?: () => void;
 };
 
 type Template = {
   id: string;
   label: string;
-  apply: (current: Pick<SoapRow, "subjective" | "objective" | "assessment" | "plan">) => Partial<SoapRow>;
+  apply: (current: SoapNoteSectionFields) => Partial<SoapNoteSectionFields>;
 };
 
 function safeJoin(parts: Array<string | null | undefined>, sep = "\n") {
@@ -67,7 +48,7 @@ function escapeHtml(s: string) {
 const SOAP_SELECT_FIELDS =
   "id,visit_id,patient_id,location_id,provider_profile_id,created_by,subjective,objective,assessment,plan,is_signed,is_locked,locked_at,signed_at,signed_by,created_at,updated_at,amended_from_id,amendment_reason,amendment_at,amendment_by";
 
-export default function SoapNotePanel({ visitId, patientId, locationId }: Props) {
+export default function SoapNotePanel({ visitId, patientId, locationId, onContinueToWound }: Props) {
   const { user, role } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -206,6 +187,48 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
     []
   );
 
+  const createDraft = async () => {
+    if (!visitId || !patientId || !locationId) return;
+    if (!user?.id) {
+      setErr("You must be signed in.");
+      return;
+    }
+
+    setErr(null);
+    setLoading(true);
+
+    const { data: newNote, error: createErr } = await supabase
+      .from("patient_soap_notes")
+      .insert({
+        visit_id: visitId,
+        patient_id: patientId,
+        location_id: locationId,
+        provider_profile_id: user.id,
+        created_by: user.id,
+        subjective: "",
+        objective: "",
+        assessment: "",
+        plan: "",
+        is_signed: false,
+        is_locked: false,
+        locked_at: null,
+        signed_at: null,
+        signed_by: null,
+      })
+      .select(SOAP_SELECT_FIELDS)
+      .single();
+
+    if (createErr) {
+      console.error(createErr);
+      setErr(createErr.message ?? "Failed to create SOAP draft.");
+      setRow(null);
+    } else {
+      setRow(newNote as SoapRow);
+    }
+
+    setLoading(false);
+  };
+
   const loadNote = async () => {
     if (!visitId) return;
     if (!patientId || !locationId || !user?.id) return;
@@ -236,36 +259,7 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
       return;
     }
 
-    // if not -> create draft automatically
-    const { data: newNote, error: createErr } = await supabase
-      .from("patient_soap_notes")
-      .insert({
-        visit_id: visitId,
-        patient_id: patientId,
-        location_id: locationId,
-        provider_profile_id: user.id,
-        created_by: user.id,
-        subjective: "",
-        objective: "",
-        assessment: "",
-        plan: "",
-        is_signed: false,
-        is_locked: false,
-        locked_at: null,
-        signed_at: null,
-        signed_by: null,
-      })
-      .select(SOAP_SELECT_FIELDS)
-      .single();
-
-    if (createErr) {
-      console.error(createErr);
-      setErr(createErr.message ?? "Failed to create SOAP draft.");
-      setRow(null);
-    } else {
-      setRow(newNote as SoapRow);
-    }
-
+    setRow(null);
     setLoading(false);
   };
 
@@ -327,8 +321,8 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
 
       if (error) throw error;
       await loadNote();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to save SOAP note.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to save SOAP note."));
     } finally {
       setSaving(false);
     }
@@ -357,8 +351,8 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
 
       if (error) throw error;
       await loadNote();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to sign SOAP note.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to sign SOAP note."));
     } finally {
       setSigning(false);
     }
@@ -410,8 +404,8 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
       setShowAmend(false);
       setAmendReason("");
       setRow(created as SoapRow);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to create amendment draft.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to create amendment draft."));
     } finally {
       setAmending(false);
     }
@@ -498,8 +492,8 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
       w.document.open();
       w.document.write(html);
       w.document.close();
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to export print/PDF.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to export print/PDF."));
     } finally {
       setPrinting(false);
     }
@@ -601,7 +595,16 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
       <div className="card card-pad">
         <div className="h2">SOAP Note</div>
         <div className="space" />
-        <div className="muted">No SOAP record.</div>
+        <ProviderPrerequisiteCard
+          title="No SOAP Note Yet"
+          message="This visit does not have a SOAP note yet. Create the note when you are ready to document the encounter."
+          actionLabel="Create SOAP Note"
+          onAction={() => {
+            void createDraft();
+          }}
+          secondaryLabel={onContinueToWound ? "Review Wound Assessment" : undefined}
+          onSecondaryAction={onContinueToWound}
+        />
       </div>
     );
   }
@@ -718,6 +721,12 @@ export default function SoapNotePanel({ visitId, patientId, locationId }: Props)
         <button className="btn btn-ghost" type="button" onClick={loadNote}>
           Refresh
         </button>
+
+        {onContinueToWound ? (
+          <button className="btn btn-ghost" type="button" onClick={onContinueToWound}>
+            Next: Wound Assessment
+          </button>
+        ) : null}
 
         <button
           className="btn btn-ghost"

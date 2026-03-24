@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../auth/AuthProvider";
 import { getErrorMessage } from "../../lib/patientRecords";
 import { uploadPatientFile, getSignedUrl } from "../../lib/patientFiles";
+import ProviderPrerequisiteCard from "./ProviderPrerequisiteCard";
 
 type FileRow = {
   id: string;
@@ -26,9 +27,10 @@ type Props = {
   patientId: string;
   locationId: string;
   visitId: string;
+  onReturnToOverview?: () => void;
 };
 
-export default function WoundPhotosPanel({ patientId, locationId, visitId }: Props) {
+export default function WoundPhotosPanel({ patientId, locationId, visitId, onReturnToOverview }: Props) {
   const { user, role } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -140,7 +142,7 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId }: Pro
         <div>
           <div className="h2">Wound Photos</div>
           <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-            Upload visit-tied wound images (pre/post, weekly progress).
+            Upload visit-specific wound images to document baseline and healing progress.
           </div>
         </div>
 
@@ -148,6 +150,11 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId }: Pro
           <button className="btn btn-ghost" type="button" onClick={load} disabled={loading || uploading}>
             Refresh
           </button>
+          {onReturnToOverview ? (
+            <button className="btn btn-ghost" type="button" onClick={onReturnToOverview} disabled={uploading}>
+              Next: Finalize Visit
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -186,7 +193,14 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId }: Pro
           <div className="muted">Loading wound photos...</div>
         </div>
       ) : rows.length === 0 ? (
-        <div className="muted">No wound photos for this visit yet.</div>
+        <ProviderPrerequisiteCard
+          title="No Wound Photos Yet"
+          message="Upload baseline or progress photos for this visit so wound changes can be reviewed over time."
+          actionLabel={picked ? "Upload Selected Photo" : undefined}
+          onAction={picked ? () => { void upload(); } : undefined}
+          secondaryLabel={onReturnToOverview ? "Return To Visit Overview" : undefined}
+          onSecondaryAction={onReturnToOverview}
+        />
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
           {rows.map((r) => (

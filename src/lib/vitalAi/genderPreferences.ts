@@ -1,11 +1,11 @@
 import type { VitalAiPathwayRow } from "./types";
 
-export type IntakeGender = "Male" | "Female" | "Prefer not to say";
+export type IntakeGender = "Male" | "Female";
 
 const STORAGE_KEY = "vital_ai_intake_gender";
 
 function normalizeGender(value: unknown): IntakeGender | "" {
-  if (value === "Male" || value === "Female" || value === "Prefer not to say") return value;
+  if (value === "Male" || value === "Female") return value;
   return "";
 }
 
@@ -31,7 +31,7 @@ function isMaleHormonePathway(pathway: VitalAiPathwayRow) {
 function priorityScore(pathway: VitalAiPathwayRow, gender: IntakeGender | "") {
   const slug = pathway.slug.toLowerCase();
   if (slug.includes("wound")) return -10;
-  if (!gender || gender === "Prefer not to say") return 0;
+  if (!gender) return 0;
   if (gender === "Male") {
     if (isMaleHormonePathway(pathway)) return -4;
     if (isFemaleHormonePathway(pathway)) return 6;

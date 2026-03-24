@@ -88,6 +88,12 @@ type PlanItem = {
   notes?: string | null;
 };
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
+
 function areaCm2(w: { length_cm: number | null; width_cm: number | null }) {
   if (w.length_cm == null || w.width_cm == null) return null;
   const a = Number(w.length_cm) * Number(w.width_cm);
@@ -125,11 +131,14 @@ function addr(d: DemoRow | null) {
   return parts.length ? parts.join(", ") : "-";
 }
 
-async function trySelect<T = any>(tableOrView: string, select: string, build: (q: any) => any): Promise<T[] | null> {
+async function trySelect<T>(
+  tableOrView: string,
+  select: string,
+  build: (query: any) => any
+): Promise<T[] | null> {
   try {
-    let q = supabase.from(tableOrView).select(select);
-    q = build(q);
-    const { data, error } = await q;
+    const query = build(supabase.from(tableOrView).select(select));
+    const { data, error } = await query;
     if (error) return null;
     return (data as T[]) ?? [];
   } catch {
@@ -236,7 +245,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
       // Try two common patterns; ignore if missing
       let items: PlanItem[] = [];
 
-      const p1 = await trySelect<any>(
+      const p1 = await trySelect<{ name: string; qty: string | null; notes: string | null }>(
         "visit_treatment_items",
         "name,qty,notes",
         (q) => q.eq("visit_id", visitId).order("created_at", { ascending: false })
@@ -244,7 +253,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
       if (p1) items = p1.map((x) => ({ name: x.name, qty: x.qty ?? null, notes: x.notes ?? null }));
 
       if (!items.length) {
-        const p2 = await trySelect<any>(
+        const p2 = await trySelect<{ treatment_name: string; quantity: string | null; notes: string | null }>(
           "patient_treatment_plans",
           "treatment_name,quantity,notes",
           (q) => q.eq("visit_id", visitId).order("created_at", { ascending: false })
@@ -253,8 +262,8 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
       }
 
       setPlanItems(items);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load packet sources.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to load packet sources."));
     } finally {
       setLoading(false);
     }
@@ -314,16 +323,16 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
 
     lines.push("PATIENT");
     lines.push(`Patient ID: ${patientId}`);
-    lines.push(`DOB: ${fmtDob(demo?.dob)}${age != null ? ` (Age ${age})` : ""} • Sex: ${demo?.sex ?? "-"}`);
-    lines.push(`Phone: ${demo?.phone ?? "-"} • Email: ${demo?.email ?? "-"}`);
+    lines.push(`DOB: ${fmtDob(demo?.dob)}${age != null ? ` (Age ${age})` : ""} ï¿½ Sex: ${demo?.sex ?? "-"}`);
+    lines.push(`Phone: ${demo?.phone ?? "-"} ï¿½ Email: ${demo?.email ?? "-"}`);
     lines.push(`Address: ${addr(demo)}`);
     lines.push("");
 
     lines.push("INSURANCE");
     lines.push(
-      `Payer: ${ins?.payer_name ?? "-"}${ins?.plan_name ? ` • ${ins.plan_name}` : ""}`
+      `Payer: ${ins?.payer_name ?? "-"}${ins?.plan_name ? ` ï¿½ ${ins.plan_name}` : ""}`
     );
-    lines.push(`Member ID: ${ins?.member_id ?? "-"} • Group: ${ins?.group_id ?? "-"}`);
+    lines.push(`Member ID: ${ins?.member_id ?? "-"} ï¿½ Group: ${ins?.group_id ?? "-"}`);
     lines.push("");
 
     lines.push("VISIT");
@@ -358,7 +367,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
       lines.push(`Objective: ${soap.objective || "-"}`);
       lines.push(`Assessment: ${soap.assessment || "-"}`);
       lines.push(`Plan: ${soap.plan || "-"}`);
-      if (soap.is_signed || soap.is_locked) lines.push(`Signed/Locked: Yes${soap.signed_at ? ` • ${fmtDate(soap.signed_at)}` : ""}`);
+      if (soap.is_signed || soap.is_locked) lines.push(`Signed/Locked: Yes${soap.signed_at ? ` ï¿½ ${fmtDate(soap.signed_at)}` : ""}`);
       else lines.push("Signed/Locked: No (draft)");
     }
     lines.push("");
@@ -368,7 +377,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
       lines.push("No treatment items found (Plan module may still be in progress).");
     } else {
       for (const it of planItems) {
-        lines.push(`- ${it.name}${it.qty ? ` • Qty: ${it.qty}` : ""}${it.notes ? ` • Notes: ${it.notes}` : ""}`);
+        lines.push(`- ${it.name}${it.qty ? ` ï¿½ Qty: ${it.qty}` : ""}${it.notes ? ` ï¿½ Notes: ${it.notes}` : ""}`);
       }
     }
     lines.push("");
@@ -378,7 +387,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
       lines.push("No wound photos found in patient_files for this visit (or patient).");
     } else {
       lines.push(`Included wound photos (last ${photos.length}):`);
-      for (const p of photos) lines.push(`- ${p.filename} • ${fmtDate(p.created_at)}`);
+      for (const p of photos) lines.push(`- ${p.filename} ï¿½ ${fmtDate(p.created_at)}`);
     }
     lines.push("");
 
@@ -459,7 +468,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <PacketCard title="What will be included">
             <div className="muted" style={{ fontSize: 12 }}>
-              Visit: <strong>{visitId}</strong> • Date: <strong>{visit?.visit_date ? fmtDate(visit.visit_date) : "-"}</strong>
+              Visit: <strong>{visitId}</strong> ï¿½ Date: <strong>{visit?.visit_date ? fmtDate(visit.visit_date) : "-"}</strong>
             </div>
             <div className="space" />
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -475,8 +484,8 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
               <div style={{ display: "grid", gap: 10 }}>
                 {summaryStats.slice(0, 6).map((w, idx) => (
                   <div key={`${w.label}-${idx}`} className="muted" style={{ fontSize: 12 }}>
-                    <strong>{w.label}</strong> • {w.site || "-"} • LÃ—WÃ—D: {w.lwd}
-                    {w.area != null ? ` • Area: ${w.area} cmÂ²` : ""}
+                    <strong>{w.label}</strong> ï¿½ {w.site || "-"} ï¿½ LÃ—WÃ—D: {w.lwd}
+                    {w.area != null ? ` ï¿½ Area: ${w.area} cmÂ²` : ""}
                   </div>
                 ))}
               </div>

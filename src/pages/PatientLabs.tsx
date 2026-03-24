@@ -176,7 +176,7 @@ export default function PatientLabs() {
 
     if (error) return setErr(error.message);
 
-    alert("Labs submitted ✅");
+    alert("Labs submitted successfully.");
     nav("/patient", { replace: true });
   };
 
@@ -208,7 +208,7 @@ export default function PatientLabs() {
           Role: <strong>{role}</strong>
         </div>
         <div className="v-chip">
-          Signed in: <strong>{user?.email ?? "—"}</strong>
+          Signed in: <strong>{user?.email ?? "-"}</strong>
         </div>
         <div className="v-chip">
           Status: <strong>Active</strong>
@@ -272,7 +272,7 @@ export default function PatientLabs() {
         <div className="space" />
 
         <div className="card card-pad">
-          {loading && <div className="muted">Loading…</div>}
+          {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading && (
@@ -302,7 +302,7 @@ export default function PatientLabs() {
                   <option value="">Link to appointment (optional)</option>
                   {appointments.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {new Date(a.start_time).toLocaleString()} — {locName(a.location_id)} — {a.status}
+                      {new Date(a.start_time).toLocaleString()} - {locName(a.location_id)} - {a.status}
                     </option>
                   ))}
                 </select>
@@ -367,7 +367,7 @@ export default function PatientLabs() {
                           {mk.label} {mk.unit ? `(${mk.unit})` : ""}
                         </div>
                         <select className="input" value={v ?? ""} onChange={(e) => setVal(mk.key, e.target.value)}>
-                          <option value="">Select…</option>
+                          <option value="">Select...</option>
                           {(mk.options ?? []).map((opt) => (
                             <option key={opt} value={opt}>
                               {opt}
@@ -383,7 +383,7 @@ export default function PatientLabs() {
               <div className="space" />
 
               <button className="btn btn-primary" onClick={submit} disabled={saving}>
-                {saving ? "Submitting…" : "Submit Labs"}
+                {saving ? "Submitting..." : "Submit Labs"}
               </button>
             </>
           )}

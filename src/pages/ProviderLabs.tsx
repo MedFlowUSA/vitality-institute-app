@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
+import { getErrorMessage } from "../lib/patientRecords";
 import logo from "../assets/vitality-logo.png";
 
 type LocationRow = { id: string; name: string };
@@ -19,7 +20,7 @@ type LabRow = {
   panel_id: string;
   status: "submitted" | "reviewed";
   collected_on: string | null;
-  values: any;
+  values: Record<string, unknown> | null;
   provider_notes: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
@@ -87,7 +88,7 @@ export default function ProviderLabs() {
 
     if (error) throw new Error(error.message);
 
-    const ids = (data ?? []).map((r: any) => r.location_id).filter(Boolean);
+    const ids = ((data as Array<{ location_id: string | null }> | null) ?? []).map((r) => r.location_id).filter((value): value is string => Boolean(value));
     setAllowedLocationIds(ids);
 
     if (ids.length === 1) setLocationId(ids[0]);
@@ -149,8 +150,8 @@ export default function ProviderLabs() {
         await loadAllowed();
         await loadPanels();
         await loadLabs();
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load.");
+      } catch (error: unknown) {
+        setErr(getErrorMessage(error, "Failed to load."));
       } finally {
         setLoading(false);
       }
@@ -166,8 +167,8 @@ export default function ProviderLabs() {
     (async () => {
       try {
         await loadLabs();
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load labs.");
+      } catch (error: unknown) {
+        setErr(getErrorMessage(error, "Failed to load labs."));
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -177,7 +178,7 @@ export default function ProviderLabs() {
 
   useEffect(() => {
     setNote(active?.provider_notes ?? "");
-  }, [activeId]);
+  }, [active?.provider_notes, activeId]);
 
   const markReviewed = async () => {
     if (!user || !active) return;
@@ -230,8 +231,7 @@ export default function ProviderLabs() {
       <div className="v-brand">
         {/* If you have logo imported in this page, show it.
            Example: import logo from "../assets/vitality-logo.png"; */}
-        {"logo" in (globalThis as any) ? null : null}
-        <div className="v-logo">
+                <div className="v-logo">
           <img src={logo} alt="Vitality Institute" />
         </div>
 
