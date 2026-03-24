@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { getSignedUrl } from "../../lib/patientFiles";
-import WoundHealingGraph from "./WoundHealingGraph";
 import { analyzeWoundRisk } from "../../lib/woundRiskAlerts";
 import { analyzeWoundImage } from "../../lib/woundImageAnalysis";
 
 type TreatmentPlanRecord = import("../../lib/provider/types").TreatmentPlanRecord;
+
+const LazyWoundHealingGraph = lazy(() => import("./WoundHealingGraph"));
 
 type Props = {
   visitId: string;
@@ -1002,11 +1003,19 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
 
                 <div className="space" />
 
-                <WoundHealingGraph
-                  rows={healingRows}
-                  currentVisitId={visitId}
-                  title="Wound Area Trend"
-                />
+                <Suspense
+                  fallback={
+                    <div className="card card-pad">
+                      <div className="muted">Loading healing graph...</div>
+                    </div>
+                  }
+                >
+                  <LazyWoundHealingGraph
+                    rows={healingRows}
+                    currentVisitId={visitId}
+                    title="Wound Area Trend"
+                  />
+                </Suspense>
 
                 <div className="space" />
 

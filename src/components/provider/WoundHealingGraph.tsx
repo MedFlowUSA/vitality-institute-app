@@ -1,14 +1,6 @@
-import { useMemo } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceDot,
-} from "recharts";
+import { Suspense, lazy, useMemo } from "react";
+
+const LazyWoundHealingGraphChart = lazy(() => import("./WoundHealingGraphChart"));
 
 type GraphRow = {
   id: string;
@@ -65,27 +57,9 @@ export default function WoundHealingGraph({
     <div className="card card-pad" style={{ height: 340 }}>
       <div className="muted" style={{ marginBottom: 10 }}>{title}</div>
 
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip />
-          <Line type="monotone" dataKey="area" strokeWidth={2} dot />
-
-          {chartData
-            .filter((d) => d.isCurrent)
-            .map((d) => (
-              <ReferenceDot
-                key={d.id}
-                x={d.date}
-                y={d.area}
-                r={6}
-                ifOverflow="extendDomain"
-              />
-            ))}
-        </LineChart>
-      </ResponsiveContainer>
+      <Suspense fallback={<div className="muted">Loading graph...</div>}>
+        <LazyWoundHealingGraphChart chartData={chartData} />
+      </Suspense>
     </div>
   );
 }
