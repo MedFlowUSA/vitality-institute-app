@@ -1,65 +1,65 @@
 // src/App.tsx
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
-import { AuthProvider, useAuth } from "./auth/AuthProvider";
+import { AuthProvider, type AppRole, useAuth } from "./auth/AuthProvider";
 import { supabase } from "./lib/supabase";
 
 import AppStatusFooter from "./components/AppStatusFooter";
-
-import AuthCallback from "./pages/AuthCallback";
-
-import Login from "./pages/Login";
-import PublicLanding from "./pages/PublicLandingSimplified";
-import PublicServices from "./pages/PublicServices";
-import PublicServiceDetail from "./pages/PublicServiceDetail";
-import PublicContact from "./pages/PublicContact";
-import PublicBook from "./pages/PublicBook";
-import PublicVitalAiLite from "./pages/PublicVitalAiLite";
-import AdminHome from "./pages/AdminHome";
-import AdminStaffManagement from "./pages/AdminStaffManagement";
-import AdminInquiries from "./pages/AdminInquiries";
-import AdminBookingRequests from "./pages/AdminBookingRequests";
-
-import PatientAuth from "./pages/PatientAuth";
-import PatientHome from "./pages/PatientHome";
-import PatientOnboarding from "./pages/PatientOnboarding";
-import PatientLabs from "./pages/PatientLabs";
-import PatientChat from "./pages/PatientChat";
-import PatientTreatments from "./pages/PatientTreatments";
-import PatientTreatmentDetail from "./pages/PatientTreatmentDetail";
-import PatientServices from "./pages/PatientServices";
-import PatientBookAppointment from "./pages/PatientBookAppointment";
-import PatientAssessment from "./pages/PatientAssessment";
-import PatientVisitChart from "./pages/PatientVisitChart";
-import ResetPassword from "./pages/ResetPassword";
-import VitalAiIntakeHome from "./pages/VitalAiIntakeHome";
-import VitalAiSession from "./pages/VitalAiSession";
-import VitalAiSessionReview from "./pages/VitalAiSessionReview";
-import VitalAiSessionComplete from "./pages/VitalAiSessionComplete";
-
-import ProviderHome from "./pages/ProviderHome";
-import ProviderPatients from "./pages/ProviderPatients";
-import ProviderPatientCenter from "./pages/ProviderPatientCenter";
-import WoundTimeline from "./pages/WoundTimeline";
-import ProviderIntake from "./pages/ProviderIntake";
-import ProviderChat from "./pages/ProviderChat";
-import ProviderLabs from "./pages/ProviderLabs";
-import ProviderAI from "./pages/ProviderAI";
-import IVRPacketPrint from "./pages/IVRPacketPrint";
-import ProviderReferrals from "./pages/ProviderReferrals";
-import ProviderReferralDetail from "./pages/ProviderReferralDetail";
-import ProviderVisitQueue from "./pages/ProviderVisitQueue";
-import ProviderVisitChart from "./pages/ProviderVisitChart";
-import ProviderVisitBuilder from "./pages/ProviderVisitBuilderVirtual";
-import ProviderVitalAiQueue from "./pages/ProviderVitalAiQueue";
-import ProviderVitalAiProfileDetail from "./pages/ProviderVitalAiProfileDetail";
-
-import ProviderCommandCenter from "./pages/ProviderCommandCenter";
-import ServicesPanel from "./pages/ServicesPanel";
-import AdminVitalAiQueue from "./pages/AdminVitalAiQueue";
-import AdminVitalAiLeadDetail from "./pages/AdminVitalAiLeadDetail";
-import AdminPublicVitalAiSubmissions from "./pages/AdminPublicVitalAiSubmissions";
 import { buildOnboardingRoute } from "./lib/routeFlow";
+
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+
+const Login = lazy(() => import("./pages/Login"));
+const PublicLanding = lazy(() => import("./pages/PublicLandingSimplified"));
+const PublicServices = lazy(() => import("./pages/PublicServices"));
+const PublicServiceDetail = lazy(() => import("./pages/PublicServiceDetail"));
+const PublicContact = lazy(() => import("./pages/PublicContact"));
+const PublicBook = lazy(() => import("./pages/PublicBook"));
+const PublicVitalAiLite = lazy(() => import("./pages/PublicVitalAiLite"));
+
+const PatientAuth = lazy(() => import("./pages/PatientAuth"));
+const PatientHome = lazy(() => import("./pages/PatientHome"));
+const PatientOnboarding = lazy(() => import("./pages/PatientOnboarding"));
+const PatientLabs = lazy(() => import("./pages/PatientLabs"));
+const PatientChat = lazy(() => import("./pages/PatientChat"));
+const PatientTreatments = lazy(() => import("./pages/PatientTreatments"));
+const PatientTreatmentDetail = lazy(() => import("./pages/PatientTreatmentDetail"));
+const PatientServices = lazy(() => import("./pages/PatientServices"));
+const PatientBookAppointment = lazy(() => import("./pages/PatientBookAppointment"));
+const PatientAssessment = lazy(() => import("./pages/PatientAssessment"));
+const PatientVisitChart = lazy(() => import("./pages/PatientVisitChart"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const VitalAiIntakeHome = lazy(() => import("./pages/VitalAiIntakeHome"));
+const VitalAiSession = lazy(() => import("./pages/VitalAiSession"));
+const VitalAiSessionReview = lazy(() => import("./pages/VitalAiSessionReview"));
+const VitalAiSessionComplete = lazy(() => import("./pages/VitalAiSessionComplete"));
+
+const ProviderHome = lazy(() => import("./pages/ProviderHome"));
+const ProviderPatients = lazy(() => import("./pages/ProviderPatients"));
+const ProviderPatientCenter = lazy(() => import("./pages/ProviderPatientCenter"));
+const WoundTimeline = lazy(() => import("./pages/WoundTimeline"));
+const ProviderIntake = lazy(() => import("./pages/ProviderIntake"));
+const ProviderChat = lazy(() => import("./pages/ProviderChat"));
+const ProviderLabs = lazy(() => import("./pages/ProviderLabs"));
+const ProviderAI = lazy(() => import("./pages/ProviderAI"));
+const IVRPacketPrint = lazy(() => import("./pages/IVRPacketPrint"));
+const ProviderReferrals = lazy(() => import("./pages/ProviderReferrals"));
+const ProviderReferralDetail = lazy(() => import("./pages/ProviderReferralDetail"));
+const ProviderVisitQueue = lazy(() => import("./pages/ProviderVisitQueue"));
+const ProviderVisitChart = lazy(() => import("./pages/ProviderVisitChart"));
+const ProviderVisitBuilder = lazy(() => import("./pages/ProviderVisitBuilderVirtual"));
+const ProviderVitalAiQueue = lazy(() => import("./pages/ProviderVitalAiQueue"));
+const ProviderVitalAiProfileDetail = lazy(() => import("./pages/ProviderVitalAiProfileDetail"));
+const ProviderCommandCenter = lazy(() => import("./pages/ProviderCommandCenter"));
+
+const AdminHome = lazy(() => import("./pages/AdminHome"));
+const AdminStaffManagement = lazy(() => import("./pages/AdminStaffManagement"));
+const AdminInquiries = lazy(() => import("./pages/AdminInquiries"));
+const AdminBookingRequests = lazy(() => import("./pages/AdminBookingRequests"));
+const ServicesPanel = lazy(() => import("./pages/ServicesPanel"));
+const AdminVitalAiQueue = lazy(() => import("./pages/AdminVitalAiQueue"));
+const AdminVitalAiLeadDetail = lazy(() => import("./pages/AdminVitalAiLeadDetail"));
+const AdminPublicVitalAiSubmissions = lazy(() => import("./pages/AdminPublicVitalAiSubmissions"));
 
 function FullscreenLoader({
   text = "Loading...",
@@ -153,6 +153,33 @@ function Gate() {
   return <Navigate to="/patient" replace />;
 }
 
+function getHomeRouteForRole(role: AppRole | null) {
+  if (!role) return "/";
+  if ((ADMIN_ROLES as readonly string[]).includes(role)) return "/admin";
+  if ((PROVIDER_ROLES as readonly string[]).includes(role)) return "/provider";
+  return "/patient/home";
+}
+
+function PublicEntryRoute() {
+  const { loading, user, role, roleError, refreshRole } = useAuth();
+
+  if (loading) return <FullscreenLoader />;
+
+  if (!user) return <PublicLanding />;
+
+  if (!role) {
+    return (
+      <FullscreenLoader
+        text={roleTroubleshootMessage(roleError)}
+        secondary="Retry role lookup"
+        onSecondary={refreshRole}
+      />
+    );
+  }
+
+  return <Navigate to={getHomeRouteForRole(role)} replace />;
+}
+
 function RequireRole({ allow, children }: { allow: string[]; children: React.ReactNode }) {
   const { loading, user, role, roleError, refreshRole } = useAuth();
 
@@ -232,11 +259,7 @@ function PatientGate() {
 
   if (!hasProfile) return <Navigate to="/patient/onboarding" replace />;
 
-  return <PatientEntryRouter />;
-}
-
-function PatientEntryRouter() {
-  return <PatientHome />;
+  return <Navigate to="/patient/home" replace />;
 }
 
 function RequirePatientProfile({ children }: { children: React.ReactNode }) {
@@ -322,8 +345,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <Suspense fallback={<RouteLoader />}>
         <Routes>
-            <Route path="/" element={<PublicLanding />} />
+            <Route path="/" element={<PublicEntryRoute />} />
             <Route path="/services" element={<PublicServices />} />
             <Route path="/services/:slug" element={<PublicServiceDetail />} />
             <Route path="/contact" element={<PublicContact />} />
@@ -464,6 +488,10 @@ export default function App() {
               element={withRole(PATIENT_ROLES, <PatientGate />)}
             />
             <Route
+              path="/patient/home"
+              element={withPatientProfile(<PatientHome />)}
+            />
+            <Route
               path="/patient/intake"
               element={withRole(PATIENT_ROLES, <Navigate to="/intake" replace />)}
             />
@@ -506,11 +534,16 @@ export default function App() {
 
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
 
         <AppStatusFooter />
       </AuthProvider>
     </BrowserRouter>
   );
+}
+
+function RouteLoader() {
+  return <FullscreenLoader text="Loading page..." />;
 }
 
 

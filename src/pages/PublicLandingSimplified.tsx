@@ -55,12 +55,13 @@ export default function PublicLandingSimplified() {
   return (
     <PublicSiteLayout title="Vitality Institute" compactHeader>
       <div
-        className="card card-pad card-light surface-light"
+        className="card card-pad card-light surface-light public-hero-card"
         style={{
           background: "linear-gradient(180deg, rgba(255,255,255,0.99), rgba(245,241,255,0.96))",
         }}
       >
         <div
+          className="public-hero-eyebrow"
           style={{
             fontSize: 12,
             fontWeight: 900,
@@ -69,23 +70,23 @@ export default function PublicLandingSimplified() {
             textTransform: "uppercase",
           }}
         >
-          Provider-Led Care in Redlands
+          Patient-Centered Care in Redlands
         </div>
-        <div className="h1" style={{ marginTop: 10, maxWidth: 760 }}>
-          Thoughtful provider-led care for wound healing, wellness, and advanced therapies.
+        <div className="h1 public-hero-heading" style={{ marginTop: 18, maxWidth: 760 }}>
+          Get the care you need—fast, clear, and guided every step of the way.
         </div>
-        <div className="surface-light-body" style={{ marginTop: 12, lineHeight: 1.75, maxWidth: 720 }}>
-          Start with a visit request or guided intake, and we will help you move into the right next step with clarity.
+        <div className="surface-light-body public-hero-body" style={{ marginTop: 18, lineHeight: 1.75, maxWidth: 720 }}>
+          Whether you&apos;re dealing with a wound, need treatment, or just want to feel better, we&apos;ll guide you to the right next step.
         </div>
 
-        <div className="space" />
+        <div style={{ height: 24 }} />
 
-        <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+        <div className="row public-hero-actions" style={{ gap: 10, flexWrap: "wrap" }}>
           <Link to="/book" className="btn btn-primary">
-            Request Visit
+            Book a Visit
           </Link>
           <Link to="/vital-ai" className="btn btn-secondary">
-            Start with Vital AI
+            Get Help Choosing
           </Link>
           <Link to={getPublicAccessRoute("signup")} className="btn btn-secondary">
             Create Account

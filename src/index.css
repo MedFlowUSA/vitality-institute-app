@@ -1559,3 +1559,58 @@ button,
     line-height: 1.5;
   }
 }
+
+.public-hero-card {
+  padding-top: 28px;
+  padding-bottom: 28px;
+}
+
+.public-hero-heading {
+  max-width: 760px;
+}
+
+.public-hero-body {
+  max-width: 720px;
+}
+
+.public-hero-actions {
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .public-shell .shell {
+    padding-top: 26px;
+  }
+
+  .public-hero-card {
+    padding-top: 30px;
+    padding-bottom: 30px;
+  }
+
+  .public-hero-eyebrow,
+  .public-hero-heading,
+  .public-hero-body {
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .public-hero-heading {
+    max-width: 13ch;
+  }
+
+  .public-hero-body {
+    max-width: 34ch;
+  }
+
+  .public-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .public-hero-actions .btn {
+    width: 100%;
+  }
+}
