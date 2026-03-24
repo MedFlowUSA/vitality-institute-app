@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthProvider";
 import RouteHeader from "../components/RouteHeader";
+import { preparePublicVitalAiOutboundPayload } from "../lib/outboundMessagePrep";
 import { formatAnswerValue, getPathwayLabel, getPathwayQuestions, type PublicVitalAiAnswers, type PublicVitalAiPathway, type PublicVitalAiStatus } from "../lib/publicVitalAiLite";
 import { buildFollowUpMessage, compareLeadPriority, getUrgencyIndicatorStyle, getValueIndicatorStyle } from "../lib/publicFollowUpEngine";
 import { describePublicSubmissionOrigin, getBookingRequestStatusLabel, getVitalAiNextStep, getVitalAiStatusLabel, isWoundRelated, type BookingRequestStatus } from "../lib/publicSubmissionOps";
@@ -166,6 +167,30 @@ export default function AdminPublicVitalAiSubmissions() {
   );
   const selectedFollowUp = useMemo(
     () => (selected ? buildFollowUpMessage(selected.scoredLead.leadType, selected.scoredLead.urgencyLevel) : null),
+    [selected]
+  );
+  const selectedOutbound = useMemo(
+    () =>
+      selected
+        ? preparePublicVitalAiOutboundPayload({
+            submissionId: selected.id,
+            pathway: selected.pathway,
+            answers: selected.answers_json ?? {},
+            summary: selected.summary,
+            firstName: selected.first_name,
+            lastName: selected.last_name,
+            email: selected.email,
+            phone: selected.phone,
+            preferredContactMethod: selected.preferred_contact_method,
+            preferredLocationId: selected.preferred_location_id,
+            bookingRequestId: selected.booking_request_id,
+            serviceId: selected.service_id,
+            patientId: selected.linkedBookingRequest?.patient_id ?? null,
+            notes: selected.notes,
+            source: selected.source,
+            status: selected.status,
+          })
+        : null,
     [selected]
   );
 
@@ -406,6 +431,21 @@ export default function AdminPublicVitalAiSubmissions() {
                           <div><strong>Patient message:</strong> {selectedFollowUp?.patientMessage ?? "-"}</div>
                           <div><strong>Support line:</strong> {selectedFollowUp?.supportingLine ?? "-"}</div>
                           <div><strong>Staff note:</strong> {selectedFollowUp?.staffNote ?? "-"}</div>
+                        </div>
+                      </div>
+
+                      <div className="card card-pad" style={{ flex: "1 1 320px" }}>
+                        <div className="h2">Outbound Preview</div>
+                        <div className="space" />
+                        <div style={{ lineHeight: 1.8 }}>
+                          <div><strong>Title:</strong> {selectedOutbound?.title ?? "-"}</div>
+                          <div><strong>Subject:</strong> {selectedOutbound?.message.subject ?? "-"}</div>
+                          <div><strong>Channel:</strong> {selectedOutbound?.recipient.recommendedChannel ?? "-"}</div>
+                          <div><strong>Timing:</strong> {selectedOutbound?.timing.label ?? "-"}</div>
+                          <div><strong>Primary offer:</strong> {selectedOutbound?.recommendation.primaryOffer ?? "-"}</div>
+                          <div><strong>Next step:</strong> {selectedOutbound?.recommendation.nextStep ?? "-"}</div>
+                          <div><strong>Body:</strong> {selectedOutbound?.message.body ?? "-"}</div>
+                          <div><strong>Internal note:</strong> {selectedOutbound?.message.staffNote ?? "-"}</div>
                         </div>
                       </div>
 

@@ -502,7 +502,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
             ) : null}
 
             <button className="btn btn-primary" type="button" onClick={save} disabled={saving || !woundLabel.trim()}>
-              {saving ? "Saving…" : editingId ? "Save Changes" : "Add Measurement"}
+              {saving ? "Saving..." : editingId ? "Save Changes" : "Add Measurement"}
             </button>
           </div>
         </div>
@@ -517,7 +517,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
           <div className="space" />
 
           {loading ? (
-            <div className="muted">Loading…</div>
+            <div className="card card-pad" style={{ background: "rgba(255,255,255,0.04)" }}><div className="muted">Loading wound measurements...</div></div>
           ) : rows.length === 0 ? (
             <div className="muted">No wound measurements yet.</div>
           ) : (
@@ -573,4 +573,5 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
     </div>
   );
 }
+
 

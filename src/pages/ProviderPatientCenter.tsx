@@ -179,6 +179,7 @@ const FOLLOW_UP_MODE_LABELS: Record<string, string> = {
 
 type PatientTab = "overview" | "wound" | "soap" | "plan" | "labs" | "notes" | "files" | "photos" | "ivr" | "charges";
 
+
 export default function ProviderPatientCenter() {
   const { user, role, signOut, resumeKey } = useAuth();
   const nav = useNavigate();
@@ -255,19 +256,19 @@ export default function ProviderPatientCenter() {
   };
 
   const fmtDob = (dob?: string | null) => {
-    if (!dob) return "—";
+    if (!dob) return "-";
     const d = new Date(dob);
-    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString();
+    return Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
   };
 
   const addrLine = () => {
-    if (!demo) return "—";
+    if (!demo) return "-";
     const parts = [
       demo.address_line1,
       demo.address_line2,
       [demo.city, demo.state, demo.zip].filter(Boolean).join(" "),
     ].filter(Boolean);
-    return parts.length ? parts.join(", ") : "—";
+    return parts.length ? parts.join(", ") : "-";
   };
 
   const filesByVisit = useMemo(() => {
@@ -376,7 +377,7 @@ export default function ProviderPatientCenter() {
 
     const tl = timeline.find((x) => x.visit_id === activeVisitId) ?? null;
     const soapVal = !activeVisitId
-      ? "—"
+      ? "-"
       : tl?.soap_id
       ? tl.is_locked || tl.is_signed
         ? "Signed"
@@ -514,7 +515,7 @@ export default function ProviderPatientCenter() {
         .order("visit_date", { ascending: false });
 
       if (tlErr) {
-        // View missing or column mismatch — fall back to patient_visits
+        // View missing or column mismatch - fall back to patient_visits
         hasTimelineView = false;
         setTimeline([]);
         console.warn("v_patient_visit_timeline not available, falling back to patient_visits:", tlErr.message);
@@ -721,7 +722,7 @@ export default function ProviderPatientCenter() {
       null;
 
     if (!fallbackLocationId) {
-      setErr("No location found for this patient yet. Create a visit from an appointment or set a location.");
+      setErr("This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.");
       return;
     }
 
@@ -886,7 +887,7 @@ export default function ProviderPatientCenter() {
     if (!user) return setErr("You must be signed in.");
     if (!patientId) return;
     if (!noteBody.trim()) return;
-    if (!activeVisitId) return setErr("Select a visit first.");
+    if (!activeVisitId) return setErr("This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.");
 
     const locId = activeVisit?.location_id ?? locationId ?? null;
     if (!locId) return setErr("Missing location for note.");
@@ -943,7 +944,7 @@ export default function ProviderPatientCenter() {
     if (!user) return setErr("You must be signed in.");
     if (!pickedFile) return;
     if (!patientId) return;
-    if (!activeVisitId) return setErr("Select a visit first.");
+    if (!activeVisitId) return setErr("This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.");
 
     const locId = activeVisit?.location_id ?? locationId ?? null;
     if (!locId) return setErr("Missing location for upload.");
@@ -993,7 +994,7 @@ export default function ProviderPatientCenter() {
   const createLab = async () => {
     if (!user) return setErr("You must be signed in.");
     if (!patientId) return;
-    if (!activeVisitId) return setErr("Select a visit first.");
+    if (!activeVisitId) return setErr("This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.");
     if (!labName.trim()) return;
 
     const locId = activeVisit?.location_id ?? locationId ?? null;
@@ -1101,7 +1102,7 @@ export default function ProviderPatientCenter() {
   const uploadLabResult = async (lab: LabRow) => {
     if (!user) return setErr("You must be signed in.");
     if (!patientId) return;
-    if (!activeVisitId) return setErr("Select a visit first.");
+    if (!activeVisitId) return setErr("This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.");
 
     const file = labPickedFiles?.[lab.id] ?? null;
     if (!file) return;
@@ -1212,7 +1213,7 @@ export default function ProviderPatientCenter() {
 
         <VitalityHero
           title="Patient Center"
-          subtitle="Visits • SOAP • Plan • Labs • Notes • Files"
+          subtitle="Visits � SOAP � Plan � Labs � Notes � Files"
           secondaryCta={{ label: "Back", to: "/provider" }}
           primaryCta={{ label: "AI Plan Builder", to: "/provider/ai" }}
           rightActions={
@@ -1259,12 +1260,12 @@ export default function ProviderPatientCenter() {
 
         {authNotReady ? (
           <div className="card card-pad">
-            <div className="h2">Finalizing profile…</div>
+            <div className="h2">Finalizing profile...</div>
             <div className="muted" style={{ marginTop: 6 }}>
-              If this doesn’t clear, your AuthProvider is waiting on a profile row that’s missing or blocked by RLS.
+              If this doesn't clear, your AuthProvider is waiting on a profile row that's missing or blocked by RLS.
             </div>
             <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
-              Patient ID: {patientId || "—"}
+              Patient ID: {patientId || "-"}
             </div>
           </div>
         ) : (
@@ -1287,20 +1288,20 @@ export default function ProviderPatientCenter() {
                       DOB: <strong>{fmtDob(demo?.dob)}</strong>
                     </div>
                     <div className="v-chip">
-                      Age: <strong>{age ?? "—"}</strong>
+                      Age: <strong>{age ?? "-"}</strong>
                     </div>
                     <div className="v-chip">
-                      Phone: <strong>{demo?.phone ?? "—"}</strong>
+                      Phone: <strong>{demo?.phone ?? "-"}</strong>
                     </div>
                     <div className="v-chip">
-                      Email: <strong>{demo?.email ?? "—"}</strong>
+                      Email: <strong>{demo?.email ?? "-"}</strong>
                     </div>
                     <div className="v-chip">
                       Insurance:{" "}
                       <strong>
                         {insurance?.payer_name
-                          ? `${insurance.payer_name}${insurance.plan_name ? ` • ${insurance.plan_name}` : ""}`
-                          : "—"}
+                          ? `${insurance.payer_name}${insurance.plan_name ? ` � ${insurance.plan_name}` : ""}`
+                          : "-"}
                       </strong>
                     </div>
                     {insurance?.member_id ? (
@@ -1336,7 +1337,7 @@ export default function ProviderPatientCenter() {
                     {alerts.slice(0, 8).map((a) => (
                       <div key={a.id} className="v-chip" title={a.alert_type ?? ""}>
                         Alert: <strong>{a.label}</strong>
-                        {a.severity ? <span className="muted"> • {a.severity}</span> : null}
+                        {a.severity ? <span className="muted"> � {a.severity}</span> : null}
                       </div>
                     ))}
                   </div>
@@ -1366,20 +1367,20 @@ export default function ProviderPatientCenter() {
                 {activeVisit ? (
                   <>
                     Active visit: <strong>{new Date(activeVisit.visit_date).toLocaleDateString()}</strong>{" "}
-                    {activeVisit.status ? `• ${activeVisit.status}` : ""}{" "}
-                    {activeVisit.summary ? `• ${activeVisit.summary}` : ""}
+                    {activeVisit.status ? `� ${activeVisit.status}` : ""}{" "}
+                    {activeVisit.summary ? `� ${activeVisit.summary}` : ""}
                   </>
                 ) : (
                   "Select a visit in the timeline to unlock SOAP/Plan/Labs/Notes/Files."
                 )}
               </div>
               <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                Encounter state: <strong>{encounterState.state.replaceAll("_", " ")}</strong> • Next action:{" "}
+                Encounter state: <strong>{encounterState.state.replaceAll("_", " ")}</strong> � Next action:{" "}
                 <strong>{encounterState.nextActionLabel}</strong>
               </div>
               {activeVisit ? (
                 <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                  Follow-up plan: <strong>{currentNextActionLabel}</strong> • Mode: <strong>{currentFollowUpModeLabel}</strong> • Labs before follow-up:{" "}
+                  Follow-up plan: <strong>{currentNextActionLabel}</strong> � Mode: <strong>{currentFollowUpModeLabel}</strong> � Labs before follow-up:{" "}
                   <strong>{activeVisit.requires_labs_before_followup ? "Yes" : "No"}</strong>
                 </div>
               ) : null}
@@ -1389,7 +1390,9 @@ export default function ProviderPatientCenter() {
 
             <div className="card card-pad">
               {loading ? (
-                <div className="muted">Loading…</div>
+                <div className="card card-pad" style={{ background: "rgba(255,255,255,0.04)" }}>
+                  <div className="muted">Loading patient center...</div>
+                </div>
               ) : (
                 <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
                   {/* LEFT: Timeline */}
@@ -1455,7 +1458,7 @@ export default function ProviderPatientCenter() {
                         <div className="h2">{activeVisit ? `Visit: ${fmt(activeVisit.visit_date)}` : "Select a visit"}</div>
                         <div className="muted" style={{ marginTop: 4 }}>
                           {activeVisit
-                            ? `${activeVisit.status ?? "—"} • ${activeVisit.summary ?? ""}`
+                            ? `${activeVisit.status ?? "-"} � ${activeVisit.summary ?? ""}`
                             : "Pick a visit from the timeline."}
                         </div>
                       </div>
@@ -1740,7 +1743,7 @@ export default function ProviderPatientCenter() {
                     {tab === "wound" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">Select a visit first.</div>
+                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
                         ) : (
                           <>
                             <div
@@ -1912,7 +1915,7 @@ export default function ProviderPatientCenter() {
                     {tab === "soap" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">Select a visit first.</div>
+                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
                         ) : (
                           <SoapNotePanel
                             visitId={activeVisit.id}
@@ -1927,7 +1930,7 @@ export default function ProviderPatientCenter() {
                     {tab === "plan" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">Select a visit first.</div>
+                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
                         ) : (
                           <TreatmentPlanSection
                             visitId={activeVisit.id}
@@ -1951,7 +1954,7 @@ export default function ProviderPatientCenter() {
                         <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                           <input
                             className="input"
-                            placeholder="Lab name (e.g., CBC, CMP, A1c, Testosterone, Lipid Panel)…"
+                            placeholder="Lab name (e.g., CBC, CMP, A1c, Testosterone, Lipid Panel)..."
                             value={labName}
                             onChange={(e) => setLabName(e.target.value)}
                             style={{ flex: "1 1 320px" }}
@@ -1979,7 +1982,7 @@ export default function ProviderPatientCenter() {
                             disabled={labSaving || !labName.trim() || !activeVisitId}
                             title={!activeVisitId ? "Select a visit first" : undefined}
                           >
-                            {labSaving ? "Creating…" : "Add Lab Order"}
+                            {labSaving ? "Creating..." : "Add Lab Order"}
                           </button>
                         </div>
 
@@ -2000,7 +2003,7 @@ export default function ProviderPatientCenter() {
                                     <div style={{ flex: "1 1 320px" }}>
                                       <div style={{ fontWeight: 750 }}>{l.lab_name}</div>
                                       <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>
-                                        Status: <strong>{l.status}</strong> • Ordered: {fmt(l.ordered_at)}
+                                        Status: <strong>{l.status}</strong> � Ordered: {fmt(l.ordered_at)}
                                       </div>
 
                                       {resultFile ? (
@@ -2047,7 +2050,7 @@ export default function ProviderPatientCenter() {
                                         disabled={!rowPicked || labUploadingId === l.id}
                                         onClick={() => uploadLabResult(l)}
                                       >
-                                        {labUploadingId === l.id ? "Uploading…" : "Upload Result"}
+                                        {labUploadingId === l.id ? "Uploading..." : "Upload Result"}
                                       </button>
 
                                       <button className="btn btn-ghost" type="button" disabled={!l.result_file_id} onClick={() => openLabResult(l)}>
@@ -2066,7 +2069,7 @@ export default function ProviderPatientCenter() {
                                       disabled={labBusyId === l.id}
                                       style={{ flex: "1 1 340px" }}
                                     >
-                                      <option value="">Or attach an existing uploaded file…</option>
+                                      <option value="">Or attach an existing uploaded file...</option>
                                       {visitFilesForAttach.map((f) => (
                                         <option key={f.id} value={f.id}>
                                           {f.filename}
@@ -2134,7 +2137,7 @@ export default function ProviderPatientCenter() {
                             disabled={savingNote || !noteBody.trim() || !activeVisitId}
                             title={!activeVisitId ? "Select a visit first" : undefined}
                           >
-                            {savingNote ? "Saving…" : "Add Note"}
+                            {savingNote ? "Saving..." : "Add Note"}
                           </button>
                         </div>
 
@@ -2160,7 +2163,7 @@ export default function ProviderPatientCenter() {
                             (notesByVisit.get(activeVisitId || "general") ?? []).map((n) => (
                               <div key={n.id} style={{ marginBottom: 10 }}>
                                 <div className="muted" style={{ fontSize: 12 }}>
-                                  {n.note_type ?? "note"} • {fmt(n.created_at)}
+                                  {n.note_type ?? "note"} � {fmt(n.created_at)}
                                 </div>
                                 <div>{n.body}</div>
                               </div>
@@ -2195,7 +2198,7 @@ export default function ProviderPatientCenter() {
                             disabled={uploading || !pickedFile || !activeVisitId}
                             title={!activeVisitId ? "Select a visit first" : undefined}
                           >
-                            {uploading ? "Uploading…" : "Upload"}
+                            {uploading ? "Uploading..." : "Upload"}
                           </button>
                         </div>
 
@@ -2203,7 +2206,7 @@ export default function ProviderPatientCenter() {
 
                         <input
                           className="input"
-                          placeholder="Optional file notes (e.g. Lab results, consent, imaging)…"
+                          placeholder="Optional file notes (e.g. Lab results, consent, imaging)..."
                           value={fileNotes}
                           onChange={(e) => setFileNotes(e.target.value)}
                           disabled={!activeVisitId}
@@ -2231,7 +2234,7 @@ export default function ProviderPatientCenter() {
                                 <span>
                                   <div style={{ fontWeight: 700 }}>{f.filename}</div>
                                   <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>
-                                    {fmt(f.created_at)} {f.notes ? `• ${f.notes}` : ""}
+                                    {fmt(f.created_at)} {f.notes ? `� ${f.notes}` : ""}
                                   </div>
                                 </span>
                                 <span className="muted" style={{ fontSize: 12 }}>Open</span>
@@ -2246,7 +2249,7 @@ export default function ProviderPatientCenter() {
                     {tab === "photos" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">Select a visit first.</div>
+                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
                         ) : (
                           <WoundPhotosPanel
                             patientId={activeVisit.patient_id}
@@ -2260,7 +2263,7 @@ export default function ProviderPatientCenter() {
                     {tab === "ivr" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">Select a visit first.</div>
+                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
                         ) : (
                           <>
                             <div className="row" style={{ justifyContent: "flex-end" }}>
@@ -2287,7 +2290,7 @@ export default function ProviderPatientCenter() {
                     {tab === "charges" && (
                       <div className="card card-pad">
                         {!activeVisit ? (
-                          <div className="muted">Select a visit first.</div>
+                          <div className="muted">This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.</div>
                         ) : (
                           <ChargeCapturePanel
                             patientId={activeVisit.patient_id}
@@ -2309,4 +2312,6 @@ export default function ProviderPatientCenter() {
     </div>
   );
 }
+
+
 

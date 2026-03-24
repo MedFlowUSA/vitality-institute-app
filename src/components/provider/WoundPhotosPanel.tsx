@@ -182,7 +182,9 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId }: Pro
       <div className="space" />
 
       {loading ? (
-        <div className="muted">Loading...</div>
+        <div className="card card-pad" style={{ background: "rgba(255,255,255,0.04)" }}>
+          <div className="muted">Loading wound photos...</div>
+        </div>
       ) : rows.length === 0 ? (
         <div className="muted">No wound photos for this visit yet.</div>
       ) : (

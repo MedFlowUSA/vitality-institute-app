@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { trackFunnelEvent } from "../lib/analytics";
 import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
+import { preparePublicVitalAiOutboundPayload } from "../lib/outboundMessagePrep";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import {
   buildPublicVitalAiSummary,
@@ -147,6 +148,22 @@ export default function PublicVitalAiLite() {
         preferredLocationId,
         summary,
       });
+      const outboundPayload = preparePublicVitalAiOutboundPayload({
+        submissionId: data.id ?? null,
+        pathway,
+        answers,
+        summary,
+        firstName,
+        lastName,
+        phone,
+        email,
+        preferredContactMethod,
+        preferredLocationId,
+        bookingRequestId: bookingDraft?.requestId ?? null,
+        serviceId: bookingDraft?.serviceId ?? null,
+        notes: bookingDraft?.notes ?? null,
+        source: "public_vital_ai_lite",
+      });
       console.info("[Public follow-up]", {
         type: "public_vital_ai_submission",
         submissionId: data.id ?? null,
@@ -154,6 +171,7 @@ export default function PublicVitalAiLite() {
         urgencyLevel: leadMetadata.urgencyLevel,
         patientMessage: followUp.patientMessage,
         staffNote: followUp.staffNote,
+        outboundPayload,
       });
       void trackFunnelEvent({
         eventName: "vital_ai_submitted",

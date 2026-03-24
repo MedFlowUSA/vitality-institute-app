@@ -4,6 +4,7 @@ import { useAuth, type AppRole } from "../auth/AuthProvider";
 import { trackFunnelEvent } from "../lib/analytics";
 import { resolveCanonicalOffer } from "../lib/canonicalOfferRegistry";
 import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
+import { prepareBookingRequestOutboundPayload } from "../lib/outboundMessagePrep";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { createBookingRequest } from "../lib/bookingRequests";
 import { buildFollowUpMessage, resolveBookingRequestLead } from "../lib/publicFollowUpEngine";
@@ -397,12 +398,22 @@ export default function PublicBook() {
         notes,
       });
       const followUp = buildFollowUpMessage(resolvedLead.leadType, resolvedLead.urgencyLevel);
+      const outboundPayload = prepareBookingRequestOutboundPayload({
+        requestId: request.id,
+        locationId: renderedLocationId,
+        serviceId: selectedServiceRow?.id ?? null,
+        serviceName: selectedBookingOption.serviceLabel,
+        requestedStart: start.toISOString(),
+        notes,
+        source: selectedInterestSlug ? `public_booking_interest:${selectedInterestSlug}` : "public_booking_flow",
+      });
       console.info("[Public follow-up]", {
         type: "booking_request",
         requestId: request.id,
         serviceName: selectedBookingOption.serviceLabel,
         patientMessage: followUp.patientMessage,
         staffNote: followUp.staffNote,
+        outboundPayload,
       });
       void trackFunnelEvent({
         eventName: "public_booking_submitted",

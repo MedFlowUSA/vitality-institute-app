@@ -45,6 +45,15 @@ type LatestWoundAssessmentRow = {
 const TREATMENT_PLAN_SELECT_FIELDS =
   "id,visit_id,patient_id,location_id,status,summary,patient_instructions,internal_notes,plan,signed_by,signed_at,is_locked,created_at,updated_at";
 
+type TreatmentPlanStatus = "draft" | "active" | "completed";
+
+function normalizeTreatmentPlanStatus(status?: string | null): TreatmentPlanStatus {
+  if (status === "active" || status === "completed" || status === "draft") return status;
+  if (status === "complete" || status === "done" || status === "signed") return "completed";
+  if (status === "new" || status === "pending" || status == null) return "draft";
+  return "draft";
+}
+
 function pretty(v: any) {
   try {
     return JSON.stringify(v, null, 2);
@@ -63,7 +72,7 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
 
   const [row, setRow] = useState<PlanRow | null>(null);
 
-  const [status, setStatus] = useState("draft");
+  const [status, setStatus] = useState<TreatmentPlanStatus>("draft");
   const [summary, setSummary] = useState("");
   const [patientInstructions, setPatientInstructions] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
@@ -91,7 +100,7 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
 
   const hydrateFromRow = (r: PlanRow) => {
     const p = r.plan ?? {};
-    setStatus(r.status ?? "draft");
+    setStatus(normalizeTreatmentPlanStatus(r.status));
     setSummary(r.summary ?? "");
     setPatientInstructions(r.patient_instructions ?? "");
     setInternalNotes(r.internal_notes ?? "");
@@ -310,7 +319,7 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
         visit_id: visitId,
         patient_id: patientId,
         location_id: locationId,
-        status,
+        status: normalizeTreatmentPlanStatus(status),
         summary: summary.trim() || null,
         patient_instructions: patientInstructions.trim() || null,
         internal_notes: internalNotes.trim() || null,
@@ -354,7 +363,7 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
           is_locked: true,
           signed_by: user.id,
           signed_at: now,
-          status: "signed",
+          status: "completed",
         })
         .eq("id", row.id);
 
@@ -440,7 +449,7 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
             disabled={!canEdit || isLocked || loadingWoundAssessment || !latestWoundAssessment}
             onClick={generateFromWoundAssessment}
           >
-            {loadingWoundAssessment ? "Loading Wound..." : "Generate From Wound"}
+            {loadingWoundAssessment ? "Loading wound..." : "Generate From Wound"}
           </button>
         </div>
 
@@ -473,12 +482,11 @@ export default function TreatmentPlanSection({ visitId, patientId, locationId }:
           className="input"
           style={{ flex: "1 1 220px" }}
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={(e) => setStatus(normalizeTreatmentPlanStatus(e.target.value))}
           disabled={!canEdit || isLocked}
         >
           <option value="draft">draft</option>
           <option value="active">active</option>
-          <option value="hold">hold</option>
           <option value="completed">completed</option>
         </select>
 

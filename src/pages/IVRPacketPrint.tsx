@@ -4,23 +4,25 @@ import { supabase } from "../lib/supabase";
 import { getSignedUrl } from "../lib/patientFiles";
 
 type VisitRow = { id: string; patient_id: string; location_id: string; visit_date: string; summary: string | null };
-type DemoRow = { dob: string | null; sex: string | null; email: string | null; phone: string | null; address_line1: string | null; address_line2: string | null; city: string | null; state: string | null; zip: string | null; };
-type InsuranceRow = { payer_name: string | null; plan_name: string | null; member_id: string | null; group_id: string | null; };
-type WoundRow = { wound_label: string; body_site: string | null; laterality: string | null; wound_type: string | null; stage: string | null; length_cm: number | null; width_cm: number | null; depth_cm: number | null; exudate: string | null; infection_signs: string | null; notes: string | null; };
-type FileRow = { id: string; bucket: string; path: string; filename: string; content_type: string | null; category: string | null; created_at: string; visit_id: string | null; };
-type SoapRow = { subjective: string | null; objective: string | null; assessment: string | null; plan: string | null; signed_at: string | null; is_signed: boolean | null; is_locked: boolean | null; };
+type DemoRow = { dob: string | null; sex: string | null; email: string | null; phone: string | null; address_line1: string | null; address_line2: string | null; city: string | null; state: string | null; zip: string | null };
+type InsuranceRow = { payer_name: string | null; plan_name: string | null; member_id: string | null; group_id: string | null };
+type WoundRow = { wound_label: string; body_site: string | null; laterality: string | null; wound_type: string | null; stage: string | null; length_cm: number | null; width_cm: number | null; depth_cm: number | null; exudate: string | null; infection_signs: string | null; notes: string | null };
+type FileRow = { id: string; bucket: string; path: string; filename: string; content_type: string | null; category: string | null; created_at: string; visit_id: string | null };
+type SoapRow = { subjective: string | null; objective: string | null; assessment: string | null; plan: string | null; signed_at: string | null; is_signed: boolean | null; is_locked: boolean | null };
 type PlanItem = { name: string; qty?: string | null; notes?: string | null };
 
 function fmtDate(iso?: string | null) {
-  if (!iso) return "â€”";
+  if (!iso) return "-";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "â€”" : d.toLocaleString();
+  return Number.isNaN(d.getTime()) ? "-" : d.toLocaleString();
 }
+
 function fmtDob(iso?: string | null) {
-  if (!iso) return "â€”";
+  if (!iso) return "-";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "â€”" : d.toLocaleDateString();
+  return Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
 }
+
 function calcAge(dob?: string | null) {
   if (!dob) return null;
   const d = new Date(dob);
@@ -29,11 +31,13 @@ function calcAge(dob?: string | null) {
   const ageDt = new Date(diff);
   return Math.abs(ageDt.getUTCFullYear() - 1970);
 }
+
 function addr(d: DemoRow | null) {
-  if (!d) return "â€”";
+  if (!d) return "-";
   const parts = [d.address_line1, d.address_line2, [d.city, d.state, d.zip].filter(Boolean).join(" ")].filter(Boolean);
-  return parts.length ? parts.join(", ") : "â€”";
+  return parts.length ? parts.join(", ") : "-";
 }
+
 function areaCm2(l?: number | null, w?: number | null) {
   if (l == null || w == null) return null;
   const a = Number(l) * Number(w);
@@ -68,9 +72,11 @@ export default function IVRPacketPrint() {
 
   useEffect(() => {
     if (!visitId) return;
-    (async () => {
+
+    void (async () => {
       setLoading(true);
       setErr(null);
+
       try {
         const { data: v, error: vErr } = await supabase
           .from("patient_visits")
@@ -110,34 +116,35 @@ export default function IVRPacketPrint() {
         if (wErr) throw wErr;
         setWounds((w as unknown as WoundRow[]) ?? []);
 
-        // Optional SOAP table
-        const soap1 = await trySelect<SoapRow>(
+        const soapRows = await trySelect<SoapRow>(
           "patient_soap_notes",
           "subjective,objective,assessment,plan,signed_at,is_signed,is_locked,created_at",
-          (q) => q.eq("visit_id", visitId).order("created_at", { ascending: false }).limit(1)
+          (q) => q.eq("visit_id", visitId).order("created_at", { ascending: false }).limit(1),
         );
-        setSoap(soap1 && soap1.length ? soap1[0] : null);
+        setSoap(soapRows && soapRows.length ? soapRows[0] : null);
 
-        // Optional plan tables
         let items: PlanItem[] = [];
-        const p1 = await trySelect<any>(
+        const visitItems = await trySelect<any>(
           "visit_treatment_items",
           "name,qty,notes,created_at",
-          (q) => q.eq("visit_id", visitId).order("created_at", { ascending: false })
+          (q) => q.eq("visit_id", visitId).order("created_at", { ascending: false }),
         );
-        if (p1) items = p1.map((x) => ({ name: x.name, qty: x.qty ?? null, notes: x.notes ?? null }));
+        if (visitItems) {
+          items = visitItems.map((x) => ({ name: x.name, qty: x.qty ?? null, notes: x.notes ?? null }));
+        }
 
         if (!items.length) {
-          const p2 = await trySelect<any>(
+          const planRows = await trySelect<any>(
             "patient_treatment_plans",
             "treatment_name,quantity,notes,created_at",
-            (q) => q.eq("visit_id", visitId).order("created_at", { ascending: false })
+            (q) => q.eq("visit_id", visitId).order("created_at", { ascending: false }),
           );
-          if (p2) items = p2.map((x) => ({ name: x.treatment_name, qty: x.quantity ?? null, notes: x.notes ?? null }));
+          if (planRows) {
+            items = planRows.map((x) => ({ name: x.treatment_name, qty: x.quantity ?? null, notes: x.notes ?? null }));
+          }
         }
         setPlanItems(items);
 
-        // Photos (visit first, then patient)
         const { data: f, error: fErr } = await supabase
           .from("patient_files")
           .select("id,bucket,path,filename,content_type,category,created_at,visit_id")
@@ -147,25 +154,23 @@ export default function IVRPacketPrint() {
 
         const allFiles = (f as FileRow[]) ?? [];
         const isImage = (x: FileRow) => (x.content_type || "").startsWith("image/");
-        const isWoundCat = (x: FileRow) => ["wound_photo", "clinical_image"].includes(String(x.category || ""));
-        const visitImgs = allFiles.filter((x) => x.visit_id === visitId && isImage(x) && isWoundCat(x));
-        const anyImgs = allFiles.filter((x) => isImage(x) && isWoundCat(x));
+        const isWoundCategory = (x: FileRow) => ["wound_photo", "clinical_image"].includes(String(x.category || ""));
+        const visitImages = allFiles.filter((x) => x.visit_id === visitId && isImage(x) && isWoundCategory(x));
+        const anyImages = allFiles.filter((x) => isImage(x) && isWoundCategory(x));
 
-        const chosen = (visitImgs.length ? visitImgs : anyImgs).slice(0, 6);
+        const chosen = (visitImages.length ? visitImages : anyImages).slice(0, 6);
         setPhotos(chosen);
 
-        // Signed URLs
-        const map: Record<string, string> = {};
-        for (const p of chosen) {
+        const signedUrlMap: Record<string, string> = {};
+        for (const photo of chosen) {
           try {
-            map[p.id] = await getSignedUrl(p.bucket, p.path, 300);
+            signedUrlMap[photo.id] = await getSignedUrl(photo.bucket, photo.path, 300);
           } catch {
-        // Ignore files that cannot be signed for print preview.
-      }
+            // Ignore files that cannot be signed for print preview.
+          }
         }
-        setPhotoUrls(map);
+        setPhotoUrls(signedUrlMap);
 
-        // Auto-trigger print after render
         setTimeout(() => window.print(), 400);
       } catch (e: any) {
         setErr(e?.message ?? "Failed to build packet preview.");
@@ -177,7 +182,7 @@ export default function IVRPacketPrint() {
 
   const age = calcAge(demo?.dob);
 
-  if (loading) return <div style={{ padding: 24, fontFamily: "system-ui" }}>Loading packet previewâ€¦</div>;
+  if (loading) return <div style={{ padding: 24, fontFamily: "system-ui" }}>Loading packet preview...</div>;
   if (err) return <div style={{ padding: 24, fontFamily: "system-ui", color: "crimson" }}>{err}</div>;
   if (!visit) return <div style={{ padding: 24, fontFamily: "system-ui" }}>Visit not found.</div>;
 
@@ -221,11 +226,11 @@ export default function IVRPacketPrint() {
           </div>
           <div>
             <div className="muted">DOB / Age / Sex</div>
-            <div>{fmtDob(demo?.dob)}{age != null ? ` â€¢ ${age}` : ""} â€¢ {demo?.sex ?? "â€”"}</div>
+            <div>{fmtDob(demo?.dob)}{age != null ? ` - ${age}` : ""} - {demo?.sex ?? "-"}</div>
           </div>
           <div>
             <div className="muted">Phone / Email</div>
-            <div>{demo?.phone ?? "â€”"} â€¢ {demo?.email ?? "â€”"}</div>
+            <div>{demo?.phone ?? "-"} - {demo?.email ?? "-"}</div>
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
             <div className="muted">Address</div>
@@ -237,10 +242,10 @@ export default function IVRPacketPrint() {
       <div className="box">
         <div className="h2">Insurance</div>
         <div className="row">
-          <div className="chip">Payer: <strong>{ins?.payer_name ?? "â€”"}</strong></div>
-          <div className="chip">Plan: <strong>{ins?.plan_name ?? "â€”"}</strong></div>
-          <div className="chip">Member ID: <strong>{ins?.member_id ?? "â€”"}</strong></div>
-          <div className="chip">Group: <strong>{ins?.group_id ?? "â€”"}</strong></div>
+          <div className="chip">Payer: <strong>{ins?.payer_name ?? "-"}</strong></div>
+          <div className="chip">Plan: <strong>{ins?.plan_name ?? "-"}</strong></div>
+          <div className="chip">Member ID: <strong>{ins?.member_id ?? "-"}</strong></div>
+          <div className="chip">Group: <strong>{ins?.group_id ?? "-"}</strong></div>
         </div>
       </div>
 
@@ -251,17 +256,17 @@ export default function IVRPacketPrint() {
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
             {wounds.map((w, idx) => {
-              const a = areaCm2(w.length_cm, w.width_cm);
+              const area = areaCm2(w.length_cm, w.width_cm);
               return (
                 <div key={idx} style={{ borderTop: idx ? "1px solid #eee" : "none", paddingTop: idx ? 10 : 0 }}>
                   <div><strong>{w.wound_label}</strong></div>
                   <div className="muted">
-                    {[w.laterality, w.body_site].filter(Boolean).join(" ") || "â€”"}
-                    {w.wound_type ? ` â€¢ ${w.wound_type}` : ""}{w.stage ? ` â€¢ Stage ${w.stage}` : ""}
+                    {[w.laterality, w.body_site].filter(Boolean).join(" ") || "-"}
+                    {w.wound_type ? ` - ${w.wound_type}` : ""}{w.stage ? ` - Stage ${w.stage}` : ""}
                   </div>
                   <div className="row" style={{ marginTop: 6 }}>
-                    <div className="chip">LÃ—WÃ—D (cm): <strong>{w.length_cm ?? "â€”"} Ã— {w.width_cm ?? "â€”"} Ã— {w.depth_cm ?? "â€”"}</strong></div>
-                    <div className="chip">Area (cmÂ²): <strong>{a ?? "â€”"}</strong></div>
+                    <div className="chip">L x W x D (cm): <strong>{w.length_cm ?? "-"} x {w.width_cm ?? "-"} x {w.depth_cm ?? "-"}</strong></div>
+                    <div className="chip">Area (cm2): <strong>{area ?? "-"}</strong></div>
                     {w.exudate ? <div className="chip">Exudate: <strong>{w.exudate}</strong></div> : null}
                     {w.infection_signs ? <div className="chip">Infection: <strong>{w.infection_signs}</strong></div> : null}
                   </div>
@@ -279,12 +284,12 @@ export default function IVRPacketPrint() {
           <div className="muted">No SOAP note found for this visit.</div>
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
-            <div><strong>Subjective:</strong> {soap.subjective || "â€”"}</div>
-            <div><strong>Objective:</strong> {soap.objective || "â€”"}</div>
-            <div><strong>Assessment:</strong> {soap.assessment || "â€”"}</div>
-            <div><strong>Plan:</strong> {soap.plan || "â€”"}</div>
+            <div><strong>Subjective:</strong> {soap.subjective || "-"}</div>
+            <div><strong>Objective:</strong> {soap.objective || "-"}</div>
+            <div><strong>Assessment:</strong> {soap.assessment || "-"}</div>
+            <div><strong>Plan:</strong> {soap.plan || "-"}</div>
             <div className="muted">
-              {soap.is_signed || soap.is_locked ? `Signed/Locked â€¢ ${fmtDate(soap.signed_at)}` : "Draft (not signed)"}
+              {soap.is_signed || soap.is_locked ? `Signed/Locked - ${fmtDate(soap.signed_at)}` : "Draft (not signed)"}
             </div>
           </div>
         )}
@@ -299,8 +304,8 @@ export default function IVRPacketPrint() {
             {planItems.map((p, idx) => (
               <li key={idx}>
                 <strong>{p.name}</strong>
-                {p.qty ? ` â€¢ Qty: ${p.qty}` : ""}
-                {p.notes ? ` â€¢ ${p.notes}` : ""}
+                {p.qty ? ` - Qty: ${p.qty}` : ""}
+                {p.notes ? ` - ${p.notes}` : ""}
               </li>
             ))}
           </ul>
@@ -316,7 +321,7 @@ export default function IVRPacketPrint() {
             {photos.map((p) => (
               <div key={p.id}>
                 {photoUrls[p.id] ? <img src={photoUrls[p.id]} alt={p.filename} /> : <div className="muted">Image unavailable</div>}
-                <div className="muted" style={{ marginTop: 6 }}>{p.filename} â€¢ {fmtDate(p.created_at)}</div>
+                <div className="muted" style={{ marginTop: 6 }}>{p.filename} - {fmtDate(p.created_at)}</div>
               </div>
             ))}
           </div>
