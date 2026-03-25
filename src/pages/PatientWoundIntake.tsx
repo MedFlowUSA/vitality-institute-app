@@ -4,7 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import VitalityHero from "../components/VitalityHero";
-import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
+import {
+  formatPatientFileSize,
+  getSignedUrl,
+  MAX_IMAGE_UPLOAD_BYTES,
+  uploadPatientFile,
+  validatePatientFileSelection,
+} from "../lib/patientFiles";
 
 type PatientRow = { id: string; profile_id: string; location_id: string | null };
 type LocationRow = { id: string; name: string };
@@ -50,6 +56,7 @@ export default function PatientWoundIntake() {
   // Uploads
   const [uploads, setUploads] = useState<UploadedItem[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadingCategories, setUploadingCategories] = useState<Record<string, boolean>>({});
 
   const consentAccepted = useMemo(
     () => consentHipaa && consentFinancial && consentTreatment && typedSignature.trim().length >= 3,
@@ -134,6 +141,7 @@ export default function PatientWoundIntake() {
   async function handleUpload(file: File, category: string) {
     if (!patient || !location || !user?.id) return;
     setUploadError(null);
+    setUploadingCategories((prev) => ({ ...prev, [category]: true }));
 
     try {
       const inserted = (await uploadPatientFile({
@@ -159,6 +167,31 @@ export default function PatientWoundIntake() {
     } catch (e: any) {
       console.error(e);
       setUploadError(e?.message || "Upload failed.");
+    } finally {
+      setUploadingCategories((prev) => ({ ...prev, [category]: false }));
+    }
+  }
+
+  async function handleSelectedUploads(files: File[], category: string, options?: { allowPdf?: boolean; maxFiles?: number }) {
+    const validationError = validatePatientFileSelection(files, {
+      allowPdf: options?.allowPdf,
+      maxFiles: options?.maxFiles,
+      label:
+        category === "id"
+          ? "Photo ID"
+          : category === "insurance"
+            ? "Insurance card"
+            : "Wound photos",
+    });
+
+    if (validationError) {
+      setUploadError(validationError);
+      return;
+    }
+
+    setUploadError(null);
+    for (const file of files) {
+      await handleUpload(file, category);
     }
   }
   async function submitIntake() {
@@ -370,68 +403,85 @@ export default function PatientWoundIntake() {
             onSubmit={(e) => e.preventDefault()}
           >
             <div className="grid md:grid-cols-3 gap-4">
-              <div>
-                <div className="text-sm font-medium mb-2">Photo ID</div>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  capture="environment"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleUpload(f, "id");
-                  }}
-                />
-              </div>
+               <div>
+                 <div className="text-sm font-medium mb-2">Photo ID</div>
+                 <input
+                   type="file"
+                   accept="image/*,application/pdf"
+                   capture="environment"
+                   onChange={(e) => {
+                     const f = e.target.files?.[0];
+                     if (f) void handleSelectedUploads([f], "id", { allowPdf: true, maxFiles: 1 });
+                     e.currentTarget.value = "";
+                   }}
+                 />
+                 <div className="text-xs opacity-70 mt-2">Image or PDF, up to {formatPatientFileSize(MAX_IMAGE_UPLOAD_BYTES)}.</div>
+                 {uploadingCategories.id ? <div className="text-xs mt-2 opacity-70">Uploading ID...</div> : null}
+               </div>
 
-              <div>
-                <div className="text-sm font-medium mb-2">Insurance Card</div>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  capture="environment"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleUpload(f, "insurance");
-                  }}
-                />
-              </div>
+               <div>
+                 <div className="text-sm font-medium mb-2">Insurance Card</div>
+                 <input
+                   type="file"
+                   accept="image/*,application/pdf"
+                   capture="environment"
+                   onChange={(e) => {
+                     const f = e.target.files?.[0];
+                     if (f) void handleSelectedUploads([f], "insurance", { allowPdf: true, maxFiles: 1 });
+                     e.currentTarget.value = "";
+                   }}
+                 />
+                 <div className="text-xs opacity-70 mt-2">Image or PDF, up to {formatPatientFileSize(MAX_IMAGE_UPLOAD_BYTES)}.</div>
+                 {uploadingCategories.insurance ? <div className="text-xs mt-2 opacity-70">Uploading insurance card...</div> : null}
+               </div>
 
-              <div>
-                <div className="text-sm font-medium mb-2">Wound Photos</div>
-                <input
+               <div>
+                 <div className="text-sm font-medium mb-2">Wound Photos</div>
+                 <input
                   type="file"
-                  accept="image/*"
-                  capture="environment"
-                  multiple
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files ?? []);
-                    files.forEach((f) => handleUpload(f, "wound_photo"));
-                    e.currentTarget.value = "";
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+                   accept="image/*"
+                   capture="environment"
+                   multiple
+                   onChange={(e) => {
+                     const files = Array.from(e.target.files ?? []);
+                     if (files.length > 0) void handleSelectedUploads(files, "wound_photo", { maxFiles: 6 });
+                     e.currentTarget.value = "";
+                   }}
+                 />
+                 <div className="text-xs opacity-70 mt-2">Up to 6 images at a time, {formatPatientFileSize(MAX_IMAGE_UPLOAD_BYTES)} max per photo.</div>
+                 {uploadingCategories.wound_photo ? <div className="text-xs mt-2 opacity-70">Uploading wound photos...</div> : null}
+               </div>
+             </div>
+           </div>
 
-          {uploads.length > 0 ? (
-            <div className="mt-4 space-y-2">
-              <div className="text-sm font-semibold">Uploaded</div>
-              <ul className="text-sm list-disc pl-5">
-                {uploads.map((u, idx) => (
-                  <li key={`${u.path}-${idx}`}>
-                    <span className="font-medium">{u.category}:</span>{" "}
-                    {u.signedUrl ? (
-                      <a className="link" href={u.signedUrl} target="_blank" rel="noreferrer">
-                        {u.filename}
-                      </a>
-                    ) : (
-                      u.filename
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+           {uploads.length > 0 ? (
+             <div className="mt-4 space-y-2">
+               <div className="text-sm font-semibold">Uploaded</div>
+               <div className="grid gap-3 md:grid-cols-2">
+                 {uploads.map((u, idx) => (
+                   <div key={`${u.path}-${idx}`} className="rounded-xl border bg-white/70 p-3">
+                     {u.signedUrl && u.filename.match(/\.(png|jpe?g|gif|webp|bmp|heic|heif)$/i) ? (
+                       <img
+                         src={u.signedUrl}
+                         alt={u.filename}
+                         className="mb-3 h-36 w-full rounded-lg object-cover"
+                       />
+                     ) : null}
+                     <div className="text-sm font-medium">{u.category.replace("_", " ")}</div>
+                     <div className="mt-1 text-sm">
+                       {u.signedUrl ? (
+                         <a className="link" href={u.signedUrl} target="_blank" rel="noreferrer">
+                           {u.filename}
+                         </a>
+                       ) : (
+                         u.filename
+                       )}
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
+           ) : null}
         </section>
 
         {/* Consent */}

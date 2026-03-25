@@ -17,6 +17,53 @@ export type UploadedPatientFile = {
   filename: string;
 };
 
+type ValidatePatientFileSelectionOptions = {
+  allowPdf?: boolean;
+  maxFiles?: number;
+  maxBytes?: number;
+  label?: string;
+};
+
+export const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+export function formatPatientFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 102.4) / 10} KB`;
+  return `${Math.round(bytes / (1024 * 102.4)) / 10} MB`;
+}
+
+function isAllowedPatientFile(file: File, allowPdf: boolean) {
+  const normalizedType = (file.type || "").toLowerCase();
+  const normalizedName = file.name.toLowerCase();
+
+  if (normalizedType.startsWith("image/")) return true;
+  if (allowPdf && (normalizedType === "application/pdf" || normalizedName.endsWith(".pdf"))) return true;
+  return false;
+}
+
+export function validatePatientFileSelection(
+  files: File[],
+  { allowPdf = false, maxFiles, maxBytes = MAX_IMAGE_UPLOAD_BYTES, label = "Files" }: ValidatePatientFileSelectionOptions = {}
+) {
+  if (files.length === 0) return null;
+
+  if (typeof maxFiles === "number" && files.length > maxFiles) {
+    return `${label} can include up to ${maxFiles} file${maxFiles === 1 ? "" : "s"} at a time.`;
+  }
+
+  for (const file of files) {
+    if (!isAllowedPatientFile(file, allowPdf)) {
+      return `${label} must be ${allowPdf ? "images or PDFs" : "image files only"}.`;
+    }
+
+    if (file.size > maxBytes) {
+      return `${file.name} exceeds the ${formatPatientFileSize(maxBytes)} limit.`;
+    }
+  }
+
+  return null;
+}
+
 export async function uploadPatientFile(args: UploadArgs): Promise<UploadedPatientFile> {
   const { patientId, locationId, visitId, appointmentId = null, category, file } = args;
 

@@ -3,7 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../auth/AuthProvider";
 import { getErrorMessage } from "../../lib/patientRecords";
-import { uploadPatientFile, getSignedUrl } from "../../lib/patientFiles";
+import {
+  formatPatientFileSize,
+  getSignedUrl,
+  MAX_IMAGE_UPLOAD_BYTES,
+  uploadPatientFile,
+  validatePatientFileSelection,
+} from "../../lib/patientFiles";
 import ProviderPrerequisiteCard from "./ProviderPrerequisiteCard";
 
 type FileRow = {
@@ -40,6 +46,7 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId, onRet
   const [rows, setRows] = useState<FileRow[]>([]);
   const [picked, setPicked] = useState<File | null>(null);
   const [notes, setNotes] = useState("");
+  const [pickedPreviewUrl, setPickedPreviewUrl] = useState<string | null>(null);
 
   const isStaff = useMemo(() => role && role !== "patient", [role]);
 
@@ -73,6 +80,17 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId, onRet
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId, visitId]);
+
+  useEffect(() => {
+    if (!picked) {
+      setPickedPreviewUrl(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(picked);
+    setPickedPreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [picked]);
 
   const open = async (r: FileRow) => {
     setErr(null);
@@ -168,7 +186,27 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId, onRet
           accept="image/*"
           capture="environment"
           className="input"
-          onChange={(e) => setPicked(e.target.files?.[0] ?? null)}
+          onChange={(e) => {
+            const next = e.target.files?.[0] ?? null;
+            if (!next) {
+              setPicked(null);
+              return;
+            }
+
+            const validationError = validatePatientFileSelection([next], {
+              label: "Wound photos",
+              maxFiles: 1,
+            });
+            if (validationError) {
+              setErr(validationError);
+              setPicked(null);
+              e.currentTarget.value = "";
+              return;
+            }
+
+            setErr(null);
+            setPicked(next);
+          }}
           disabled={!isStaff || uploading}
           style={{ flex: "1 1 320px" }}
         />
@@ -185,7 +223,43 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId, onRet
         <button className="btn btn-primary" type="button" onClick={upload} disabled={!isStaff || uploading || !picked}>
           {uploading ? "Uploading..." : "Upload Photo"}
         </button>
+        {picked ? (
+          <button
+            className="btn btn-ghost"
+            type="button"
+            onClick={() => {
+              setPicked(null);
+              setErr(null);
+            }}
+            disabled={uploading}
+          >
+            Remove
+          </button>
+        ) : null}
       </div>
+
+      {picked ? (
+        <div className="card card-pad" style={{ marginTop: 12, padding: 12 }}>
+          <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+            {pickedPreviewUrl ? (
+              <img
+                src={pickedPreviewUrl}
+                alt={picked.name}
+                style={{ width: 120, height: 120, objectFit: "cover", borderRadius: 12, border: "1px solid rgba(0,0,0,.08)" }}
+              />
+            ) : null}
+            <div style={{ minWidth: 220, flex: "1 1 220px" }}>
+              <div style={{ fontWeight: 700 }}>{picked.name}</div>
+              <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                {formatPatientFileSize(picked.size)} ready to upload
+              </div>
+              <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                JPG, PNG, HEIC, and similar image formats are supported up to {formatPatientFileSize(MAX_IMAGE_UPLOAD_BYTES)}.
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="space" />
 

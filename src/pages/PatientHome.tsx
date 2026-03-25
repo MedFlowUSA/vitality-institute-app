@@ -5,7 +5,13 @@ import { useAuth } from "../auth/AuthProvider";
 import { getCanonicalPatientIntakeServiceType, getCanonicalServiceTypeKey } from "../lib/canonicalOfferRegistry";
 import { getGuidedIntakePathwayForService } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
-import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
+import {
+  formatPatientFileSize,
+  getSignedUrl,
+  MAX_IMAGE_UPLOAD_BYTES,
+  uploadPatientFile,
+  validatePatientFileSelection,
+} from "../lib/patientFiles";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
@@ -495,6 +501,8 @@ export default function PatientHome() {
   const [date, setDate] = useState<string>(""); // YYYY-MM-DD
   const [notes, setNotes] = useState<string>("");
   const [woundPhotos, setWoundPhotos] = useState<File[]>([]);
+  const [woundPhotoPreviews, setWoundPhotoPreviews] = useState<string[]>([]);
+  const [woundPhotoSelectionError, setWoundPhotoSelectionError] = useState<string | null>(null);
   const [uploadingApptFiles, setUploadingApptFiles] = useState(false);
 
   const [hours, setHours] = useState<LocationHoursRow | null>(null);
@@ -506,6 +514,8 @@ export default function PatientHome() {
   const [loadingMine, setLoadingMine] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<ApptRow | null>(null);
   const [appointmentDrawerFiles, setAppointmentDrawerFiles] = useState<File[]>([]);
+  const [appointmentDrawerPreviews, setAppointmentDrawerPreviews] = useState<string[]>([]);
+  const [appointmentDrawerError, setAppointmentDrawerError] = useState<string | null>(null);
   const [uploadingDrawerFiles, setUploadingDrawerFiles] = useState(false);
   const [appointmentFiles, setAppointmentFiles] = useState<AppointmentFileRow[]>([]);
   const [appointmentFileUrls, setAppointmentFileUrls] = useState<Record<string, string>>({});
@@ -538,6 +548,48 @@ export default function PatientHome() {
     () => locations.find((l) => l.id === locationId) ?? null,
     [locations, locationId]
   );
+
+  useEffect(() => {
+    const nextUrls = woundPhotos.map((file) => URL.createObjectURL(file));
+    setWoundPhotoPreviews(nextUrls);
+    return () => nextUrls.forEach((url) => URL.revokeObjectURL(url));
+  }, [woundPhotos]);
+
+  useEffect(() => {
+    const nextUrls = appointmentDrawerFiles.map((file) => URL.createObjectURL(file));
+    setAppointmentDrawerPreviews(nextUrls);
+    return () => nextUrls.forEach((url) => URL.revokeObjectURL(url));
+  }, [appointmentDrawerFiles]);
+
+  const selectWoundPhotos = (files: File[]) => {
+    const validationError = validatePatientFileSelection(files, {
+      label: "Wound photos",
+      maxFiles: 6,
+    });
+    if (validationError) {
+      setWoundPhotoSelectionError(validationError);
+      setWoundPhotos([]);
+      return;
+    }
+
+    setWoundPhotoSelectionError(null);
+    setWoundPhotos(files);
+  };
+
+  const selectAppointmentDrawerFiles = (files: File[]) => {
+    const validationError = validatePatientFileSelection(files, {
+      label: "Appointment files",
+      maxFiles: 6,
+    });
+    if (validationError) {
+      setAppointmentDrawerError(validationError);
+      setAppointmentDrawerFiles([]);
+      return;
+    }
+
+    setAppointmentDrawerError(null);
+    setAppointmentDrawerFiles(files);
+  };
 
   const filteredServices = useMemo(
     () => services.filter((s) => s.location_id === locationId),
@@ -1613,6 +1665,7 @@ export default function PatientHome() {
 
       setNotes("");
       setWoundPhotos([]);
+      setWoundPhotoSelectionError(null);
       setSelectedSlotIso("");
     } catch (e: unknown) {
       console.error(e);
@@ -1664,6 +1717,7 @@ export default function PatientHome() {
       }
 
       setAppointmentDrawerFiles([]);
+      setAppointmentDrawerError(null);
       const { data, error } = await supabase
         .from("patient_files")
         .select("id,created_at,appointment_id,filename,category,bucket,path,content_type,size_bytes")
@@ -1988,6 +2042,7 @@ export default function PatientHome() {
               onClick={() => {
                 if (nextAppointment) {
                   setAppointmentDrawerFiles([]);
+                  setAppointmentDrawerError(null);
                   setSelectedAppointment(nextAppointment);
                   return;
                 }
@@ -2490,13 +2545,56 @@ export default function PatientHome() {
                   multiple
                   onChange={(e) => {
                     const files = Array.from(e.target.files || []);
-                    setWoundPhotos(files);
+                    selectWoundPhotos(files);
+                    e.currentTarget.value = "";
                   }}
                 />
 
+                <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+                  Up to 6 images, {formatPatientFileSize(MAX_IMAGE_UPLOAD_BYTES)} max per photo.
+                </div>
+
+                {woundPhotoSelectionError ? (
+                  <div className="alert alert-error" style={{ marginTop: 10 }}>
+                    {woundPhotoSelectionError}
+                  </div>
+                ) : null}
+
                 {woundPhotos.length > 0 && (
-                  <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
-                    Selected: {woundPhotos.length} photo{woundPhotos.length === 1 ? "" : "s"}
+                  <div style={{ marginTop: 12 }}>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      Selected: {woundPhotos.length} photo{woundPhotos.length === 1 ? "" : "s"}
+                    </div>
+                    <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", marginTop: 10 }}>
+                      {woundPhotos.map((file, index) => (
+                        <div key={`${file.name}-${file.lastModified}-${index}`} className="card card-pad" style={{ padding: 10 }}>
+                          {woundPhotoPreviews[index] ? (
+                            <img
+                              src={woundPhotoPreviews[index]}
+                              alt={file.name}
+                              style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 12 }}
+                            />
+                          ) : null}
+                          <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {file.name}
+                          </div>
+                          <div className="muted" style={{ marginTop: 4, fontSize: 11 }}>
+                            {formatPatientFileSize(file.size)}
+                          </div>
+                          <button
+                            className="btn btn-ghost"
+                            type="button"
+                            style={{ marginTop: 8, width: "100%" }}
+                            onClick={() => {
+                              setWoundPhotos((prev) => prev.filter((_, fileIndex) => fileIndex !== index));
+                              setWoundPhotoSelectionError(null);
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -2571,6 +2669,7 @@ export default function PatientHome() {
                 }}
                 onClick={() => {
                   setAppointmentDrawerFiles([]);
+                  setAppointmentDrawerError(null);
                   setSelectedAppointment(a);
                 }}
               >
@@ -2931,6 +3030,7 @@ export default function PatientHome() {
             <div
               onClick={() => {
                 setAppointmentDrawerFiles([]);
+                setAppointmentDrawerError(null);
                 setSelectedAppointment(null);
               }}
               style={{
@@ -2970,6 +3070,7 @@ export default function PatientHome() {
                   type="button"
                   onClick={() => {
                     setAppointmentDrawerFiles([]);
+                    setAppointmentDrawerError(null);
                     setSelectedAppointment(null);
                   }}
                 >
@@ -3169,13 +3270,57 @@ export default function PatientHome() {
                   multiple
                   onChange={(e) => {
                     const files = Array.from(e.target.files || []);
-                    setAppointmentDrawerFiles(files);
+                    selectAppointmentDrawerFiles(files);
+                    e.currentTarget.value = "";
                   }}
                 />
 
+                <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+                  Up to 6 images, {formatPatientFileSize(MAX_IMAGE_UPLOAD_BYTES)} max per file.
+                </div>
+
+                {appointmentDrawerError ? (
+                  <div className="alert alert-error" style={{ marginTop: 10 }}>
+                    {appointmentDrawerError}
+                  </div>
+                ) : null}
+
                 {appointmentDrawerFiles.length > 0 ? (
-                  <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
-                    Selected: {appointmentDrawerFiles.length} file{appointmentDrawerFiles.length === 1 ? "" : "s"}
+                  <div style={{ marginTop: 12 }}>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      Selected: {appointmentDrawerFiles.length} file{appointmentDrawerFiles.length === 1 ? "" : "s"}
+                    </div>
+                    <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", marginTop: 10 }}>
+                      {appointmentDrawerFiles.map((file, index) => (
+                        <div key={`${file.name}-${file.lastModified}-${index}`} className="card card-pad" style={{ padding: 10 }}>
+                          {appointmentDrawerPreviews[index] ? (
+                            <img
+                              src={appointmentDrawerPreviews[index]}
+                              alt={file.name}
+                              style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 12 }}
+                            />
+                          ) : null}
+                          <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {file.name}
+                          </div>
+                          <div className="muted" style={{ marginTop: 4, fontSize: 11 }}>
+                            {formatPatientFileSize(file.size)}
+                          </div>
+                          <button
+                            className="btn btn-ghost"
+                            type="button"
+                            style={{ marginTop: 8, width: "100%" }}
+                            onClick={() => {
+                              setAppointmentDrawerFiles((prev) => prev.filter((_, fileIndex) => fileIndex !== index));
+                              setAppointmentDrawerError(null);
+                            }}
+                            disabled={uploadingDrawerFiles}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
 
