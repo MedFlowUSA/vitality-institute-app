@@ -259,7 +259,7 @@ export default function ProviderLabs() {
       <button className="btn btn-ghost" type="button" onClick={() => nav(-1)}>
         Back
       </button>
-      <button className="btn btn-primary" type="button" onClick={() => alert("Coming next: AI Summary + Plan Builder")}>
+      <button className="btn btn-primary" type="button" onClick={() => nav("/provider/ai")}>
         AI Plan Builder
       </button>
       <button className="btn btn-ghost" onClick={signOut}>

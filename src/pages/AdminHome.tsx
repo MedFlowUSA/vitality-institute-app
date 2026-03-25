@@ -335,7 +335,7 @@ export default function AdminHome() {
               <button
                 className="btn btn-primary"
                 type="button"
-                onClick={() => alert("Coming next: AI Summary + Plan Builder")}
+                onClick={() => navigate("/provider/ai")}
               >
                 AI Plan Builder
               </button>

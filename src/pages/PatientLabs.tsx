@@ -221,9 +221,6 @@ export default function PatientLabs() {
       <button className="btn btn-ghost" type="button" onClick={() => nav(-1)}>
         Back
       </button>
-      <button className="btn btn-primary" type="button" onClick={() => alert("Coming next: AI Summary + Plan Builder")}>
-        AI Plan Builder
-      </button>
       <button className="btn btn-ghost" onClick={signOut}>
         Sign out
       </button>

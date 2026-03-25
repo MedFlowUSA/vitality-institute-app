@@ -408,6 +408,11 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
     alert("Copied packet draft to clipboard.");
   };
 
+  const exportPdf = () => {
+    if (!visitId) return;
+    window.open(`/provider/ivr/print/${visitId}`, "_blank", "noopener,noreferrer");
+  };
+
   const openPhoto = async (p: FileRow) => {
     const url = photoUrls[p.id];
     if (!url) return;
@@ -454,6 +459,9 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
           </button>
           <button className="btn btn-ghost" type="button" onClick={copyPacket} disabled={!packetText.trim()}>
             Copy
+          </button>
+          <button className="btn btn-ghost" type="button" onClick={exportPdf} disabled={loading}>
+            Export PDF
           </button>
         </div>
       </div>
@@ -530,7 +538,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
             />
             <div className="space" />
             <div className="muted" style={{ fontSize: 12 }}>
-              Next step (we'll add): "Export PDF" and "Attach to IVR submission" buttons.
+              Export PDF opens the printable packet view. Attach to IVR submission is still pending.
             </div>
           </PacketCard>
         </div>

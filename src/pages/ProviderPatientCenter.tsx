@@ -2545,17 +2545,6 @@ export default function ProviderPatientCenter() {
 />
                         ) : (
                           <>
-                            <div className="row" style={{ justifyContent: "flex-end" }}>
-                              <button
-                                className="btn btn-ghost"
-                                type="button"
-                                onClick={() => window.open(`/provider/ivr/print/${activeVisitId}`, "_blank")}
-                                disabled={!activeVisitId}
-                              >
-                                Export PDF
-                              </button>
-                            </div>
-                            <div className="space" />
                             <IVRPacketPanel
                               patientId={activeVisit.patient_id}
                               locationId={activeVisit.location_id}
