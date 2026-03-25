@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -121,7 +121,7 @@ export default function ProviderLayout({
         <div style={{ marginTop: 16, padding: 12, borderRadius: 16, border: "1px solid #E5E7EB", background: "#fff" }}>
           <div style={{ fontSize: 12, color: "#6B7280" }}>Signed in as</div>
           <div style={{ marginTop: 4, fontSize: 13, fontWeight: 800, color: "#111827", wordBreak: "break-word" }}>
-            {user?.email ?? "—"}
+            {user?.email ?? "-"}
           </div>
           <button
             onClick={onSignOut}
@@ -185,3 +185,5 @@ export default function ProviderLayout({
     </div>
   );
 }
+
+

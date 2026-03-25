@@ -1,4 +1,4 @@
-// src/pages/ProviderLabs.tsx
+﻿// src/pages/ProviderLabs.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
@@ -31,7 +31,7 @@ export default function ProviderLabs() {
   const nav = useNavigate();
   const [params] = useSearchParams();
 
-  const prefillIntakeId = params.get("intakeId") ?? "";
+  const prefillIntakeId = params.get("intakeId") ?? params.get("activeId") ?? "";
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [allowedLocationIds, setAllowedLocationIds] = useState<string[]>([]);
@@ -237,7 +237,7 @@ export default function ProviderLabs() {
 
         <div className="v-brand-title">
           <div className="title">Vitality Institute</div>
-          <div className="sub">Patient & Provider Platform • Secure Intake • Scheduling • Messaging • Labs</div>
+          <div className="sub">Provider lab review workspace for submitted patient results.</div>
         </div>
       </div>
 
@@ -246,7 +246,7 @@ export default function ProviderLabs() {
           Role: <strong>{role}</strong>
         </div>
         <div className="v-chip">
-          Signed in: <strong>{user?.email ?? "—"}</strong>
+          Signed in: <strong>{user?.email ?? "-"}</strong>
         </div>
         <div className="v-chip">
           Status: <strong>Active</strong>
@@ -268,22 +268,22 @@ export default function ProviderLabs() {
     </div>
   </div>
 
-  <div className="v-statgrid">
+    <div className="v-statgrid">
     <div className="v-stat">
-      <div className="k">Modules Built</div>
-      <div className="v">7</div>
+      <div className="k">Results Loaded</div>
+      <div className="v">{rows.length}</div>
     </div>
     <div className="v-stat">
-      <div className="k">Patient Flows</div>
-      <div className="v">Intake • Booking • Messages</div>
+      <div className="k">Location Scope</div>
+      <div className="v">{activeLocationId || locationId || "All"}</div>
     </div>
     <div className="v-stat">
-      <div className="k">Provider Tools</div>
-      <div className="v">Review • Sign-Off</div>
+      <div className="k">Prefilter</div>
+      <div className="v">{prefillIntakeId ? "Intake Linked" : "None"}</div>
     </div>
     <div className="v-stat">
-      <div className="k">Next Upgrade</div>
-      <div className="v">AI + Labs</div>
+      <div className="k">Review State</div>
+      <div className="v">{active ? active.status : "Select Result"}</div>
     </div>
   </div>
 </div>
@@ -315,7 +315,7 @@ export default function ProviderLabs() {
         <div className="space" />
 
         <div className="card card-pad">
-          {loading && <div className="muted">Loading…</div>}
+          {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading && (
@@ -330,7 +330,7 @@ export default function ProviderLabs() {
                     value={locationId}
                     onChange={(e) => setLocationId(e.target.value)}
                     disabled={!isAdmin && allowedLocationIds.length <= 1}
-                    title={!isAdmin && allowedLocationIds.length <= 1 ? "You’re assigned to one location." : "Filter by location"}
+                    title={!isAdmin && allowedLocationIds.length <= 1 ? "You're assigned to one location." : "Filter by location"}
                     style={{ minWidth: 220 }}
                   >
                     <option value="">{isAdmin ? "All Locations" : "My Locations"}</option>
@@ -365,7 +365,7 @@ export default function ProviderLabs() {
                         <span style={{ textAlign: "left" }}>
                           {label}
                           <span className="muted" style={{ display: "block", fontSize: 12 }}>
-                            {locName(r.location_id)} • {r.status} • {new Date(r.created_at).toLocaleDateString()}
+                            {locName(r.location_id)} | {r.status} | {new Date(r.created_at).toLocaleDateString()}
                           </span>
                         </span>
                         <span className="muted" style={{ fontSize: 12 }}>
@@ -386,10 +386,10 @@ export default function ProviderLabs() {
                     <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
                       <div style={{ flex: 1 }}>
                         <div className="h2" style={{ marginBottom: 2 }}>
-                          {panelName(active.panel_id)} • {active.status}
+                          {panelName(active.panel_id)} | {active.status}
                         </div>
                         <div className="muted" style={{ fontSize: 13 }}>
-                          Submitted: {fmt(active.created_at)} • Location: {locName(active.location_id)}
+                          Submitted: {fmt(active.created_at)} | Location: {locName(active.location_id)}
                         </div>
 
                         {active.collected_on && (
@@ -441,13 +441,13 @@ export default function ProviderLabs() {
                           style={{ width: "100%", minHeight: 110 }}
                           value={note}
                           onChange={(e) => setNote(e.target.value)}
-                          placeholder="Notes, interpretation, follow-up…"
+                          placeholder="Notes, interpretation, follow-up..."
                         />
 
                         <div className="space" />
 
                         <button className="btn btn-primary" type="button" onClick={markReviewed} disabled={busy}>
-                          {busy ? "Saving…" : "Mark Reviewed"}
+                          {busy ? "Saving..." : "Mark Reviewed"}
                         </button>
 
                         {active.reviewed_at && (
@@ -481,3 +481,6 @@ export default function ProviderLabs() {
     </div>
   );
 }
+
+
+

@@ -1,9 +1,10 @@
-// src/pages/ProviderAI.tsx
+﻿// src/pages/ProviderAI.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import DictationTextarea from "../components/DictationTextarea";
 import { supabase } from "../lib/supabase";
+import logo from "../assets/vitality-logo.png";
 
 type LocationRow = { id: string; name: string };
 
@@ -207,11 +208,11 @@ export default function ProviderAI() {
 
     setSummary(lines.join("\n"));
 
-    // Very basic auto suggestions (you’ll tune this per clinic protocol)
+    // Very basic auto suggestions (you will tune this per clinic protocol)
     const risks: string[] = [];
     const next: string[] = [];
 
-    if (String(allergies).trim()) risks.push("Allergy history present — confirm before prescribing.");
+    if (String(allergies).trim()) risks.push("Allergy history present - confirm before prescribing.");
     if (lab && panelLabel.toLowerCase().includes("hormone")) risks.push("Hormone panel: confirm contraindications and follow TRT/HRT protocol.");
     if (lab && panelLabel.toLowerCase().includes("glp")) risks.push("GLP-1 baseline: confirm metabolic risk factors per protocol.");
 
@@ -266,7 +267,7 @@ export default function ProviderAI() {
       setAnalysis((data as any) ?? null);
     }
 
-    alert("AI draft saved ✅");
+    alert("AI draft saved ");
     await loadExistingAnalysis();
   };
 
@@ -282,14 +283,13 @@ export default function ProviderAI() {
       <div className="v-brand">
         {/* If you have logo imported in this page, show it.
            Example: import logo from "../assets/vitality-logo.png"; */}
-        {"logo" in (globalThis as any) ? null : null}
         <div className="v-logo">
-          <img src="/logo.png" alt="Vitality Institute" />
+          <img src={logo} alt="Vitality Institute" />
         </div>
 
         <div className="v-brand-title">
           <div className="title">Vitality Institute</div>
-          <div className="sub">Patient & Provider Platform • Secure Intake • Scheduling • Messaging • Labs</div>
+          <div className="sub">Internal provider drafting workspace for treatment and communication prep.</div>
         </div>
       </div>
 
@@ -298,7 +298,7 @@ export default function ProviderAI() {
           Role: <strong>{role}</strong>
         </div>
         <div className="v-chip">
-          Signed in: <strong>{user?.email ?? "—"}</strong>
+          Signed in: <strong>{user?.email ?? "-"}</strong>
         </div>
         <div className="v-chip">
           Status: <strong>Active</strong>
@@ -317,22 +317,22 @@ export default function ProviderAI() {
     </div>
   </div>
 
-  <div className="v-statgrid">
+    <div className="v-statgrid">
     <div className="v-stat">
-      <div className="k">Modules Built</div>
-      <div className="v">7</div>
+      <div className="k">Draft Type</div>
+      <div className="v">{status === "final" ? "Final" : "Draft"}</div>
     </div>
     <div className="v-stat">
-      <div className="k">Patient Flows</div>
-      <div className="v">Intake • Booking • Messages</div>
+      <div className="k">Linked Intake</div>
+      <div className="v">{intakeId || "None"}</div>
     </div>
     <div className="v-stat">
-      <div className="k">Provider Tools</div>
-      <div className="v">Review • Sign-Off</div>
+      <div className="k">Linked Lab</div>
+      <div className="v">{labId || "None"}</div>
     </div>
     <div className="v-stat">
-      <div className="k">Next Upgrade</div>
-      <div className="v">AI + Labs</div>
+      <div className="k">Mode</div>
+      <div className="v">Internal Draft</div>
     </div>
   </div>
 </div>
@@ -362,7 +362,7 @@ export default function ProviderAI() {
         <div className="space" />
 
         <div className="card card-pad">
-          {loading && <div className="muted">Loading…</div>}
+          {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading && (
@@ -374,16 +374,16 @@ export default function ProviderAI() {
                   <div className="space" />
 
                   <div className="muted" style={{ fontSize: 12 }}>
-                    Intake ID: {intakeId || "—"}
+                    Intake ID: {intakeId || "-"}
                   </div>
                   <div className="muted" style={{ fontSize: 12 }}>
-                    Lab ID: {labId || "—"}
+                    Lab ID: {labId || "-"}
                   </div>
 
                   <div className="space" />
 
                   <div className="muted" style={{ fontSize: 12 }}>
-                    Location: {intake?.location_id ? locName(intake.location_id) : lab?.location_id ? locName(lab.location_id) : "—"}
+                    Location: {intake?.location_id ? locName(intake.location_id) : lab?.location_id ? locName(lab.location_id) : "-"}
                   </div>
 
                   <div className="space" />
@@ -395,7 +395,7 @@ export default function ProviderAI() {
                   <div className="space" />
 
                   <div className="muted" style={{ fontSize: 12 }}>
-                    Existing analysis: {analysis ? `${analysis.status} • ${fmt(analysis.created_at)}` : "None"}
+                    Existing analysis: {analysis ? `${analysis.status} | ${fmt(analysis.created_at)}` : "None"}
                   </div>
                 </div>
 
@@ -462,7 +462,7 @@ export default function ProviderAI() {
 
                   <div className="row" style={{ justifyContent: "flex-end" }}>
                     <button className="btn btn-primary" onClick={save} disabled={saving}>
-                      {saving ? "Saving…" : "Save Draft"}
+                      {saving ? "Saving..." : "Save Draft"}
                     </button>
                   </div>
                 </div>
@@ -501,3 +501,6 @@ export default function ProviderAI() {
     </div>
   );
 }
+
+
+

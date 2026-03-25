@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import VitalityHero from "../components/VitalityHero";
-
-type PatientRow = { id: string };
+import { getPatientRecordIdForProfile } from "../lib/patientRecords";
 
 type VisitRow = {
   id: string;
@@ -130,15 +129,7 @@ export default function PatientVisitChart() {
       try {
         if (!user?.id) throw new Error("Not signed in.");
 
-        const { data, error } = await supabase
-          .from("patients")
-          .select("id")
-          .eq("profile_id", user.id)
-          .maybeSingle();
-
-        if (error) throw error;
-
-        const pid = (data as PatientRow | null)?.id;
+        const pid = await getPatientRecordIdForProfile(user.id);
         if (!pid) throw new Error("No patient profile found. Please complete onboarding.");
 
         if (cancelled) return;
@@ -189,7 +180,7 @@ export default function PatientVisitChart() {
 
         const [soapRes, fileRes, labRes, woundRes, planRes] = await Promise.all([
           supabase
-            .from("soap_notes")
+            .from("patient_soap_notes")
             .select("id,created_at,status,subjective,objective,assessment,plan")
             .eq("visit_id", visitId)
             .order("created_at", { ascending: false }),
@@ -257,7 +248,7 @@ export default function PatientVisitChart() {
         <VitalityHero
           title="Vitality Institute"
           subtitle="Visit Chart • Timeline • Wounds • Treatment Plans • Notes • Files • Labs"
-          secondaryCta={{ label: "Back", to: "/patient" }}
+          secondaryCta={{ label: "Back", to: "/patient/home" }}
           rightActions={
             <button className="btn btn-ghost" onClick={signOut} type="button">
               Sign out
@@ -324,9 +315,9 @@ export default function PatientVisitChart() {
 
               <div className="space" />
 
-              <button className="btn btn-ghost" type="button" onClick={() => nav("/patient")}>
-                Back to Patient Portal
-              </button>
+                  <button className="btn btn-ghost" type="button" onClick={() => nav("/patient/home")}>
+                    Back to Patient Portal
+                  </button>
             </div>
 
             <div className="card card-pad" style={{ flex: "2 1 560px", minWidth: 320 }}>

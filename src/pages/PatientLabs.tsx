@@ -1,9 +1,10 @@
-// src/pages/PatientLabs.tsx
+﻿// src/pages/PatientLabs.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { getPatientRecordIdForProfile } from "../lib/patientRecords";
 import { supabase } from "../lib/supabase";
+import logo from "../assets/vitality-logo.png";
 
 type PanelRow = { id: string; name: string };
 type MarkerRow = {
@@ -191,7 +192,7 @@ export default function PatientLabs() {
     if (error) return setErr(error.message);
 
     alert("Labs submitted successfully.");
-    nav("/patient", { replace: true });
+    nav("/patient/home", { replace: true });
   };
 
   return (
@@ -208,12 +209,12 @@ export default function PatientLabs() {
            Example: import logo from "../assets/vitality-logo.png"; */}
         {"logo" in (globalThis as any) ? null : null}
         <div className="v-logo">
-          <img src="/logo.png" alt="Vitality Institute" />
+          <img src={logo} alt="Vitality Institute" />
         </div>
 
         <div className="v-brand-title">
           <div className="title">Vitality Institute</div>
-          <div className="sub">Patient & Provider Platform • Secure Intake • Scheduling • Messaging • Labs</div>
+          <div className="sub">Patient lab intake and appointment-linked lab submissions.</div>
         </div>
       </div>
 
@@ -241,22 +242,22 @@ export default function PatientLabs() {
     </div>
   </div>
 
-  <div className="v-statgrid">
+    <div className="v-statgrid">
     <div className="v-stat">
-      <div className="k">Modules Built</div>
-      <div className="v">7</div>
+      <div className="k">Submission Mode</div>
+      <div className="v">Patient Entered</div>
     </div>
     <div className="v-stat">
-      <div className="k">Patient Flows</div>
-      <div className="v">Intake • Booking • Messages</div>
+      <div className="k">Linked Appointment</div>
+      <div className="v">{appointmentId ? "Attached" : "Optional"}</div>
     </div>
     <div className="v-stat">
-      <div className="k">Provider Tools</div>
-      <div className="v">Review • Sign-Off</div>
+      <div className="k">Intake Context</div>
+      <div className="v">{intakeId ? "Linked" : "Optional"}</div>
     </div>
     <div className="v-stat">
-      <div className="k">Next Upgrade</div>
-      <div className="v">AI + Labs</div>
+      <div className="k">Status</div>
+      <div className="v">Ready to Submit</div>
     </div>
   </div>
 </div>
@@ -270,7 +271,7 @@ export default function PatientLabs() {
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <button className="btn btn-ghost" onClick={() => nav("/patient")}>
+              <button className="btn btn-ghost" onClick={() => nav("/patient/home")}>
                 Back
               </button>
               <button className="btn btn-ghost" onClick={signOut}>
@@ -403,3 +404,5 @@ export default function PatientLabs() {
     </div>
   );
 }
+
+
