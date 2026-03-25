@@ -1,5 +1,10 @@
 import { useMemo, useRef, useState } from "react";
 import type { StaffDirectoryUser } from "../../lib/messaging/conversationService";
+import {
+  MAX_DOCUMENT_UPLOAD_BYTES,
+  formatPatientFileSize,
+  validatePatientFileSelection,
+} from "../../lib/patientFiles";
 
 type MessageComposerProps = {
   body: string;
@@ -39,6 +44,7 @@ export default function MessageComposer({
 }: MessageComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [selectedMentionIds, setSelectedMentionIds] = useState<string[]>([]);
 
   const mentionQuery = useMemo(() => {
@@ -64,6 +70,7 @@ export default function MessageComposer({
     await onSend(selectedMentionIds, files);
     setSelectedMentionIds([]);
     setFiles([]);
+    setFileError(null);
   };
 
   return (
@@ -125,7 +132,27 @@ export default function MessageComposer({
           type="file"
           multiple
           accept="image/*,.pdf,.doc,.docx,.txt"
-          onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+          onChange={(event) => {
+            const nextFiles = Array.from(event.target.files ?? []);
+            const validationError = validatePatientFileSelection(nextFiles, {
+              allowPdf: true,
+              allowDocuments: true,
+              maxFiles: 6,
+              maxBytes: MAX_DOCUMENT_UPLOAD_BYTES,
+              label: "Message attachments",
+            });
+
+            if (validationError) {
+              setFiles([]);
+              setFileError(validationError);
+              event.currentTarget.value = "";
+              return;
+            }
+
+            setFileError(null);
+            setFiles(nextFiles);
+            event.currentTarget.value = "";
+          }}
           disabled={disabled || sending}
         />
         {files.length ? (
@@ -134,6 +161,16 @@ export default function MessageComposer({
           </div>
         ) : null}
       </div>
+
+      {fileError ? (
+        <div className="muted" style={{ color: "crimson", fontSize: 12, marginTop: 8 }}>
+          {fileError}
+        </div>
+      ) : (
+        <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          Supports images, PDF, DOC, DOCX, and TXT up to {formatPatientFileSize(MAX_DOCUMENT_UPLOAD_BYTES)} each.
+        </div>
+      )}
 
       <div className="space" />
 

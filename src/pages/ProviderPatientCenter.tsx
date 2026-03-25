@@ -10,7 +10,13 @@ import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
 import VitalityHero from "../components/VitalityHero";
 import SystemStatusBar from "../components/SystemStatusBar";
 import InsightRibbon from "../components/InsightRibbon";
-import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
+import {
+  getSignedUrl,
+  MAX_DOCUMENT_UPLOAD_BYTES,
+  formatPatientFileSize,
+  uploadPatientFile,
+  validatePatientFileSelection,
+} from "../lib/patientFiles";
 import { auditWrite } from "../lib/audit";
 import { getErrorMessage } from "../lib/patientRecords";
 
@@ -234,6 +240,7 @@ export default function ProviderPatientCenter() {
   const [uploading, setUploading] = useState(false);
   const [fileNotes, setFileNotes] = useState("");
   const [pickedFile, setPickedFile] = useState<File | null>(null);
+  const [fileSelectionError, setFileSelectionError] = useState<string | null>(null);
 
   // LABS (create)
   const [labName, setLabName] = useState("");
@@ -244,6 +251,7 @@ export default function ProviderPatientCenter() {
   // LABS v2 (per-row upload + summary)
   const [labPickedFiles, setLabPickedFiles] = useState<Record<string, File | null>>({});
   const [labUploadingId, setLabUploadingId] = useState<string | null>(null);
+  const [labSelectionErrors, setLabSelectionErrors] = useState<Record<string, string | null>>({});
   const [labSummaryDrafts, setLabSummaryDrafts] = useState<Record<string, string>>({});
   const [labBusyId, setLabBusyId] = useState<string | null>(null);
   const [completingVisit, setCompletingVisit] = useState(false);
@@ -1077,7 +1085,7 @@ export default function ProviderPatientCenter() {
     setErr(null);
 
     try {
-      const { bucket, path } = await uploadPatientFile({
+      const inserted = await uploadPatientFile({
         file: pickedFile,
         locationId: locId,
         patientId,
@@ -1085,26 +1093,21 @@ export default function ProviderPatientCenter() {
         category: "general",
       });
 
-      const { error } = await supabase.from("patient_files").insert([
-        {
-          patient_id: patientId,
-          location_id: locId,
-          visit_id: activeVisitId,
-          uploaded_by: user.id,
-          bucket,
-          path,
-          filename: pickedFile.name,
-          content_type: pickedFile.type || null,
-          size_bytes: pickedFile.size || null,
+      if (!inserted.id) throw new Error("Could not create patient_files row.");
+
+      const { error } = await supabase
+        .from("patient_files")
+        .update({
           category: null,
           is_internal: false,
           notes: fileNotes.trim() || null,
-        },
-      ]);
+        })
+        .eq("id", inserted.id);
 
       if (error) throw error;
 
       setPickedFile(null);
+      setFileSelectionError(null);
       setFileNotes("");
       await loadAll();
     } catch (error: unknown) {
@@ -1235,7 +1238,7 @@ export default function ProviderPatientCenter() {
     setErr(null);
 
     try {
-      const { bucket, path } = await uploadPatientFile({
+      const inserted = await uploadPatientFile({
         file,
         locationId: lab.location_id,
         patientId,
@@ -1243,30 +1246,19 @@ export default function ProviderPatientCenter() {
         category: "lab_result",
       });
 
-      const { data: inserted, error: insErr } = await supabase
+      if (!inserted.id) throw new Error("Could not create patient_files row.");
+
+      const { error: insErr } = await supabase
         .from("patient_files")
-        .insert([
-          {
-            patient_id: patientId,
-            location_id: lab.location_id,
-            visit_id: lab.visit_id || activeVisitId,
-            uploaded_by: user.id,
-            bucket,
-            path,
-            filename: file.name,
-            content_type: file.type || null,
-            size_bytes: file.size || null,
-            category: "lab_result",
-            is_internal: false,
-            notes: `Lab result: ${lab.lab_name}`,
-          },
-        ])
-        .select("id")
-        .maybeSingle();
+        .update({
+          category: "lab_result",
+          is_internal: false,
+          notes: `Lab result: ${lab.lab_name}`,
+        })
+        .eq("id", inserted.id);
 
       if (insErr) throw insErr;
-      const fileId = inserted?.id as string | undefined;
-      if (!fileId) throw new Error("Could not create patient_files row.");
+      const fileId = inserted.id;
 
       const { error: linkErr } = await supabase.from("patient_labs").update({ result_file_id: fileId }).eq("id", lab.id);
       if (linkErr) throw linkErr;
@@ -1282,12 +1274,63 @@ export default function ProviderPatientCenter() {
       });
 
       setLabPickedFiles((prev) => ({ ...prev, [lab.id]: null }));
+      setLabSelectionErrors((prev) => ({ ...prev, [lab.id]: null }));
       await loadAll();
     } catch (error: unknown) {
       setErr(getErrorMessage(error, "Failed to upload lab result."));
     } finally {
       setLabUploadingId(null);
     }
+  };
+
+  const selectGeneralFile = (file: File | null) => {
+    if (!file) {
+      setPickedFile(null);
+      setFileSelectionError(null);
+      return;
+    }
+
+    const validationError = validatePatientFileSelection([file], {
+      allowPdf: true,
+      allowDocuments: true,
+      maxFiles: 1,
+      maxBytes: MAX_DOCUMENT_UPLOAD_BYTES,
+      label: "Visit files",
+    });
+
+    if (validationError) {
+      setPickedFile(null);
+      setFileSelectionError(validationError);
+      return;
+    }
+
+    setPickedFile(file);
+    setFileSelectionError(null);
+  };
+
+  const selectLabResultFile = (labId: string, file: File | null) => {
+    if (!file) {
+      setLabPickedFiles((prev) => ({ ...prev, [labId]: null }));
+      setLabSelectionErrors((prev) => ({ ...prev, [labId]: null }));
+      return;
+    }
+
+    const validationError = validatePatientFileSelection([file], {
+      allowPdf: true,
+      allowDocuments: true,
+      maxFiles: 1,
+      maxBytes: MAX_DOCUMENT_UPLOAD_BYTES,
+      label: "Lab result files",
+    });
+
+    if (validationError) {
+      setLabPickedFiles((prev) => ({ ...prev, [labId]: null }));
+      setLabSelectionErrors((prev) => ({ ...prev, [labId]: validationError }));
+      return;
+    }
+
+    setLabPickedFiles((prev) => ({ ...prev, [labId]: file }));
+    setLabSelectionErrors((prev) => ({ ...prev, [labId]: null }));
   };
 
   const visitFilesForAttach = useMemo(() => {
@@ -2295,9 +2338,11 @@ export default function ProviderPatientCenter() {
                                         type="file"
                                         className="input"
                                         style={{ flex: "0 0 260px" }}
+                                        accept="image/*,.pdf,.doc,.docx,.txt"
                                         onChange={(e) => {
                                           const f = e.target.files?.[0] ?? null;
-                                          setLabPickedFiles((prev) => ({ ...prev, [l.id]: f }));
+                                          selectLabResultFile(l.id, f);
+                                          e.currentTarget.value = "";
                                         }}
                                       />
 
@@ -2314,6 +2359,20 @@ export default function ProviderPatientCenter() {
                                         Open Result
                                       </button>
                                     </div>
+                                    {labSelectionErrors[l.id] ? (
+                                      <div className="muted" style={{ color: "crimson", fontSize: 12, marginTop: 8 }}>
+                                        {labSelectionErrors[l.id]}
+                                      </div>
+                                    ) : rowPicked ? (
+                                      <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                                        Ready: {rowPicked.name} ({formatPatientFileSize(rowPicked.size)}) up to{" "}
+                                        {formatPatientFileSize(MAX_DOCUMENT_UPLOAD_BYTES)}.
+                                      </div>
+                                    ) : (
+                                      <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                                        Supports images, PDF, DOC, DOCX, and TXT up to {formatPatientFileSize(MAX_DOCUMENT_UPLOAD_BYTES)}.
+                                      </div>
+                                    )}
                                   </div>
 
                                   <div className="space" />
@@ -2443,7 +2502,11 @@ export default function ProviderPatientCenter() {
                         <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                           <input
                             type="file"
-                            onChange={(e) => setPickedFile(e.target.files?.[0] ?? null)}
+                            accept="image/*,.pdf,.doc,.docx,.txt"
+                            onChange={(e) => {
+                              selectGeneralFile(e.target.files?.[0] ?? null);
+                              e.currentTarget.value = "";
+                            }}
                             className="input"
                             style={{ flex: "1 1 320px" }}
                             disabled={!activeVisitId}
@@ -2458,6 +2521,21 @@ export default function ProviderPatientCenter() {
                             {uploading ? "Uploading..." : "Upload File"}
                           </button>
                         </div>
+
+                        {fileSelectionError ? (
+                          <div className="muted" style={{ color: "crimson", fontSize: 12, marginTop: 8 }}>
+                            {fileSelectionError}
+                          </div>
+                        ) : pickedFile ? (
+                          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                            Ready: {pickedFile.name} ({formatPatientFileSize(pickedFile.size)}) up to{" "}
+                            {formatPatientFileSize(MAX_DOCUMENT_UPLOAD_BYTES)}.
+                          </div>
+                        ) : (
+                          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                            Supports images, PDF, DOC, DOCX, and TXT up to {formatPatientFileSize(MAX_DOCUMENT_UPLOAD_BYTES)}.
+                          </div>
+                        )}
 
                         <div className="space" />
 

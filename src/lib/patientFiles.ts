@@ -19,12 +19,21 @@ export type UploadedPatientFile = {
 
 type ValidatePatientFileSelectionOptions = {
   allowPdf?: boolean;
+  allowDocuments?: boolean;
   maxFiles?: number;
   maxBytes?: number;
   label?: string;
 };
 
 export const MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024;
+export const MAX_DOCUMENT_UPLOAD_BYTES = 15 * 1024 * 1024;
+const DOCUMENT_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+]);
+const DOCUMENT_EXTENSIONS = [".pdf", ".doc", ".docx", ".txt"];
 
 export function formatPatientFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -32,18 +41,30 @@ export function formatPatientFileSize(bytes: number) {
   return `${Math.round(bytes / (1024 * 102.4)) / 10} MB`;
 }
 
-function isAllowedPatientFile(file: File, allowPdf: boolean) {
+function isAllowedPatientFile(file: File, allowPdf: boolean, allowDocuments: boolean) {
   const normalizedType = (file.type || "").toLowerCase();
   const normalizedName = file.name.toLowerCase();
 
   if (normalizedType.startsWith("image/")) return true;
   if (allowPdf && (normalizedType === "application/pdf" || normalizedName.endsWith(".pdf"))) return true;
+  if (
+    allowDocuments &&
+    (DOCUMENT_MIME_TYPES.has(normalizedType) || DOCUMENT_EXTENSIONS.some((extension) => normalizedName.endsWith(extension)))
+  ) {
+    return true;
+  }
   return false;
 }
 
 export function validatePatientFileSelection(
   files: File[],
-  { allowPdf = false, maxFiles, maxBytes = MAX_IMAGE_UPLOAD_BYTES, label = "Files" }: ValidatePatientFileSelectionOptions = {}
+  {
+    allowPdf = false,
+    allowDocuments = false,
+    maxFiles,
+    maxBytes = MAX_IMAGE_UPLOAD_BYTES,
+    label = "Files",
+  }: ValidatePatientFileSelectionOptions = {}
 ) {
   if (files.length === 0) return null;
 
@@ -52,8 +73,10 @@ export function validatePatientFileSelection(
   }
 
   for (const file of files) {
-    if (!isAllowedPatientFile(file, allowPdf)) {
-      return `${label} must be ${allowPdf ? "images or PDFs" : "image files only"}.`;
+    if (!isAllowedPatientFile(file, allowPdf, allowDocuments)) {
+      return `${label} must be ${
+        allowDocuments ? "images, PDFs, DOC, DOCX, or TXT files" : allowPdf ? "images or PDFs" : "image files only"
+      }.`;
     }
 
     if (file.size > maxBytes) {
@@ -118,7 +141,7 @@ export async function uploadPatientFile(args: UploadArgs): Promise<UploadedPatie
       size_bytes: file.size || null,
       category,
     })
-    .select("bucket,path,filename")
+    .select("id,bucket,path,filename")
     .maybeSingle();
 
   if (insErr) throw insErr;
