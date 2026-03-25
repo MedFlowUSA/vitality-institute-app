@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { getPatientRecordIdForProfile } from "../lib/patientRecords";
 import { supabase } from "../lib/supabase";
 
 type PanelRow = { id: string; name: string };
@@ -84,10 +85,17 @@ export default function PatientLabs() {
     setLocations((locs as LocationRow[]) ?? []);
 
     if (user) {
+      const patientId = await getPatientRecordIdForProfile(user.id);
+      if (!patientId) {
+        setErr("Patient record not found.");
+        setLoading(false);
+        return;
+      }
+
       const { data: appts, error: apptErr } = await supabase
         .from("appointments")
         .select("id,location_id,start_time,status")
-        .eq("patient_id", user.id)
+        .eq("patient_id", patientId)
         .order("start_time", { ascending: false })
         .limit(25);
 
@@ -159,10 +167,16 @@ export default function PatientLabs() {
 
     setSaving(true);
 
+    const patientId = await getPatientRecordIdForProfile(user.id);
+    if (!patientId) {
+      setSaving(false);
+      return setErr("Patient record not found.");
+    }
+
     const { error } = await supabase.from("lab_results").insert([
       {
         location_id: locationId,
-        patient_id: user.id,
+        patient_id: patientId,
         appointment_id: appointmentId || null,
         intake_submission_id: intakeId || null,
         panel_id: panelId,

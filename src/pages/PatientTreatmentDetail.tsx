@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { getPatientRecordIdForProfile } from "../lib/patientRecords";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 
@@ -81,6 +82,9 @@ export default function PatientTreatmentDetail() {
     setErr(null);
 
     try {
+      const patientId = await getPatientRecordIdForProfile(user.id);
+      if (!patientId) throw new Error("Patient record not found.");
+
       // Locations for labels
       const locRes = await supabase.from("locations").select("id,name,city,state").order("name");
       if (locRes.error) throw new Error(locRes.error.message);
@@ -91,7 +95,7 @@ export default function PatientTreatmentDetail() {
         .from("patient_visits")
         .select("id,created_at,location_id,patient_id,appointment_id,visit_date,status,summary")
         .eq("id", visitId)
-        .eq("patient_id", user.id)
+        .eq("patient_id", patientId)
         .maybeSingle();
 
       if (vRes.error) throw new Error(vRes.error.message);

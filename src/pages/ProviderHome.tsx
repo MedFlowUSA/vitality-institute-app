@@ -7,7 +7,7 @@ import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
-import { ensureLegacyAppointmentThread } from "../lib/messaging/legacyChat";
+import { ensureAppointmentConversation } from "../lib/messaging/conversationService";
 import { getErrorMessage } from "../lib/patientRecords";
 import { buildProviderHomeGuide } from "../lib/provider/providerGuide";
 import { getVirtualVisitState } from "../lib/virtualVisits";
@@ -398,16 +398,30 @@ export default function ProviderHome() {
     setErr(null);
     if (!user) return;
     try {
-      const threadId = await ensureLegacyAppointmentThread({
+      const conversationId = await ensureAppointmentConversation({
         appointmentId: appt.id,
         patientCandidateId: appt.patient_id,
         locationId: appt.location_id,
+        actorUserId: user.id,
+        actorRole: role,
         title: "Appointment conversation",
       });
 
-      navigate(`/provider/chat?threadId=${threadId}`);
+      navigate(`/provider/chat?conversationId=${conversationId}`);
     } catch (error: unknown) {
       setErr(getErrorMessage(error, "Could not open conversation."));
+    }
+  };
+
+  const openPatient = async (patientCandidateId: string, visitId?: string) => {
+    try {
+      const patientId = await resolvePatientRecordId(patientCandidateId);
+      const nextPath = visitId
+        ? `/provider/patients/${patientId}?visitId=${encodeURIComponent(visitId)}`
+        : `/provider/patients/${patientId}`;
+      navigate(nextPath);
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Could not open patient chart."));
     }
   };
 
@@ -658,7 +672,7 @@ export default function ProviderHome() {
                         <button className="btn btn-secondary" type="button" onClick={() => navigate(`/provider/visit-builder?appointmentId=${appt.id}`)}>
                           Edit Setup
                         </button>
-                        <button className="btn btn-secondary" type="button" onClick={() => navigate(`/provider/patients/${appt.patient_id}`)}>
+                        <button className="btn btn-secondary" type="button" onClick={() => void openPatient(appt.patient_id)}>
                           Open Patient
                         </button>
                         <button className="btn btn-secondary" type="button" onClick={() => navigate("/provider/intakes")}>
@@ -742,7 +756,7 @@ export default function ProviderHome() {
                         <button className="btn btn-secondary" type="button" onClick={() => messagePatient(appt)}>
                           Message Patient
                         </button>
-                        <button className="btn btn-secondary" type="button" onClick={() => navigate(`/provider/patients/${appt.patient_id}`)}>
+                        <button className="btn btn-secondary" type="button" onClick={() => void openPatient(appt.patient_id)}>
                           Open Patient
                         </button>
                         <button

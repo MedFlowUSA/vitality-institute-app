@@ -1,6 +1,6 @@
 ﻿// src/pages/ProviderPatientCenter.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import DictationTextarea from "../components/DictationTextarea";
@@ -193,9 +193,10 @@ type PatientTab = "overview" | "wound" | "soap" | "plan" | "labs" | "notes" | "f
 export default function ProviderPatientCenter() {
   const { user, role, signOut, resumeKey } = useAuth();
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const params = useParams<{ patientId?: string; visitId?: string }>();
   const patientIdFromRoute = params.patientId ?? "";
-  const visitIdFromRoute = params.visitId ?? "";
+  const requestedVisitId = params.visitId ?? searchParams.get("visitId") ?? "";
   const [resolvedPatientId, setResolvedPatientId] = useState<string>(patientIdFromRoute);
   const patientId = resolvedPatientId || patientIdFromRoute;
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
@@ -722,7 +723,7 @@ export default function ProviderPatientCenter() {
   }, [patientIdFromRoute]);
 
   useEffect(() => {
-    if (!visitIdFromRoute) return;
+    if (!requestedVisitId) return;
 
     let cancelled = false;
 
@@ -730,7 +731,7 @@ export default function ProviderPatientCenter() {
       const { data: visit, error: vErr } = await supabase
         .from("patient_visits")
         .select(VISIT_SELECT_FIELDS)
-        .eq("id", visitIdFromRoute)
+        .eq("id", requestedVisitId)
         .maybeSingle();
 
       if (cancelled) return;
@@ -755,14 +756,14 @@ export default function ProviderPatientCenter() {
         visit_id: visit.id,
         entity_type: "patient_visits",
         entity_id: visit.id,
-        metadata: { route_visit_id: visitIdFromRoute },
+        metadata: { route_visit_id: requestedVisitId },
       });
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [resumeKey, visitIdFromRoute]);
+  }, [resumeKey, requestedVisitId]);
 
   useEffect(() => {
     if (!patientId) return;

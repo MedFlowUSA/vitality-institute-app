@@ -26,7 +26,7 @@ type SoapMini = {
 
 type LabMini = {
   id: string;
-  visit_id: string | null;
+  appointment_id: string | null;
   status: string;
 };
 
@@ -126,21 +126,31 @@ export default function ProviderQueue() {
         setSoapByVisit({});
       }
 
-      // Labs minis
-      if (visitIds.length) {
+      // Labs from the review queue source of truth
+      const appointmentIds = visitRows
+        .map((item) => item.appointment_id)
+        .filter((value): value is string => Boolean(value));
+
+      if (appointmentIds.length) {
         const { data: l, error: lErr } = await supabase
-          .from("patient_labs")
-          .select("id,visit_id,status")
+          .from("lab_results")
+          .select("id,appointment_id,status")
           .eq("location_id", activeLocationId)
-          .in("visit_id", visitIds);
+          .in("appointment_id", appointmentIds);
 
         if (lErr) throw lErr;
 
+        const visitByAppointmentId = new Map(
+          visitRows
+            .filter((item) => item.appointment_id)
+            .map((item) => [item.appointment_id as string, item.id])
+        );
         const map: Record<string, LabMini[]> = {};
         for (const row of (l as LabMini[]) ?? []) {
-          const vid = row.visit_id ?? "general";
+          const vid = row.appointment_id ? visitByAppointmentId.get(row.appointment_id) : null;
+          if (!vid) continue;
           const arr = map[vid] ?? [];
-          arr.push({ id: row.id, visit_id: row.visit_id, status: row.status });
+          arr.push({ id: row.id, appointment_id: row.appointment_id, status: row.status });
           map[vid] = arr;
         }
         setLabsByVisit(map);

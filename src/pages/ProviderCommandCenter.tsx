@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import VitalityHero from "../components/VitalityHero";
 import SystemStatusBar from "../components/SystemStatusBar";
 import { auditWrite } from "../lib/audit";
-import { ensureLegacyAppointmentThread } from "../lib/messaging/legacyChat";
+import { ensureAppointmentConversation } from "../lib/messaging/conversationService";
 import { analyzeWoundProgression } from "../lib/woundProgression";
 import { analyzeWoundRisk } from "../lib/woundRiskAlerts";
 
@@ -381,15 +381,26 @@ export default function ProviderCommandCenter() {
     setErr(null);
     try {
       if (!user?.id) throw new Error("User not found.");
-      const threadId = await ensureLegacyAppointmentThread({
+      const conversationId = await ensureAppointmentConversation({
         appointmentId: appt.id,
         patientCandidateId: appt.patient_id,
         locationId: appt.location_id,
+        actorUserId: user.id,
+        actorRole: role,
         title: "Appointment conversation",
       });
-      nav(`/provider/chat?threadId=${threadId}`);
+      nav(`/provider/chat?conversationId=${conversationId}`);
     } catch (e: any) {
-      setErr(e?.message ?? "Failed to open chat thread.");
+      setErr(e?.message ?? "Failed to open conversation.");
+    }
+  };
+
+  const openPatient = async (patientCandidateId: string) => {
+    try {
+      const patientId = await resolvePatientRecordId(patientCandidateId);
+      nav(`/provider/patients/${patientId}`);
+    } catch (e: any) {
+      setErr(e?.message ?? "Failed to open patient.");
     }
   };
 
@@ -621,7 +632,7 @@ export default function ProviderCommandCenter() {
                         <button
                           className="btn btn-ghost"
                           type="button"
-                          onClick={() => nav(`/provider/patients/${item.patient_id}`)}
+                          onClick={() => void openPatient(item.patient_id)}
                         >
                           Open Patient
                         </button>
@@ -682,7 +693,7 @@ export default function ProviderCommandCenter() {
                             Start Visit
                           </button>
 
-                          <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/patients/${a.patient_id}`)}>
+                          <button className="btn btn-ghost" type="button" onClick={() => void openPatient(a.patient_id)}>
                             Open Patient
                           </button>
 
@@ -740,7 +751,7 @@ export default function ProviderCommandCenter() {
                         Open Intake
                       </button>
                       {i.patient_id ? (
-                        <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/patients/${i.patient_id}`)}>
+                        <button className="btn btn-ghost" type="button" onClick={() => void openPatient(i.patient_id)}>
                           Open Patient
                         </button>
                       ) : null}

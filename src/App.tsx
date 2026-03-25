@@ -21,7 +21,7 @@ const PatientAuth = lazy(() => import("./pages/PatientAuth"));
 const PatientHome = lazy(() => import("./pages/PatientHome"));
 const PatientOnboarding = lazy(() => import("./pages/PatientOnboarding"));
 const PatientLabs = lazy(() => import("./pages/PatientLabs"));
-const PatientChat = lazy(() => import("./pages/PatientChat"));
+const PatientConversationCenter = lazy(() => import("./pages/PatientConversationCenter"));
 const PatientTreatments = lazy(() => import("./pages/PatientTreatments"));
 const PatientTreatmentDetail = lazy(() => import("./pages/PatientTreatmentDetail"));
 const PatientServices = lazy(() => import("./pages/PatientServices"));
@@ -39,7 +39,7 @@ const ProviderPatients = lazy(() => import("./pages/ProviderPatients"));
 const ProviderPatientCenter = lazy(() => import("./pages/ProviderPatientCenter"));
 const WoundTimeline = lazy(() => import("./pages/WoundTimeline"));
 const ProviderIntake = lazy(() => import("./pages/ProviderIntake"));
-const ProviderChat = lazy(() => import("./pages/ProviderChat"));
+const ProviderConversationCenter = lazy(() => import("./pages/ProviderConversationCenter"));
 const ProviderLabs = lazy(() => import("./pages/ProviderLabs"));
 const ProviderAI = lazy(() => import("./pages/ProviderAI"));
 const IVRPacketPrint = lazy(() => import("./pages/IVRPacketPrint"));
@@ -442,10 +442,10 @@ export default function App() {
               path="/provider/intakes"
               element={withRole(PROVIDER_ROLES, <ProviderIntake />)}
             />
-            <Route
+              <Route
               path="/provider/chat"
-              element={withRole(PROVIDER_ROLES, <ProviderChat />)}
-            />
+              element={withRole(PROVIDER_ROLES, <ProviderConversationCenter />)}
+              />
             <Route
               path="/provider/labs"
               element={withRole(PROVIDER_ROLES, <ProviderLabs />)}
@@ -503,10 +503,10 @@ export default function App() {
               path="/patient/labs"
               element={withPatientProfile(<PatientLabs />)}
             />
-            <Route
+              <Route
               path="/patient/chat"
-              element={withPatientProfile(<PatientChat />)}
-            />
+              element={withPatientProfile(<PatientConversationCenter />)}
+              />
             <Route
               path="/patient/treatments"
               element={withPatientProfile(<PatientTreatments />)}

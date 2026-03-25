@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import { getErrorMessage } from "../lib/patientRecords";
+import { getErrorMessage, getPatientRecordIdForProfile } from "../lib/patientRecords";
 import { supabase } from "../lib/supabase";
 import { getSignedUrl } from "../lib/patientFiles";
 import VitalityHero from "../components/VitalityHero";
@@ -235,6 +235,8 @@ export default function PatientTreatments() {
 
     try {
       if (!user?.id) throw new Error("Not signed in.");
+      const patientId = await getPatientRecordIdForProfile(user.id);
+      if (!patientId) throw new Error("Patient record not found.");
 
       const locRes = await withTimeout(
         supabase.from("locations").select("id,name").order("name"),
@@ -246,7 +248,7 @@ export default function PatientTreatments() {
         supabase
           .from("patient_visits")
           .select("id,created_at,location_id,patient_id,appointment_id,visit_date,status,summary")
-          .eq("patient_id", user.id)
+          .eq("patient_id", patientId)
           .order("visit_date", { ascending: false })
           .order("created_at", { ascending: false })
           .limit(200),
@@ -367,7 +369,7 @@ export default function PatientTreatments() {
         supabase
           .from("patient_files")
           .select("id,patient_id,visit_id,appointment_id,created_at,filename,category,bucket,path,content_type")
-          .eq("patient_id", user.id)
+          .eq("patient_id", patientId)
           .in("visit_id", visitIds)
           .order("created_at", { ascending: false }),
         12000

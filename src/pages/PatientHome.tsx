@@ -9,7 +9,7 @@ import { uploadPatientFile, getSignedUrl } from "../lib/patientFiles";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
-import { countLegacyOpenThreadsForPatient, ensureLegacyAppointmentThread } from "../lib/messaging/legacyChat";
+import { countUnreadConversationsForPatient, ensureAppointmentConversation } from "../lib/messaging/conversationService";
 import { getErrorMessage, getPatientRecordIdForProfile, isDatabaseErrorWithCode } from "../lib/patientRecords";
 import { getVirtualVisitState } from "../lib/virtualVisits";
 
@@ -807,8 +807,8 @@ export default function PatientHome() {
         : "No care plan yet",
       messagesText:
         unreadThreads > 0
-          ? `${unreadThreads} active conversation${unreadThreads === 1 ? "" : "s"}`
-          : "No active conversations",
+          ? `${unreadThreads} unread conversation${unreadThreads === 1 ? "" : "s"}`
+          : "No unread conversations",
     };
   }, [
     nextAppointment,
@@ -1152,7 +1152,7 @@ export default function PatientHome() {
       setNextAppointment((nextAppt as ApptRow) ?? null);
 
       // UNREAD MESSAGES
-      setUnreadThreads(await countLegacyOpenThreadsForPatient(user.id));
+      setUnreadThreads(await countUnreadConversationsForPatient(user.id));
 
     } catch (e) {
       console.error("Dashboard load error", e);
@@ -1163,10 +1163,16 @@ export default function PatientHome() {
     if (!user?.id) return;
 
     try {
+        const patientId = await getPatientRecordIdForProfile(user.id);
+        if (!patientId) {
+          setLatestTreatmentPlan(null);
+          return;
+        }
+
         const { data: visits, error: vErr } = await supabase
           .from("patient_visits")
           .select("id")
-          .eq("patient_id", user.id)
+          .eq("patient_id", patientId)
         .order("created_at", { ascending: false })
         .limit(10);
 
@@ -1199,10 +1205,16 @@ export default function PatientHome() {
     setLoadingPatientSafePlan(true);
 
     try {
+        const patientId = await getPatientRecordIdForProfile(user.id);
+        if (!patientId) {
+          setPatientSafePlan(null);
+          return;
+        }
+
         const { data: visits, error: vErr } = await supabase
           .from("patient_visits")
           .select("id")
-          .eq("patient_id", user.id)
+          .eq("patient_id", patientId)
         .order("created_at", { ascending: false })
         .limit(15);
 
@@ -1532,11 +1544,14 @@ export default function PatientHome() {
     if (!selectedSlotIso) return setErr("Please choose an available time slot.");
 
     try {
+      const patientId = await getPatientRecordIdForProfile(user.id);
+      if (!patientId) throw new Error("Patient record not found.");
+
       const { data: created, error: apptErr } = await supabase
         .from("appointments")
         .insert([
           {
-            patient_id: user.id,
+            patient_id: patientId,
             location_id: locationId,
             service_id: serviceId || null,
             start_time: selectedSlotIso,
@@ -1609,13 +1624,15 @@ export default function PatientHome() {
   const messageFromAppointment = async (appt: ApptRow) => {
     if (!user) return;
     try {
-      const threadId = await ensureLegacyAppointmentThread({
+      const conversationId = await ensureAppointmentConversation({
         appointmentId: appt.id,
         patientCandidateId: user.id,
         locationId: appt.location_id,
+        actorUserId: user.id,
+        actorRole: "patient",
         title: `Appointment - ${new Date(appt.start_time).toLocaleString()}`,
       });
-      navigate(`/patient/chat?threadId=${threadId}`);
+      navigate(`/patient/chat?conversationId=${conversationId}`);
     } catch (error: unknown) {
       alert(getErrorMessage(error, "Failed to open conversation."));
     }

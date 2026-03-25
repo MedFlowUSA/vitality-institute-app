@@ -70,7 +70,7 @@ export default function VitalityHero({
 
       // --- OPEN THREADS (count)
       const { count: openThreads, error: threadErr } = await supabase
-        .from("chat_threads")
+        .from("conversations")
         .select("id", { count: "exact", head: true })
         .eq("status", "open");
 
