@@ -375,6 +375,7 @@ export default function PatientWoundIntake() {
                 <input
                   type="file"
                   accept="image/*,application/pdf"
+                  capture="environment"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) handleUpload(f, "id");
@@ -387,6 +388,7 @@ export default function PatientWoundIntake() {
                 <input
                   type="file"
                   accept="image/*,application/pdf"
+                  capture="environment"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
                     if (f) handleUpload(f, "insurance");
@@ -399,6 +401,7 @@ export default function PatientWoundIntake() {
                 <input
                   type="file"
                   accept="image/*"
+                  capture="environment"
                   multiple
                   onChange={(e) => {
                     const files = Array.from(e.target.files ?? []);

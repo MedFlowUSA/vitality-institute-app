@@ -166,6 +166,7 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId, onRet
         <input
           type="file"
           accept="image/*"
+          capture="environment"
           className="input"
           onChange={(e) => setPicked(e.target.files?.[0] ?? null)}
           disabled={!isStaff || uploading}
