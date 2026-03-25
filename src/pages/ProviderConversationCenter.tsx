@@ -302,7 +302,7 @@ export default function ProviderConversationCenter() {
                       <div className="muted" style={{ marginTop: 4 }}>
                         {activeConversation.patient_name}
                         {activeConversation.participant_names.length
-                          ? ` � Team: ${activeConversation.participant_names.join(", ")}`
+                          ? ` - Team: ${activeConversation.participant_names.join(", ")}`
                           : ""}
                       </div>
                     </div>

@@ -452,7 +452,7 @@ export default function ProviderHome() {
 
   const StatCard = ({ label, value, note }: { label: string; value: string | number; note?: string }) => (
     <div
-      className="card card-pad surface-light"
+      className="card card-pad card-light surface-light"
       style={{
         flex: "1 1 180px",
         minWidth: 160,
@@ -620,12 +620,12 @@ export default function ProviderHome() {
             <div className="muted">No virtual visits scheduled today.</div>
           ) : (
             <div style={{ display: "grid", gap: 12 }}>
-              {todayVirtualVisits.map((appt) => (
-                <div
-                  key={appt.id}
-                  className="card card-pad"
-                  style={{ background: "rgba(250,247,255,0.82)", border: "1px solid rgba(184,164,255,0.2)" }}
-                >
+                {todayVirtualVisits.map((appt) => (
+                  <div
+                    key={appt.id}
+                    className="card card-pad card-light surface-light"
+                    style={{ background: "rgba(250,247,255,0.82)", border: "1px solid rgba(184,164,255,0.2)" }}
+                  >
                   <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
                     <div style={{ flex: "1 1 280px", minWidth: 240 }}>
                       <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -717,7 +717,7 @@ export default function ProviderHome() {
                 {nextAppointments.map((appt) => (
                   <div
                     key={appt.id}
-                    className="card card-pad"
+                    className="card card-pad card-light surface-light"
                     style={{ background: "rgba(250,247,255,0.82)", border: "1px solid rgba(184,164,255,0.2)" }}
                   >
                     <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>

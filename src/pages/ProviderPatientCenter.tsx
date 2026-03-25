@@ -1533,7 +1533,7 @@ export default function ProviderPatientCenter() {
 
             <div className="space" />
 
-            <div className="card card-pad" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(184,164,255,0.18)" }}>
+            <div className="card card-pad card-light surface-light" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(184,164,255,0.18)" }}>
               <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                 <div style={{ flex: "1 1 320px" }}>
                   <div className="h2">Recommended Next Step</div>
@@ -1742,7 +1742,7 @@ export default function ProviderPatientCenter() {
                         <div className="space" />
 
                         <div
-                          className="card card-pad"
+                          className="card card-pad card-light surface-light"
                           style={{ background: "rgba(250,247,255,0.72)", border: "1px solid rgba(184,164,255,0.22)" }}
                         >
                           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>

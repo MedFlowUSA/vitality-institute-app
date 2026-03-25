@@ -411,7 +411,7 @@ export default function ProviderVisitBuilderVirtual() {
               {appointment ? (
                 <>
                   <div className="space" />
-                  <div className="card card-pad" style={{ background: "rgba(255,255,255,0.05)" }}>
+                  <div className="card card-pad card-light surface-light" style={{ background: "rgba(255,255,255,0.05)" }}>
                     <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
                       <div style={{ flex: "1 1 320px" }}>
                         <div className="h2">Appointment Setup</div>
@@ -456,7 +456,7 @@ export default function ProviderVisitBuilderVirtual() {
 
               <div className="space" />
 
-              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.05)" }}>
+              <div className="card card-pad card-light surface-light" style={{ background: "rgba(255,255,255,0.05)" }}>
                 <div className="h2">Step 1: Create Visit</div>
                 <div className="space" />
 
@@ -506,7 +506,7 @@ export default function ProviderVisitBuilderVirtual() {
 
               <div className="space" />
 
-              <div className="card card-pad" style={{ background: "rgba(255,255,255,0.05)" }}>
+              <div className="card card-pad card-light surface-light" style={{ background: "rgba(255,255,255,0.05)" }}>
                 <div className="h2">Step 2: Add Wound Assessment</div>
                 <div className="space" />
 

@@ -414,7 +414,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId, o
             <input className="input" value={tunnelingCm} onChange={(e) => setTunnelingCm(e.target.value)} placeholder="Tunneling" style={{ flex: "0 0 120px" }} />
 
             <div className="v-chip">
-              Area: <strong>{area == null ? "-" : `${area} cm²`}</strong>
+              Area: <strong>{area == null ? "-" : `${area} cm2`}</strong>
             </div>
 
             {currentImprovement != null ? (
@@ -460,7 +460,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId, o
             <option value="">No photo linked</option>
             {filesForPicker.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.filename} {f.visit_id === visitId ? "• (this visit)" : ""} {f.category ? `• ${f.category}` : ""} • {new Date(f.created_at).toLocaleDateString()}
+                {f.filename} {f.visit_id === visitId ? "- (this visit)" : ""} {f.category ? `- ${f.category}` : ""} - {new Date(f.created_at).toLocaleDateString()}
               </option>
             ))}
           </select>
@@ -521,12 +521,12 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId, o
                     >
                       <span>
                         <div style={{ fontWeight: 800 }}>
-                          {r.wound_label} {r.laterality ? `• ${r.laterality}` : ""} {r.body_site ? `• ${r.body_site}` : ""}
+                          {r.wound_label} {r.laterality ? `- ${r.laterality}` : ""} {r.body_site ? `- ${r.body_site}` : ""}
                         </div>
                         <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>
-                          {fmt(r.created_at)} • Area: <strong>{a == null ? "-" : `${a} cm²`}</strong>
-                          {r.stage ? ` • Stage: ${r.stage}` : ""}
-                          {r.exudate ? ` • Exudate: ${r.exudate}` : ""}
+                          {fmt(r.created_at)} - Area: <strong>{a == null ? "-" : `${a} cm2`}</strong>
+                          {r.stage ? ` - Stage: ${r.stage}` : ""}
+                          {r.exudate ? ` - Exudate: ${r.exudate}` : ""}
                         </div>
                       </span>
 
@@ -552,7 +552,7 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId, o
 
       <div className="space" />
       <div className="muted" style={{ fontSize: 12 }}>
-        Next: weâ€™ll add the healing curve chart + one-click â€œPacket Builderâ€ (latest measurement + narrative + photos + plan) so itâ€™s IVR-ready.
+        Next: we'll add the healing curve chart + one-click "Packet Builder" (latest measurement + narrative + photos + plan) so it's IVR-ready.
       </div>
     </div>
   );

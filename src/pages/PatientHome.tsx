@@ -2188,7 +2188,7 @@ export default function PatientHome() {
                 return (
                     <div
                       key={service.id}
-                      className="card card-pad"
+                      className="card card-pad card-light surface-light"
                       role="button"
                     tabIndex={0}
                     style={{
@@ -2281,7 +2281,7 @@ export default function PatientHome() {
 
           {selectedServiceSummary ? (
             <div
-              className="card card-pad card-light"
+              className="card card-pad card-light surface-light"
               style={{
                 marginBottom: 16,
               }}
@@ -2458,7 +2458,7 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad card-light">
+              <div className="card card-pad card-light surface-light">
                 <div className="h2">Optional: Upload Wound Photos</div>
                 <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
                   These will be attached to your appointment request so the clinical team can review before your visit.
@@ -2485,7 +2485,7 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad card-light">
+              <div className="card card-pad card-light surface-light">
                 <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: 800 }}>Ready to request your appointment?</div>
@@ -2675,7 +2675,7 @@ export default function PatientHome() {
                 ) : null}
               </div>
 
-              <div className="card card-pad card-light">
+              <div className="card card-pad card-light surface-light">
                 <div className="muted">Summary</div>
                 <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
                   {patientSafePlan.summary || "Your provider has created a care plan for you."}
@@ -2766,14 +2766,14 @@ export default function PatientHome() {
             </div>
           ) : (
             <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-              <div className="card card-pad card-light" style={{ flex: "1 1 220px" }}>
+              <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
                 <div className="muted">Recent Results</div>
                 <div style={{ fontWeight: 900, fontSize: 28, marginTop: 6, color: "#140F24" }}>
                   {recentLabs.length}
                 </div>
               </div>
 
-              <div className="card card-pad card-light" style={{ flex: "2 1 420px" }}>
+              <div className="card card-pad card-light surface-light" style={{ flex: "2 1 420px" }}>
                 <div className="muted">Latest Result</div>
                 <div style={{ fontWeight: 800, marginTop: 8, color: "#140F24" }}>
                   {recentLabs[0]?.lab_name ?? "Lab Result"}
@@ -2841,7 +2841,7 @@ export default function PatientHome() {
                     ) : null}
                   </div>
 
-                  <div className="card card-pad card-light" style={{ flex: 1 }}>
+                  <div className="card card-pad card-light surface-light" style={{ flex: 1 }}>
                     <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                       <div style={{ fontWeight: 800, color: "#140F24" }}>{item.title}</div>
                       <div className="muted" style={{ fontSize: 12 }}>
@@ -2881,7 +2881,7 @@ export default function PatientHome() {
               {patientFiles.map((file) => (
                 <div
                   key={file.id}
-                  className="card card-pad card-light"
+                  className="card card-pad card-light surface-light"
                 >
                     <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                       <div>
@@ -3174,7 +3174,7 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad card-light">
+              <div className="card card-pad card-light surface-light">
                 <div className="h2">Attached Files</div>
                 <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
                   Review images and files already attached to this appointment.
@@ -3345,24 +3345,24 @@ export default function PatientHome() {
               <div className="space" />
 
               <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-                <div className="card card-pad card-light" style={{ flex: "1 1 220px" }}>
+                <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Service</div>
                   <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>{bookingSuccess.serviceName}</div>
                 </div>
 
-                <div className="card card-pad card-light" style={{ flex: "1 1 220px" }}>
+                <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Location</div>
                   <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>{bookingSuccess.locationName}</div>
                 </div>
 
-                <div className="card card-pad card-light" style={{ flex: "1 1 220px" }}>
+                <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Requested Time</div>
                   <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>
                     {new Date(bookingSuccess.slotIso).toLocaleString()}
                   </div>
                 </div>
 
-                <div className="card card-pad card-light" style={{ flex: "1 1 220px" }}>
+                <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Appointment ID</div>
                   <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>{bookingSuccess.appointmentId}</div>
                 </div>
@@ -3370,7 +3370,7 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="card card-pad card-light">
+              <div className="card card-pad card-light surface-light">
                 <div style={{ fontWeight: 800 }}>What happens next?</div>
                 <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
                   Your request is now in the clinic queue. You can message the clinic through the portal, review your appointments below, or continue browsing services.

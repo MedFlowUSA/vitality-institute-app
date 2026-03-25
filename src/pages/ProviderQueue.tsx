@@ -352,7 +352,7 @@ export default function ProviderQueue() {
               <div className="space" />
 
               {loading ? (
-                <div className="card card-pad" style={{ background: "rgba(255,255,255,0.04)" }}>
+                <div className="card card-pad">
                   <div className="muted">Loading visit queue...</div>
                 </div>
               ) : queueItems.length === 0 ? (
@@ -378,8 +378,8 @@ export default function ProviderQueue() {
                     return (
                       <div
                         key={`appointment-${item.appointment.id}`}
-                        className="card card-pad"
-                        style={{ marginBottom: 10, background: "rgba(255,255,255,0.03)" }}
+                        className="card card-pad card-light surface-light"
+                        style={{ marginBottom: 10, background: "rgba(250,247,255,0.82)", border: "1px solid rgba(184,164,255,0.2)" }}
                       >
                         <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                           <div style={{ flex: "1 1 320px" }}>
@@ -437,8 +437,8 @@ export default function ProviderQueue() {
                   return (
                     <div
                       key={`visit-${visit.id}`}
-                      className="card card-pad"
-                      style={{ marginBottom: 10, background: "rgba(255,255,255,0.03)" }}
+                      className="card card-pad card-light surface-light"
+                      style={{ marginBottom: 10, background: "rgba(250,247,255,0.82)", border: "1px solid rgba(184,164,255,0.2)" }}
                     >
                       <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                         <div style={{ flex: "1 1 320px" }}>

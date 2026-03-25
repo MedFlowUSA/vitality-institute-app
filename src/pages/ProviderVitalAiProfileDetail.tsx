@@ -141,7 +141,7 @@ export default function ProviderVitalAiProfileDetail() {
           <>
             {insights ? (
               <>
-                <div className="card card-pad" style={lightCardStyle}>
+                <div className="card card-pad card-light surface-light" style={lightCardStyle}>
                   <div className="h2">Provider Visit Summary</div>
                   <div className="space" />
 
@@ -211,7 +211,7 @@ export default function ProviderVitalAiProfileDetail() {
                 </div>
                 <div className="space" />
 
-                <div className="card card-pad" style={lightCardStyle}>
+                <div className="card card-pad card-light surface-light" style={lightCardStyle}>
                   <div className="h2">Visit Preparation Summary</div>
                   <div className="space" />
 
@@ -279,7 +279,7 @@ export default function ProviderVitalAiProfileDetail() {
                 </div>
                 <div className="space" />
 
-                <div className="card card-pad" style={lightCardStyle}>
+                <div className="card card-pad card-light surface-light" style={lightCardStyle}>
                   <div className="h2">Vital AI Follow-Up Plan</div>
                   <div className="space" />
 
@@ -288,7 +288,7 @@ export default function ProviderVitalAiProfileDetail() {
                       <div className="muted">No follow-up plan was generated for this intake.</div>
                     ) : (
                       insights.followUpPlan.followUps.map((followUp) => (
-                        <div key={`${followUp.type}-${followUp.dayOffset}`} className="card card-pad" style={{ background: "rgba(255,255,255,0.55)", color: "#241B3D" }}>
+                        <div key={`${followUp.type}-${followUp.dayOffset}`} className="card card-pad card-light surface-light" style={{ background: "rgba(255,255,255,0.55)", color: "#241B3D" }}>
                           <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                             <div style={{ fontWeight: 800 }}>Day {followUp.dayOffset}</div>
                             <div className="muted" style={labelStyle}>{followUp.type.replaceAll("_", " ")}</div>
@@ -301,7 +301,7 @@ export default function ProviderVitalAiProfileDetail() {
                 </div>
                 <div className="space" />
 
-                <div className="card card-pad" style={lightCardStyle}>
+                <div className="card card-pad card-light surface-light" style={lightCardStyle}>
                   <div className="h2">Provider Recommendation Summary</div>
                   <div className="space" />
 
@@ -366,7 +366,7 @@ export default function ProviderVitalAiProfileDetail() {
                 </div>
                 <div className="space" />
 
-                <div className="card card-pad" style={lightCardStyle}>
+                <div className="card card-pad card-light surface-light" style={lightCardStyle}>
                   <div className="h2">Treatment Opportunities</div>
                   <div className="space" />
 
@@ -375,7 +375,7 @@ export default function ProviderVitalAiProfileDetail() {
                       <div className="muted">No treatment opportunity signals were generated from the current intake.</div>
                     ) : (
                       insights.treatmentOpportunitySignals.opportunities.map((signal) => (
-                        <div key={signal.type} className="card card-pad" style={{ background: "rgba(255,255,255,0.55)", color: "#241B3D" }}>
+                        <div key={signal.type} className="card card-pad card-light surface-light" style={{ background: "rgba(255,255,255,0.55)", color: "#241B3D" }}>
                           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                             <div style={{ fontWeight: 800 }}>{signal.label}</div>
                             <div className="muted" style={{ ...labelStyle, textTransform: "capitalize" }}>{signal.confidence} confidence</div>
@@ -390,7 +390,7 @@ export default function ProviderVitalAiProfileDetail() {
 
                 {woundMetrics?.measurement ? (
                   <>
-                    <div className="card card-pad" style={lightCardStyle}>
+                    <div className="card card-pad card-light surface-light" style={lightCardStyle}>
                       <div className="h2">Wound Measurement Summary</div>
                       <div className="space" />
 
@@ -464,7 +464,7 @@ export default function ProviderVitalAiProfileDetail() {
                   </>
                 ) : null}
 
-                <div className="card card-pad" style={lightCardStyle}>
+                <div className="card card-pad card-light surface-light" style={lightCardStyle}>
                   <div className="h2">Vital AI Clinical Insights</div>
                   <div className="space" />
 
@@ -536,25 +536,25 @@ export default function ProviderVitalAiProfileDetail() {
 
             <ProfileSummaryCard profile={profile} />
             <div className="space" />
-            <div className="card card-pad" style={lightCardStyle}>
+            <div className="card card-pad card-light surface-light" style={lightCardStyle}>
               <div className="h2">Structured Profile Data</div>
               <div className="space" />
               <pre style={{ whiteSpace: "pre-wrap", margin: 0, color: "#2F2748" }}>{JSON.stringify(profile.profile_json ?? {}, null, 2)}</pre>
             </div>
             <div className="space" />
-            <div className="card card-pad" style={lightCardStyle}>
+            <div className="card card-pad card-light surface-light" style={lightCardStyle}>
               <div className="h2">Risk Flags</div>
               <div className="space" />
               <pre style={{ whiteSpace: "pre-wrap", margin: 0, color: "#2F2748" }}>{JSON.stringify(profile.risk_flags_json ?? [], null, 2)}</pre>
             </div>
             <div className="space" />
-            <div className="card card-pad" style={lightCardStyle}>
+            <div className="card card-pad card-light surface-light" style={lightCardStyle}>
               <div className="h2">Attached Files</div>
               <div className="space" />
               {files.length === 0 ? <div className="muted" style={bodyStyle}>No files attached.</div> : files.map((file) => <div key={file.id} style={{ marginBottom: 8, color: "#3E355C" }}>{file.category} - {file.filename}</div>)}
             </div>
             <div className="space" />
-            <div className="card card-pad" style={lightCardStyle}>
+            <div className="card card-pad card-light surface-light" style={lightCardStyle}>
               <div className="h2">Session State</div>
               <div className="space" />
               <div className="muted" style={bodyStyle}>Current step: {session?.current_step_key ?? "-"}</div>

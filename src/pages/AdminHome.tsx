@@ -221,7 +221,7 @@ export default function AdminHome() {
     }
 
     setHoursSaving(false);
-    setHoursMsg("Saved ✅");
+    setHoursMsg("Saved successfully.");
     await loadHours(selectedLocationId);
   };
 
@@ -298,7 +298,7 @@ export default function AdminHome() {
                 <div className="v-brand-title">
                   <div className="title">Vitality Institute</div>
                   <div className="sub">
-                    Admin Console • Multi-Location • Hours • Scheduling • Messaging • Labs (Next)
+                    Admin Console • Multi-Location • Hours • Scheduling • Messaging • Labs
                   </div>
                 </div>
               </div>
@@ -308,7 +308,7 @@ export default function AdminHome() {
                   Role: <strong>{role}</strong>
                 </div>
                 <div className="v-chip">
-                  Signed in: <strong>{user?.email ?? "—"}</strong>
+                  Signed in: <strong>{user?.email ?? "-"}</strong>
                 </div>
                 <div className="v-chip">
                   Status: <strong>Active</strong>
@@ -421,23 +421,23 @@ export default function AdminHome() {
           {!analyticsLoading && !analyticsErr ? (
             <>
               <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                <div className="card card-pad card-light surface-light" style={{ flex: "1 1 180px" }}>
                   <div className="muted" style={{ fontSize: 12 }}>New submissions</div>
                   <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.totalSubmissions}</div>
                 </div>
-                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                <div className="card card-pad card-light surface-light" style={{ flex: "1 1 180px" }}>
                   <div className="muted" style={{ fontSize: 12 }}>High urgency wound leads</div>
                   <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.highUrgencyWounds}</div>
                 </div>
-                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                <div className="card card-pad card-light surface-light" style={{ flex: "1 1 180px" }}>
                   <div className="muted" style={{ fontSize: 12 }}>High value GLP-1 leads</div>
                   <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.highValueGlp1}</div>
                 </div>
-                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                <div className="card card-pad card-light surface-light" style={{ flex: "1 1 180px" }}>
                   <div className="muted" style={{ fontSize: 12 }}>Hormone consult paths</div>
                   <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.hormoneConsultPaths}</div>
                 </div>
-                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                <div className="card card-pad card-light surface-light" style={{ flex: "1 1 180px" }}>
                   <div className="muted" style={{ fontSize: 12 }}>Care Summary clicks</div>
                   <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.careSummaryClicks}</div>
                 </div>
@@ -446,7 +446,7 @@ export default function AdminHome() {
               <div className="space" />
 
               <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-                <div className="card card-pad" style={{ flex: "1 1 280px" }}>
+                <div className="card card-pad card-light surface-light" style={{ flex: "1 1 280px" }}>
                   <div className="h2">Lead Type Mix</div>
                   <div className="space" />
                   <div className="muted">Wound: {analyticsSummary.leadTypeCounts.wound}</div>
@@ -454,7 +454,7 @@ export default function AdminHome() {
                   <div className="muted">Hormone: {analyticsSummary.leadTypeCounts.hormone}</div>
                   <div className="muted">General: {analyticsSummary.leadTypeCounts.general}</div>
                 </div>
-                <div className="card card-pad" style={{ flex: "2 1 420px" }}>
+                <div className="card card-pad card-light surface-light" style={{ flex: "2 1 420px" }}>
                   <div className="h2">Most Common Recommended Next Step</div>
                   <div className="space" />
                   <div style={{ fontWeight: 700 }}>{analyticsSummary.topOffer}</div>
@@ -484,7 +484,7 @@ export default function AdminHome() {
 
           <div className="space" />
 
-          {loading && <div className="muted">Loading…</div>}
+          {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson" }}>{err}</div>}
 
           {!loading && !err && (
@@ -634,7 +634,7 @@ export default function AdminHome() {
                       </select>
 
                       <div className="muted" style={{ fontSize: 12 }}>
-                        {row?.is_closed ? "Closed" : `Open ${toHHMM(row.open_time)}–${toHHMM(row.close_time)}`}
+                        {row?.is_closed ? "Closed" : `Open ${toHHMM(row.open_time)}-${toHHMM(row.close_time)}`}
                       </div>
                     </div>
                   </div>
@@ -642,12 +642,12 @@ export default function AdminHome() {
               })}
 
               <button className="btn btn-primary" onClick={saveHours} disabled={hoursSaving}>
-                {hoursSaving ? "Saving…" : "Save Hours"}
+                {hoursSaving ? "Saving..." : "Save Hours"}
               </button>
             </div>
           )}
 
-          {selectedLocationId && Object.keys(hoursByDay).length === 0 && <div className="muted">Loading hours…</div>}
+          {selectedLocationId && Object.keys(hoursByDay).length === 0 && <div className="muted">Loading hours...</div>}
         </div>
 
         {/* APPOINTMENTS */}
@@ -667,7 +667,7 @@ export default function AdminHome() {
 
           <div className="space" />
 
-          {apptsLoading && <div className="muted">Loading appointments…</div>}
+          {apptsLoading && <div className="muted">Loading appointments...</div>}
           {apptsErr && <div style={{ color: "crimson" }}>{apptsErr}</div>}
 
           {!apptsLoading && !apptsErr && (
@@ -678,7 +678,7 @@ export default function AdminHome() {
                 <div key={a.id} className="card card-pad" style={{ marginBottom: 12 }}>
                   <div className="h2">{fmtLocal(a.start_time)}</div>
                   <div className="muted">Location: {locName(a.location_id)}</div>
-                  <div className="muted">Status: {a.status ?? "—"}</div>
+                  <div className="muted">Status: {a.status ?? "-"}</div>
                   <div className="muted" style={{ fontSize: 12 }}>
                     Patient: {a.patient_id}
                   </div>
