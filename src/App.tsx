@@ -45,7 +45,7 @@ const ProviderAI = lazy(() => import("./pages/ProviderAI"));
 const IVRPacketPrint = lazy(() => import("./pages/IVRPacketPrint"));
 const ProviderReferrals = lazy(() => import("./pages/ProviderReferrals"));
 const ProviderReferralDetail = lazy(() => import("./pages/ProviderReferralDetail"));
-const ProviderVisitQueue = lazy(() => import("./pages/ProviderVisitQueue"));
+const ProviderQueue = lazy(() => import("./pages/ProviderQueue"));
 const ProviderVisitChart = lazy(() => import("./pages/ProviderVisitChart"));
 const ProviderVisitBuilder = lazy(() => import("./pages/ProviderVisitBuilderVirtual"));
 const ProviderVitalAiQueue = lazy(() => import("./pages/ProviderVitalAiQueue"));
@@ -208,6 +208,7 @@ function withRole(allow: readonly string[], element: React.ReactNode) {
 
 function PatientGate() {
   const { user } = useAuth();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -259,7 +260,7 @@ function PatientGate() {
 
   if (!hasProfile) return <Navigate to="/patient/onboarding" replace />;
 
-  return <Navigate to="/patient/home" replace />;
+  return <Navigate to={`/patient/home${location.search}${location.hash}`} replace />;
 }
 
 function RequirePatientProfile({ children }: { children: React.ReactNode }) {
@@ -402,10 +403,10 @@ export default function App() {
               path="/provider/command"
               element={withRole(PROVIDER_ROLES, <ProviderCommandCenter />)}
             />
-            <Route
-              path="/provider/queue"
-              element={withRole(PROVIDER_ROLES, <ProviderVisitQueue />)}
-            />
+              <Route
+                path="/provider/queue"
+                element={withRole(PROVIDER_ROLES, <ProviderQueue />)}
+              />
             <Route
               path="/provider/visit/:id"
               element={withRole(PROVIDER_ROLES, <LegacyProviderVisitRedirect />)}

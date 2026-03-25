@@ -2257,7 +2257,7 @@ export default function PatientHome() {
                         onClick={(event) => {
                           event.stopPropagation();
                           navigate(
-                            `/patient?serviceId=${service.id}` +
+                            `/patient/home?serviceId=${service.id}` +
                               `&serviceName=${encodeURIComponent(service.name)}` +
                               `&category=${encodeURIComponent(service.category ?? "")}` +
                               `&price=${service.price_marketing_cents ?? service.price_regular_cents ?? ""}`
@@ -3129,7 +3129,7 @@ export default function PatientHome() {
 
                     <button
                       className="btn btn-primary"
-                      onClick={() => navigate(`/patient/treatments?visitId=${appointmentVisit.id}`)}
+                      onClick={() => navigate(`/patient/treatments/${appointmentVisit.id}`)}
                       type="button"
                     >
                       View Treatment Record

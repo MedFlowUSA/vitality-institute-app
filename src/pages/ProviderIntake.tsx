@@ -102,7 +102,7 @@ export default function ProviderIntake() {
   const { user, role, signOut, resumeKey } = useAuth();
   const [params] = useSearchParams();
 
-  const prefillActiveId = params.get("activeId") ?? "";
+  const prefillActiveId = params.get("activeId") ?? params.get("intakeId") ?? "";
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [allowedLocationIds, setAllowedLocationIds] = useState<string[]>([]);

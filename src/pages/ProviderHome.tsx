@@ -521,6 +521,9 @@ export default function ProviderHome() {
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/provider/command")}>
+                Command Center
+              </button>
               <button className="btn btn-secondary" type="button" onClick={refreshAll}>
                 Refresh
               </button>
@@ -596,7 +599,10 @@ export default function ProviderHome() {
           description={guide.description}
           workflowState={guide.workflowState}
           nextAction={guide.nextAction}
-          actions={[]}
+          actions={[
+            { label: "Open Command Center", to: "/provider/command", tone: "primary" },
+            { label: "Open Full Queue", to: "/provider/queue" },
+          ]}
         />
 
         <div className="space" />

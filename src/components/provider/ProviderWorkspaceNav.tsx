@@ -13,6 +13,7 @@ type WorkspaceItem = {
 };
 
 const WORKSPACE_ITEMS: WorkspaceItem[] = [
+  { label: "Command Center", to: "/provider/command" },
   { label: "Queue", to: "/provider/queue" },
   { label: "Intakes", to: "/provider/intakes" },
   { label: "Vital AI Requests", to: "/provider/vital-ai" },

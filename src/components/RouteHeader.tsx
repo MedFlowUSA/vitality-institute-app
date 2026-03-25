@@ -13,7 +13,7 @@ type RouteHeaderProps = {
 };
 
 function getDefaultHome(role: ReturnType<typeof useAuth>["role"]) {
-  if (role === "patient") return "/patient";
+  if (role === "patient") return "/patient/home";
   if (role === "super_admin") return "/admin";
   return "/provider";
 }

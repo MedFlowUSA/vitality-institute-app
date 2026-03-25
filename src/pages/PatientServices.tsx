@@ -263,7 +263,7 @@ export default function PatientServices() {
 
   const handoffToBooking = (service: ServiceRow) => {
     navigate(
-      `/patient?serviceId=${service.id}` +
+      `/patient/home?serviceId=${service.id}` +
         `&serviceName=${encodeURIComponent(service.name)}` +
         `&category=${encodeURIComponent(serviceDisplayKey(service))}` +
         `&consult=${service.requires_consult ? "1" : "0"}` +

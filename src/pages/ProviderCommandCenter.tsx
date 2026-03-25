@@ -747,7 +747,7 @@ export default function ProviderCommandCenter() {
                     </div>
                     <div className="space" />
                     <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                      <button className="btn btn-primary" type="button" onClick={() => nav(`/provider/intakes?intakeId=${i.id}`)}>
+                      <button className="btn btn-primary" type="button" onClick={() => nav(`/provider/intakes?activeId=${i.id}`)}>
                         Open Intake
                       </button>
                       {i.patient_id ? (
