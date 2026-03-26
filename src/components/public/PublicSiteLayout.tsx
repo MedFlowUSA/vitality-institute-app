@@ -90,6 +90,22 @@ export default function PublicSiteLayout({ title, subtitle, children, rightActio
 
         <div className="space" />
         {children}
+
+        <div className="space" />
+
+        <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", paddingBottom: 20 }}>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Vitality Institute
+          </div>
+          <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+            <Link to="/privacy-policy" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
+              Privacy Policy
+            </Link>
+            <Link to="/terms-of-service" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
+              Terms of Service
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

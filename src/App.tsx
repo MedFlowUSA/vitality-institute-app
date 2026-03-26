@@ -16,6 +16,8 @@ const PublicServiceDetail = lazy(() => import("./pages/PublicServiceDetail"));
 const PublicContact = lazy(() => import("./pages/PublicContact"));
 const PublicBook = lazy(() => import("./pages/PublicBook"));
 const PublicVitalAiLite = lazy(() => import("./pages/PublicVitalAiLite"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 
 const PatientAuth = lazy(() => import("./pages/PatientAuth"));
 const PatientHome = lazy(() => import("./pages/PatientHome"));
@@ -354,6 +356,8 @@ export default function App() {
             <Route path="/contact" element={<PublicContact />} />
             <Route path="/book" element={<PublicBook />} />
             <Route path="/vital-ai" element={<PublicVitalAiLite />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
             <Route path="/start" element={<LegacyPathRedirect to="/vital-ai" />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/login" element={<Login />} />
