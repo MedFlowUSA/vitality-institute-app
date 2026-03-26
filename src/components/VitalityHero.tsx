@@ -23,6 +23,12 @@ function endOfTodayLocalISO() {
   return d.toISOString();
 }
 
+function getDefaultHome(role: ReturnType<typeof useAuth>["role"]) {
+  if (role === "patient") return "/patient/home";
+  if (role === "super_admin" || role === "location_admin") return "/admin";
+  return "/provider";
+}
+
 export default function VitalityHero({
   title = "Vitality Institute",
   subtitle = "Patient & Provider Platform • Secure Intake • Scheduling • Messaging • Labs",
@@ -41,8 +47,9 @@ export default function VitalityHero({
   activityItems?: { t: string; m: string; s: string }[];
 }) {
   const nav = useNavigate();
-  const { user, role } = useAuth();
+  const { user, role, signOut } = useAuth();
   const useLightPanels = role === "patient";
+  const resolvedHome = useMemo(() => getDefaultHome(role), [role]);
 
   const [kpis, setKpis] = useState<Kpis>({
     apptsToday: 0,
@@ -172,7 +179,16 @@ export default function VitalityHero({
               {primaryCta.label}
             </button>
           )}
-          {rightActions}
+          {rightActions ?? (user && role ? (
+            <>
+              <button className="btn btn-secondary" type="button" onClick={() => nav(resolvedHome)}>
+                Home
+              </button>
+              <button className="btn btn-ghost" type="button" onClick={() => void signOut()}>
+                Logout
+              </button>
+            </>
+          ) : null)}
         </div>
       </div>
 

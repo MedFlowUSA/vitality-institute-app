@@ -66,7 +66,11 @@ export default function WoundTimeline() {
   if (loading) {
     return (
       <div className="p-6">
-        <VitalityHero title="Wound Timeline" subtitle="Loading photos..." />
+        <VitalityHero
+          title="Wound Timeline"
+          subtitle="Loading photos..."
+          secondaryCta={{ label: "Back", to: patientId ? `/provider/patients/${patientId}` : "/provider/patients" }}
+        />
       </div>
     );
   }
@@ -74,14 +78,22 @@ export default function WoundTimeline() {
   if (err) {
     return (
       <div className="p-6">
-        <VitalityHero title="Wound Timeline Error" subtitle={err} />
+        <VitalityHero
+          title="Wound Timeline Error"
+          subtitle={err}
+          secondaryCta={{ label: "Back", to: patientId ? `/provider/patients/${patientId}` : "/provider/patients" }}
+        />
       </div>
     );
   }
 
   return (
     <div className="p-6">
-      <VitalityHero title="Wound Healing Timeline" subtitle="Visual progression of wound healing" />
+      <VitalityHero
+        title="Wound Healing Timeline"
+        subtitle="Visual progression of wound healing"
+        secondaryCta={{ label: "Back", to: patientId ? `/provider/patients/${patientId}` : "/provider/patients" }}
+      />
 
       <div className="max-w-5xl mx-auto mt-6 grid md:grid-cols-3 gap-6">
         {photos.length === 0 ? (

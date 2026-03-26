@@ -20,7 +20,7 @@ function getDefaultHome(role: ReturnType<typeof useAuth>["role"]) {
 
 export default function RouteHeader({ title, backTo, homeTo, subtitle, rightAction }: RouteHeaderProps) {
   const navigate = useNavigate();
-  const { role } = useAuth();
+  const { role, signOut } = useAuth();
 
   const resolvedHome = useMemo(() => homeTo ?? getDefaultHome(role), [homeTo, role]);
   const shellLabel = useMemo(() => {
@@ -39,7 +39,14 @@ export default function RouteHeader({ title, backTo, homeTo, subtitle, rightActi
       <div style={{ display: "grid", gap: 14 }}>
         <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <BrandLockup eyebrow={shellLabel} title={title} subtitle={subtitle} compact />
-          {rightAction ? <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>{rightAction}</div> : null}
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            {rightAction}
+            {!rightAction ? (
+              <button className="btn btn-ghost" type="button" onClick={() => void signOut()}>
+                Logout
+              </button>
+            ) : null}
+          </div>
         </div>
 
         <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>

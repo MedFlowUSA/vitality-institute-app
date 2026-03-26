@@ -268,7 +268,7 @@ export default function PatientWoundIntake() {
   if (loading) {
     return (
       <div className="p-6">
-        <VitalityHero title="Wound Care Intake" subtitle="Loading..." />
+        <VitalityHero title="Wound Care Intake" subtitle="Loading..." secondaryCta={{ label: "Back", to: "/patient/home" }} />
       </div>
     );
   }
@@ -279,6 +279,7 @@ export default function PatientWoundIntake() {
         <VitalityHero
           title="We received your information"
           subtitle="Next steps: our clinical team will review your wound care intake. If we need anything else, we'll notify you inside your portal."
+          secondaryCta={{ label: "Back to Patient Portal", to: "/patient/home" }}
         />
         <div className="max-w-3xl mx-auto mt-6 bg-white/70 rounded-xl p-5 border">
           <div className="text-sm opacity-80">
@@ -299,6 +300,7 @@ export default function PatientWoundIntake() {
       <VitalityHero
         title="Wound Care Intake"
         subtitle="Please complete this intake packet. A provider will review your submission before initiating communication."
+        secondaryCta={{ label: "Back", to: "/patient/home" }}
       />
 
       <div className="max-w-3xl mx-auto mt-6 space-y-6">
