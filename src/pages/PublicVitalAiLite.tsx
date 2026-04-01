@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useAuth } from "../auth/AuthProvider";
+import { useAuth, type AppRole } from "../auth/AuthProvider";
 import { trackFunnelEvent } from "../lib/analytics";
 import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
 import { preparePublicVitalAiOutboundPayload } from "../lib/outboundMessagePrep";
@@ -28,8 +28,14 @@ const CONTACT_METHODS = [
   { value: "either", label: "Either is fine" },
 ] as const;
 
+function getHomeRouteForRole(role: AppRole | null) {
+  if (role === "super_admin" || role === "location_admin") return "/admin";
+  if (role && role !== "patient") return "/provider";
+  return "/patient/home";
+}
+
 export default function PublicVitalAiLite() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState<StepKey>("pathway");
   const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
@@ -63,6 +69,17 @@ export default function PublicVitalAiLite() {
   const fullIntakePath = useMemo(() => buildPatientIntakePath({ pathway, autostart: true }), [pathway]);
   const guestPortalPath = useMemo(() => buildOnboardingRoute({ next: fullIntakePath, handoff: "vital_ai_lite" }), [fullIntakePath]);
   const guestSignupPath = useMemo(() => buildAuthRoute({ mode: "signup", next: guestPortalPath, handoff: "vital_ai_lite" }), [guestPortalPath]);
+  const fullPortalAction = useMemo(() => {
+    if (!user?.id) {
+      return { label: "Create Account for Full Intake", to: guestSignupPath, variant: "ghost" as const };
+    }
+
+    if (role === "patient") {
+      return { label: "Open Full Intake", to: fullIntakePath, variant: "ghost" as const };
+    }
+
+    return { label: "Return to Dashboard", to: getHomeRouteForRole(role), variant: "ghost" as const };
+  }, [fullIntakePath, guestSignupPath, role, user?.id]);
   const followUp = useMemo(
     () => buildFollowUpMessage(leadMetadata.leadType, leadMetadata.urgencyLevel),
     [leadMetadata.leadType, leadMetadata.urgencyLevel]
@@ -125,6 +142,7 @@ export default function PublicVitalAiLite() {
     if (!firstName.trim()) return "Enter a first name.";
     if (!lastName.trim()) return "Enter a last name.";
     if (!email.trim() && !phone.trim()) return "Enter an email or phone number so the clinic can reach you.";
+    if (!preferredLocationId.trim() && locations.length > 0) return "Select the clinic location you prefer.";
     return null;
   }
 
@@ -189,13 +207,13 @@ export default function PublicVitalAiLite() {
       });
       setSubmissionId(data.id ?? null);
       setStep("success");
-    } catch (e) {
+    } catch (e: unknown) {
       console.error("[Public Vital AI] submit failed", {
         pathway,
         bookingRequestId: bookingDraft?.requestId ?? null,
         error: e,
       });
-      setSubmitError("We couldn't send your request right now. Please try again or contact the clinic for help.");
+      setSubmitError(e instanceof Error && e.message ? e.message : "We couldn't send your request right now. Please try again or contact the clinic for help.");
     } finally {
       setSubmitting(false);
     }
@@ -235,10 +253,18 @@ export default function PublicVitalAiLite() {
         <>
           <PublicFlowStatusCard
             eyebrow="Signed In"
-            title="Prefer the full guided intake?"
-            body="Your full Vital AI intake is available in the patient portal if you want the richer workflow with saved sessions, uploads, and provider review routing."
-            detail="This public version is still useful for a lightweight request, but the full portal experience keeps more of your progress and care context together."
-            actions={[{ label: "Open Full Intake", to: fullIntakePath }]}
+            title={role === "patient" ? "Prefer the full guided intake?" : "You are already signed in"}
+            body={
+              role === "patient"
+                ? "Your full Vital AI intake is available in the patient portal if you want the richer workflow with saved sessions, uploads, and provider review routing."
+                : "This public page is meant for patient intake. You can still submit the lightweight request here, or return to your dashboard."
+            }
+            detail={
+              role === "patient"
+                ? "This public version is still useful for a lightweight request, but the full portal experience keeps more of your progress and care context together."
+                : "If you are helping a patient begin intake, it is usually better to route them through the public or patient flow directly."
+            }
+            actions={[fullPortalAction]}
           />
           <div className="space" />
         </>
@@ -249,7 +275,7 @@ export default function PublicVitalAiLite() {
             title="You can complete this guided request without an account"
             body="This public version is designed for a lightweight start. You can answer the questions now and the clinic can still review your request."
             detail="If you later need the full portal intake, uploads, or saved session flow, we will route you there clearly."
-            actions={[{ label: "Create Account for Full Intake", to: guestSignupPath, variant: "ghost" }]}
+            actions={[fullPortalAction]}
           />
           <div className="space" />
         </>
@@ -445,6 +471,11 @@ export default function PublicVitalAiLite() {
           <div className="surface-light-helper" style={{ marginTop: 6 }}>
             The clinic will use this to follow up on your request.
           </div>
+          {!user?.id ? (
+            <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
+              You can finish this request as a guest. If you want the fuller saved-intake experience afterward, we will carry you into account setup cleanly.
+            </div>
+          ) : null}
           <div className="space" />
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
             <input className="input" style={{ flex: "1 1 220px" }} placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -510,6 +541,11 @@ export default function PublicVitalAiLite() {
           <div className="surface-light-helper" style={{ marginTop: 6 }}>
             Review the basics before submitting. The clinic will use this for intake guidance, follow-up, and provider prep.
           </div>
+          {!user?.id ? (
+            <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
+              After you submit, you can still create your account and continue into the fuller portal intake without losing the care direction you selected here.
+            </div>
+          ) : null}
           <div className="space" />
           <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
             <div className="card card-pad" style={{ flex: "1 1 320px" }}>
@@ -572,7 +608,7 @@ export default function PublicVitalAiLite() {
             { label: "Explore Services", to: "/services" },
             { label: "Request Booking", to: "/book", variant: "ghost" },
             { label: "Contact the Clinic", to: "/contact", variant: "ghost" },
-            ...(!user?.id ? [{ label: "Create Account for Full Intake", to: guestSignupPath, variant: "ghost" as const }] : [{ label: "Open Full Intake", to: fullIntakePath, variant: "ghost" as const }]),
+            fullPortalAction,
             {
               label: "Start Another",
               variant: "ghost",

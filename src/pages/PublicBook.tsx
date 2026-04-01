@@ -363,6 +363,20 @@ export default function PublicBook() {
     if (intakeOnlyPathway) {
       const nextPathway = selectedServiceRow ? getPublicVitalAiPathwayParam(selectedServiceRow) : intakeOnlyPathway;
       const intakePath = buildPatientIntakePath({ pathway: nextPathway, autostart: true });
+      savePublicBookingDraft({
+        locationId: renderedLocationId,
+        serviceId: renderedServiceId,
+        startTimeLocal: normalizedStartTime,
+        notes,
+        locationName: selectedLocation?.name ?? draft?.locationName,
+        serviceName: selectedBookingOption.serviceLabel,
+        requestId: getRequestIdForBookingSelection(draft, {
+          locationId: renderedLocationId,
+          serviceId: renderedServiceId,
+          startTimeLocal: normalizedStartTime,
+          notes,
+        }),
+      });
 
       if (user?.id && role === "patient") {
         navigate(intakePath);

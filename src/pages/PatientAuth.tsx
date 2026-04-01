@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth, type AppRole } from "../auth/AuthProvider";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, normalizeRedirectTarget } from "../lib/routeFlow";
 import { getAuthRedirectUrl, supabase } from "../lib/supabase";
 
 type Mode = "login" | "signup" | "magic";
+
+function getHomeRouteForRole(role: AppRole | null) {
+  if (role === "super_admin" || role === "location_admin") return "/admin";
+  if (role && role !== "patient") return "/provider";
+  return "/patient/home";
+}
 
 function normalizeMode(value: string | null): Mode {
   const raw = (value ?? "").toLowerCase();
@@ -20,6 +27,7 @@ function normalizeNextPath(value: string | null, pathname: string) {
 }
 
 export default function PatientAuth() {
+  const { loading, user, role } = useAuth();
   const nav = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -69,6 +77,17 @@ export default function PatientAuth() {
     setErr(null);
     setMsg(null);
   }, [email, mode, password]);
+
+  useEffect(() => {
+    if (loading || !user?.id) return;
+
+    if (role && role !== "patient") {
+      nav(getHomeRouteForRole(role), { replace: true });
+      return;
+    }
+
+    nav(nextPath, { replace: true });
+  }, [loading, nav, nextPath, role, user?.id]);
 
   const switchMode = (nextMode: Mode) => {
     setMode(nextMode);
@@ -131,6 +150,14 @@ export default function PatientAuth() {
       setMsg("Magic link sent. Open that email from this environment to continue.");
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Authentication failed.";
+      if (message.toLowerCase().includes("email not confirmed")) {
+        setErr("Check your email and confirm your account before signing in, or use the magic link tab to continue.");
+        return;
+      }
+      if (message.toLowerCase().includes("invalid login credentials")) {
+        setErr("We couldn't sign you in with that email and password. Double-check your password or use the magic link tab.");
+        return;
+      }
       setErr(message);
     } finally {
       setBusy(false);

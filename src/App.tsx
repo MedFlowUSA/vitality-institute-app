@@ -260,7 +260,10 @@ function PatientGate() {
     );
   }
 
-  if (!hasProfile) return <Navigate to="/patient/onboarding" replace />;
+  if (!hasProfile) {
+    const nextPath = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to={buildOnboardingRoute({ next: nextPath })} replace />;
+  }
 
   return <Navigate to={`/patient/home${location.search}${location.hash}`} replace />;
 }
