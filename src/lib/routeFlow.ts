@@ -47,9 +47,9 @@ export function buildAuthRoute(input: { mode: AuthMode; next?: string | null; ha
 
 export function buildOnboardingRoute(input: { next?: string | null; handoff?: string | null }) {
   const params = new URLSearchParams();
-  const next = normalizeRedirectTarget(input.next ?? "/patient", "/patient");
+  const next = normalizeRedirectTarget(input.next ?? "/patient/home", "/patient/home");
 
-  if (next !== "/patient") {
+  if (next !== "/patient/home") {
     params.set("next", next);
   }
 

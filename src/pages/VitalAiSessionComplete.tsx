@@ -477,7 +477,7 @@ export default function VitalAiSessionComplete() {
           title="Your Care Summary"
           subtitle="Your intake was submitted successfully."
           backTo="/intake"
-          homeTo="/patient"
+          homeTo="/patient/home"
         />
 
         <div className="space" />
@@ -485,7 +485,7 @@ export default function VitalAiSessionComplete() {
         <VitalityHero
           title="Your Care Summary"
           subtitle="Here is a clear summary of your intake and the next step that may fit best."
-          secondaryCta={{ label: "Back to Patient Home", to: "/patient" }}
+          secondaryCta={{ label: "Back to Patient Home", to: "/patient/home" }}
           showKpis={false}
         />
 

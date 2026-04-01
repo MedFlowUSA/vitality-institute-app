@@ -205,7 +205,7 @@ export default function VitalAiSession() {
           title={pathway?.name ?? "Vital AI Session"}
           subtitle="Complete each step and your draft saves automatically."
           backTo="/intake"
-          homeTo="/patient"
+          homeTo="/patient/home"
         />
 
         <div className="space" />

@@ -152,7 +152,7 @@ function Gate() {
     return <Navigate to="/provider" replace />;
   }
 
-  return <Navigate to="/patient" replace />;
+  return <Navigate to="/patient/home" replace />;
 }
 
 function getHomeRouteForRole(role: AppRole | null) {

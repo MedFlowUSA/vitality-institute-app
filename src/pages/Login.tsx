@@ -38,7 +38,7 @@ export default function Login() {
     }
 
     if (role === "patient") {
-      navigate("/patient", { replace: true });
+      navigate("/patient/home", { replace: true });
       return;
     }
 

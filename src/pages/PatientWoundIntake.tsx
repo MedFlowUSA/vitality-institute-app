@@ -286,7 +286,7 @@ export default function PatientWoundIntake() {
             Location: <span className="font-medium">{location?.name}</span>
           </div>
           <div className="mt-4">
-            <button className="btn btn-primary" type="button" onClick={() => nav("/patient")}>
+            <button className="btn btn-primary" type="button" onClick={() => nav("/patient/home")}>
               Return to Dashboard
             </button>
           </div>

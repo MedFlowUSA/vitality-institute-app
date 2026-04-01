@@ -102,7 +102,7 @@ export default function VitalAiSessionReview() {
           title="Review Intake"
           subtitle="Review your answers before you submit."
           backTo={sessionId ? `/intake/session/${sessionId}` : "/intake"}
-          homeTo="/patient"
+          homeTo="/patient/home"
         />
 
         <div className="space" />

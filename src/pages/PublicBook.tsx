@@ -24,7 +24,7 @@ import {
 function getHomeRouteForRole(role: AppRole | null) {
   if (role === "super_admin" || role === "location_admin") return "/admin";
   if (role && role !== "patient") return "/provider";
-  return "/patient";
+  return "/patient/home";
 }
 
 type PublicBookingOption = {
@@ -73,6 +73,7 @@ export default function PublicBook() {
       faqNotes: [],
     };
   const hasSelectedInterest = !!selectedInterest.slug;
+  const bookBackTo = hasSelectedInterest ? `/services/${selectedInterest.slug}` : "/services";
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -206,14 +207,17 @@ export default function PublicBook() {
   const isFormComplete = hasValidLocation && hasValidService && hasValidTime;
 
   const validationMessage = useMemo(() => {
-    if (!hasValidLocation || !hasValidService) {
-      return "Please select a service and time to continue";
+    if (!hasValidLocation) {
+      return "Select a preferred location to continue.";
+    }
+    if (!hasValidService) {
+      return "Select a service to continue.";
     }
     if (!selectedBookingOption || bookingOptions.length === 0) {
       return "Something went wrong. Please try again.";
     }
     if (!hasValidTime) {
-      return "Please select a service and time to continue";
+      return "Choose your preferred time to continue.";
     }
     return null;
   }, [bookingOptions.length, hasValidLocation, hasValidService, hasValidTime, selectedBookingOption]);
@@ -315,8 +319,9 @@ export default function PublicBook() {
   const fieldHelperMessage = useMemo(() => {
     if (loading) return " ";
     if (catalogError) return catalogError;
-    if (!hasValidLocation || !hasValidService) return "Please select a service and time to continue";
-    if (!hasValidTime) return "Please select a service and time to continue";
+    if (!hasValidLocation) return "Select the clinic location you prefer.";
+    if (!hasValidService) return "Select the service or program you want help with.";
+    if (!hasValidTime) return "Choose your preferred time before continuing.";
     if (intakeOnlyPathway) return "This option starts with guided intake before scheduling.";
     return " ";
   }, [catalogError, hasValidLocation, hasValidService, hasValidTime, intakeOnlyPathway, loading]);
@@ -347,17 +352,17 @@ export default function PublicBook() {
       if (user?.id && role === "patient") {
         navigate(intakePath);
         return;
-      }
+        }
 
-      if (user?.id && role && role !== "patient") {
-        navigate(getHomeRouteForRole(role), { replace: true });
+        if (user?.id && role && role !== "patient") {
+          navigate(getHomeRouteForRole(role), { replace: true });
+          return;
+        }
+
+        const onboardingPath = buildOnboardingRoute({ next: intakePath });
+        navigate(buildAuthRoute({ mode: "signup", next: onboardingPath }));
         return;
       }
-
-      const onboardingPath = buildOnboardingRoute({ next: intakePath });
-      navigate(buildAuthRoute({ mode: "signup", next: onboardingPath }));
-      return;
-    }
 
     const start = startTimeDate;
     if (!start || start.getTime() < Date.now() - 60 * 1000) {
@@ -454,14 +459,16 @@ export default function PublicBook() {
   };
 
   return (
-    <PublicSiteLayout
-      title={user?.id ? "Book Your Visit" : "Request Your Visit"}
-      subtitle={
-        user?.id
-          ? "Choose your service, location, and preferred time, then continue into intake."
-          : "Choose your preferred location, service, and time to begin intake. Our team will review and confirm your appointment."
-      }
-    >
+      <PublicSiteLayout
+        title={user?.id ? "Book Your Visit" : "Request Your Visit"}
+        subtitle={
+          user?.id
+            ? "Choose your service, location, and preferred time, then continue into intake."
+            : "Choose your preferred location, service, and time to begin intake. Our team will review and confirm your appointment."
+        }
+        backFallbackTo={bookBackTo}
+        preferFallbackBack
+      >
       <div className="card card-pad">
         <div className="h2">{user?.id ? "Continue Your Booking" : "Start Your Visit Request"}</div>
         <div className="muted" style={{ marginTop: 4 }}>
@@ -520,6 +527,17 @@ export default function PublicBook() {
               </div>
             </div>
 
+            {!user?.id ? (
+              <div style={{ marginBottom: 14 }}>
+                <PublicFlowStatusCard
+                  eyebrow="Guest Flow"
+                  title="You can begin before creating your account"
+                  body="We'll save this request first, then hand you into account setup and intake with your visit details carried forward."
+                  detail="That means you do not need to stop and register before choosing the service, location, and preferred time."
+                />
+              </div>
+            ) : null}
+
             <div style={{ marginBottom: 14 }}>
               <PublicFlowStatusCard
                 eyebrow="Next Step"
@@ -569,7 +587,18 @@ export default function PublicBook() {
 
               <div style={{ flex: "1 1 240px" }}>
                 <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Preferred time</div>
-                <input className="input" type="datetime-local" value={startTimeLocal} onChange={(event) => setStartTimeLocal(event.target.value)} />
+                <input
+                  className="input"
+                  type="datetime-local"
+                  value={startTimeLocal}
+                  onChange={(event) => setStartTimeLocal(event.target.value)}
+                  disabled={Boolean(intakeOnlyPathway)}
+                />
+                {intakeOnlyPathway ? (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                    This option starts with guided intake first, so a preferred time is not required yet.
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -599,7 +628,13 @@ export default function PublicBook() {
                 onClick={() => void confirmBooking()}
                 disabled={!canContinue}
               >
-                {submitting ? "Saving Request..." : "Continue to Intake"}
+                {submitting
+                  ? "Saving Request..."
+                  : intakeOnlyPathway
+                    ? "Continue to Guided Intake"
+                    : user?.id
+                      ? "Continue to Intake"
+                      : "Save Request and Continue"}
               </button>
               <Link to="/contact" className="btn btn-secondary">
                 Need help first?

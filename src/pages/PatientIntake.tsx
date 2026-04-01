@@ -1,4 +1,4 @@
-ï»¿// src/pages/PatientIntake.tsx
+// src/pages/PatientIntake.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
@@ -250,7 +250,7 @@ export default function PatientIntake() {
 
     if (error) return setErr(error.message);
 
-    alert("Intake submitted âœ…");
+    alert("Intake submitted.");
     nav(`/patient/assessment?appointmentId=${appointmentId}`, { replace: true });
   };
 
@@ -266,8 +266,8 @@ export default function PatientIntake() {
       <div className="shell">
         <VitalityHero
           title="Vitality Institute"
-          subtitle="Patient Intake â€¢ Select therapy â€¢ Complete your form"
-          secondaryCta={{ label: "Back", to: "/patient" }}
+          subtitle="Patient Intake • Select therapy • Complete your form"
+          secondaryCta={{ label: "Back", to: "/patient/home" }}
           rightActions={
             <button className="btn btn-ghost" onClick={signOut} type="button">
               Sign out
@@ -292,14 +292,14 @@ export default function PatientIntake() {
               ) : null}
             </div>
 
-            <button className="btn btn-ghost" onClick={() => nav("/patient")} type="button">
+            <button className="btn btn-ghost" onClick={() => nav("/patient/home")} type="button">
               Back
             </button>
           </div>
 
           <div className="space" />
 
-          {loading && <div className="muted">Loadingâ€¦</div>}
+          {loading && <div className="muted">Loading…</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading && (
@@ -317,7 +317,7 @@ export default function PatientIntake() {
                   <option value="">Select Appointment</option>
                   {appointments.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {new Date(a.start_time).toLocaleString()} â€” {locName(a.location_id)} â€” {a.status}
+                      {new Date(a.start_time).toLocaleString()} — {locName(a.location_id)} — {a.status}
                     </option>
                   ))}
                 </select>
@@ -387,7 +387,7 @@ export default function PatientIntake() {
                                 {f.label} {f.required ? " *" : ""}
                               </div>
                               <select className="input" value={v ?? ""} onChange={(e) => setValue(f.key, e.target.value)}>
-                                <option value="">Selectâ€¦</option>
+                                <option value="">Select…</option>
                                 {f.options.map((opt) => (
                                   <option key={opt} value={opt}>
                                     {opt}
@@ -430,7 +430,7 @@ export default function PatientIntake() {
 
                   <div className="space" />
                   <button className="btn btn-primary" onClick={submit} disabled={saving} type="button">
-                    {saving ? "Submittingâ€¦" : "Submit Intake"}
+                    {saving ? "Submitting…" : "Submit Intake"}
                   </button>
                 </div>
               ) : (
@@ -443,3 +443,5 @@ export default function PatientIntake() {
     </div>
   );
 }
+
+

@@ -277,7 +277,7 @@ export default function PatientServices() {
         <VitalityHero
           title="Vitality Institute"
           subtitle="Explore personalized treatments, compare options, and choose the right next step with confidence."
-          secondaryCta={{ label: "Back", to: "/patient" }}
+          secondaryCta={{ label: "Back", to: "/patient/home" }}
           rightActions={
             <button className="btn btn-secondary" onClick={signOut} type="button">
               Sign out

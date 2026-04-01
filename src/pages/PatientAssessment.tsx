@@ -177,8 +177,8 @@ export default function PatientAssessment() {
       // 3) (Optional) update appointment status so you can pace the workflow
       await supabase.from("appointments").update({ status: "in_progress" }).eq("id", appt.id);
 
-      alert("Assessment saved ✅");
-      nav("/patient", { replace: true });
+      alert("Assessment saved.");
+      nav("/patient/home", { replace: true });
     } catch (e: any) {
       setErr(e?.message ?? "Failed to save assessment.");
     } finally {
@@ -191,8 +191,8 @@ export default function PatientAssessment() {
       <div className="shell">
         <VitalityHero
           title="Vitality Institute"
-          subtitle="Assessment • Visit created • Wound assessment saved"
-          secondaryCta={{ label: "Back", to: "/patient" }}
+          subtitle="Assessment � Visit created � Wound assessment saved"
+          secondaryCta={{ label: "Back", to: "/patient/home" }}
           rightActions={
             <button className="btn btn-ghost" onClick={signOut} type="button">
               Sign out
@@ -222,14 +222,14 @@ export default function PatientAssessment() {
               ) : null}
             </div>
 
-            <button className="btn btn-ghost" onClick={() => nav("/patient")} type="button">
+            <button className="btn btn-ghost" onClick={() => nav("/patient/home")} type="button">
               Back
             </button>
           </div>
 
           <div className="space" />
 
-          {loading && <div className="muted">Loading…</div>}
+          {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading && (
@@ -344,3 +344,4 @@ export default function PatientAssessment() {
     </div>
   );
 }
+

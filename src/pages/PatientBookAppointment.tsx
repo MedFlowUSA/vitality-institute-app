@@ -317,8 +317,8 @@ export default function PatientBookAppointment() {
         <RouteHeader
           title="Book Visit"
           subtitle="Choose a service and time to continue."
-          backTo="/patient"
-          homeTo="/patient"
+          backTo="/patient/home"
+          homeTo="/patient/home"
           rightAction={
             <button className="btn btn-secondary" onClick={signOut} type="button">
               Sign out

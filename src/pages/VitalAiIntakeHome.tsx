@@ -154,8 +154,8 @@ export default function VitalAiIntakeHome() {
         <RouteHeader
           title="Vital AI Intake"
           subtitle="Start a new intake or resume where you left off."
-          backTo="/patient"
-          homeTo="/patient"
+          backTo="/patient/home"
+          homeTo="/patient/home"
         />
 
         <div className="space" />
@@ -163,7 +163,7 @@ export default function VitalAiIntakeHome() {
         <VitalityHero
           title="Vital AI"
           subtitle="Start or resume intake so your care team has the right details before your visit."
-          secondaryCta={{ label: "Back", to: "/patient" }}
+          secondaryCta={{ label: "Back", to: "/patient/home" }}
           showKpis={false}
         />
 

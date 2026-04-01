@@ -203,6 +203,7 @@ export default function PublicVitalAiLite() {
       title="Start with Vital AI"
       subtitle="Use a short guided pre-intake so the clinic can review your concern and help route the right next step."
       backFallbackTo="/"
+      preferFallbackBack
     >
       <div className="card card-pad card-light surface-light">
         <div
@@ -238,7 +239,17 @@ export default function PublicVitalAiLite() {
           />
           <div className="space" />
         </>
-      ) : null}
+      ) : (
+        <>
+          <PublicFlowStatusCard
+            eyebrow="Guest Friendly"
+            title="You can complete this guided request without an account"
+            body="This public version is designed for a lightweight start. You can answer the questions now and the clinic can still review your request."
+            detail="If you later need the full portal intake, uploads, or saved session flow, we will route you there clearly."
+          />
+          <div className="space" />
+        </>
+      )}
 
       {bookingDraft?.requestId || bookingDraft?.serviceId || bookingDraft?.locationId ? (
         <>
@@ -547,6 +558,7 @@ export default function PublicVitalAiLite() {
             { label: "Explore Services", to: "/services" },
             { label: "Request Booking", to: "/book", variant: "ghost" },
             { label: "Contact the Clinic", to: "/contact", variant: "ghost" },
+            ...(!user?.id ? [{ label: "Create Account", to: "/access?mode=signup", variant: "ghost" as const }] : []),
             {
               label: "Start Another",
               variant: "ghost",

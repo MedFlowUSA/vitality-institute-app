@@ -157,7 +157,7 @@ export default function PatientTreatmentDetail() {
           title="Treatment Details"
           subtitle="Visit Summary • SOAP • Notes • Files"
           primaryCta={{ label: "Back to Treatments", onClick: () => nav("/patient/treatments") }}
-          secondaryCta={{ label: "Home", to: "/patient" }}
+          secondaryCta={{ label: "Home", to: "/patient/home" }}
           rightActions={
             <>
               <button className="btn btn-ghost" type="button" onClick={() => nav("/patient/chat")}>

@@ -10,6 +10,7 @@ type Props = {
   rightAction?: ReactNode;
   backFallbackTo?: string;
   compactHeader?: boolean;
+  preferFallbackBack?: boolean;
 };
 
 const navItems = [
@@ -25,14 +26,22 @@ function getBackFallback(pathname: string) {
   return "/";
 }
 
-export default function PublicSiteLayout({ title, subtitle, children, rightAction, backFallbackTo, compactHeader = false }: Props) {
+export default function PublicSiteLayout({
+  title,
+  subtitle,
+  children,
+  rightAction,
+  backFallbackTo,
+  compactHeader = false,
+  preferFallbackBack = false,
+}: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const showBack = location.pathname !== "/";
   const resolvedBackFallback = backFallbackTo ?? getBackFallback(location.pathname);
 
   function handleBack() {
-    if (typeof window !== "undefined" && window.history.length > 1) {
+    if (!preferFallbackBack && typeof window !== "undefined" && window.history.length > 1) {
       navigate(-1);
       return;
     }

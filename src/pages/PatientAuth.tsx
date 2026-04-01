@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
-import { normalizeRedirectTarget } from "../lib/routeFlow";
+import { buildAuthRoute, normalizeRedirectTarget } from "../lib/routeFlow";
 import { getAuthRedirectUrl, supabase } from "../lib/supabase";
 
 type Mode = "login" | "signup" | "magic";
@@ -14,8 +14,8 @@ function normalizeMode(value: string | null): Mode {
 }
 
 function normalizeNextPath(value: string | null, pathname: string) {
-  if (value) return normalizeRedirectTarget(value, pathname.startsWith("/patient") ? "/patient" : "/");
-  if (pathname.startsWith("/patient")) return "/patient";
+  if (value) return normalizeRedirectTarget(value, pathname.startsWith("/patient") ? "/patient/home" : "/");
+  if (pathname.startsWith("/patient")) return "/patient/home";
   return "/";
 }
 
@@ -36,11 +36,25 @@ export default function PatientAuth() {
     return normalizeNextPath(searchParams.get("next"), location.pathname);
   }, [location.pathname, searchParams]);
 
+  const trimmedEmail = useMemo(() => email.trim(), [email]);
+  const trimmedPassword = useMemo(() => password.trim(), [password]);
+  const isEmailValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail), [trimmedEmail]);
+
+  const inlineValidationMessage = useMemo(() => {
+    if (!trimmedEmail) return "Enter your email address.";
+    if (!isEmailValid) return "Enter a valid email address.";
+    if (mode === "magic") return null;
+    if (!trimmedPassword) return mode === "signup" ? "Create a password to continue." : "Enter your password.";
+    if (mode === "signup" && trimmedPassword.length < 6) return "Password must be at least 6 characters.";
+    return null;
+  }, [isEmailValid, mode, trimmedEmail, trimmedPassword]);
+
   const canSubmit = useMemo(() => {
-    if (!email.trim()) return false;
+    if (!isEmailValid) return false;
     if (mode === "magic") return true;
-    return password.trim().length >= 6;
-  }, [email, password, mode]);
+    if (mode === "signup") return trimmedPassword.length >= 6;
+    return trimmedPassword.length > 0;
+  }, [isEmailValid, mode, trimmedPassword]);
 
   const authRedirect = useMemo(() => {
     const params = new URLSearchParams({ next: nextPath });
@@ -51,15 +65,28 @@ export default function PatientAuth() {
     setMode(normalizeMode(searchParams.get("mode")));
   }, [searchParams]);
 
+  useEffect(() => {
+    setErr(null);
+    setMsg(null);
+  }, [email, mode, password]);
+
+  const switchMode = (nextMode: Mode) => {
+    setMode(nextMode);
+    nav(buildAuthRoute({ mode: nextMode, next: nextPath, handoff }), { replace: true });
+  };
+
   const submit = async () => {
     setErr(null);
     setMsg(null);
-    if (!canSubmit) return;
+    if (!canSubmit) {
+      setErr(inlineValidationMessage ?? "Complete the required fields to continue.");
+      return;
+    }
 
     setBusy(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password: password.trim(),
           options: {
@@ -67,6 +94,11 @@ export default function PatientAuth() {
           },
         });
         if (error) throw error;
+
+        if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          setErr("An account already exists for this email. Sign in or use a magic link instead.");
+          return;
+        }
 
         setMsg("Account created. Check your email to confirm your access, then return here to continue.");
         return;
@@ -193,7 +225,7 @@ export default function PatientAuth() {
               <button
                 type="button"
                 className="btn"
-                onClick={() => setMode("login")}
+                onClick={() => switchMode("login")}
                 style={mode === "login" ? activeTabStyle : tabStyle}
               >
                 Sign In
@@ -201,12 +233,12 @@ export default function PatientAuth() {
               <button
                 type="button"
                 className="btn"
-                onClick={() => setMode("signup")}
+                onClick={() => switchMode("signup")}
                 style={mode === "signup" ? activeTabStyle : tabStyle}
               >
                 Create Account
               </button>
-              <button type="button" className="btn" onClick={() => setMode("magic")} style={mode === "magic" ? activeTabStyle : tabStyle}>
+              <button type="button" className="btn" onClick={() => switchMode("magic")} style={mode === "magic" ? activeTabStyle : tabStyle}>
                 Magic Link
               </button>
             </div>
@@ -251,6 +283,9 @@ export default function PatientAuth() {
                 placeholder="name@company.com"
                 autoComplete="email"
               />
+              {!trimmedEmail || isEmailValid ? null : (
+                <div style={{ ...helperStyle, color: "#fecaca" }}>Enter a valid email address.</div>
+              )}
             </label>
 
             {mode !== "magic" ? (
@@ -264,12 +299,23 @@ export default function PatientAuth() {
                   placeholder="minimum 6 characters"
                   autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 />
+                {mode === "signup" ? (
+                  <div style={helperStyle}>
+                    Use at least 6 characters so your account can be created successfully.
+                  </div>
+                ) : null}
               </label>
             ) : null}
 
             <button className="btn btn-primary" type="button" disabled={!canSubmit || busy} onClick={submit} style={{ width: "100%" }}>
               {busy ? "Working..." : mode === "signup" ? "Create account" : mode === "login" ? "Sign in" : "Send magic link"}
             </button>
+
+            {!canSubmit && !busy ? (
+              <div style={helperStyle}>{inlineValidationMessage ?? "Complete the required fields to continue."}</div>
+            ) : mode === "magic" ? (
+              <div style={helperStyle}>We&apos;ll send a secure sign-in link to your email.</div>
+            ) : null}
 
             <div style={{ height: 14 }} />
 
@@ -278,7 +324,7 @@ export default function PatientAuth() {
                 type="button"
                 className="btn btn-secondary"
                 style={{ width: "100%" }}
-                onClick={() => setMode(mode === "signup" ? "login" : "signup")}
+                onClick={() => switchMode(mode === "signup" ? "login" : "signup")}
               >
                 {mode === "signup" ? "Already have an account? Sign In" : "Need an account? Create One"}
               </button>
@@ -348,6 +394,13 @@ const messageStyle: React.CSSProperties = {
   borderRadius: 16,
   padding: 12,
   marginBottom: 12,
+};
+
+const helperStyle: React.CSSProperties = {
+  marginTop: 6,
+  fontSize: 12,
+  color: "rgba(226,232,240,0.68)",
+  lineHeight: 1.6,
 };
 
 const contextCardStyle: React.CSSProperties = {

@@ -4,19 +4,14 @@ import { getPublicAccessRoute } from "../lib/publicMarketingCatalog";
 
 const howToBegin = [
   {
-    title: "Request a Visit",
+    title: "Book a Visit",
     body: "Choose a service, location, and preferred time in one clean step.",
     to: "/book",
   },
   {
     title: "Start with Vital AI",
-    body: "Begin guided intake if you want help finding the right path.",
+    body: "Begin guided intake if you want help choosing the right next step first.",
     to: "/vital-ai",
-  },
-  {
-    title: "Create or Access Your Account",
-    body: "Continue intake, booking, or follow-up inside your portal.",
-    to: getPublicAccessRoute("signup"),
   },
 ];
 
@@ -73,10 +68,11 @@ export default function PublicLandingSimplified() {
           Patient-Centered Care in Redlands
         </div>
         <div className="h1 public-hero-heading" style={{ marginTop: 18, maxWidth: 760 }}>
-          Get the care you need—fast, clear, and guided every step of the way.
+          Get the care you need, with a clear and guided next step.
         </div>
         <div className="surface-light-body public-hero-body" style={{ marginTop: 18, lineHeight: 1.75, maxWidth: 720 }}>
-          Whether you&apos;re dealing with a wound, need treatment, or just want to feel better, we&apos;ll guide you to the right next step.
+          Whether you are concerned about a wound, ready to book treatment, or looking for the right starting point,
+          Vitality Institute will guide you forward.
         </div>
 
         <div style={{ height: 24 }} />
@@ -103,9 +99,12 @@ export default function PublicLandingSimplified() {
       <div className="space" />
 
       <div className="card card-pad card-light surface-light">
-        <div className="h2" style={{ color: "#1F1633" }}>How to Begin</div>
+        <div className="h2" style={{ color: "#1F1633" }}>Choose the clearest first step</div>
+        <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75, maxWidth: 720 }}>
+          Book directly if you already know what you need. Start with Vital AI if you want guided routing before the clinic reviews next steps.
+        </div>
 
-        <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
+        <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch", marginTop: 16 }}>
           {howToBegin.map((item) => (
             <Link
               key={item.title}
@@ -134,7 +133,7 @@ export default function PublicLandingSimplified() {
                 {item.body}
               </div>
               <div style={{ marginTop: 14 }}>
-                <span className="btn btn-secondary">{item.title}</span>
+                <span className="btn btn-secondary">Open</span>
               </div>
             </Link>
           ))}

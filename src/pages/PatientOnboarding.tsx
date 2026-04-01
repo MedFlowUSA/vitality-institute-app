@@ -13,7 +13,7 @@ export default function PatientOnboarding() {
   const { user, loading: authLoading } = useAuth();
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
-  const nextPath = useMemo(() => normalizeRedirectTarget(searchParams.get("next"), "/patient"), [searchParams]);
+  const nextPath = useMemo(() => normalizeRedirectTarget(searchParams.get("next"), "/patient/home"), [searchParams]);
   const handoff = searchParams.get("handoff");
   const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
   const bookingFollowUp = useMemo(() => {

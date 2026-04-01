@@ -177,7 +177,7 @@ export default function PatientConversationCenter() {
       subtitle="Secure conversation with the Vitality Institute care team"
       actions={
         <>
-          <button className="btn btn-ghost" type="button" onClick={() => navigate("/patient")}>
+          <button className="btn btn-ghost" type="button" onClick={() => navigate("/patient/home")}>
             Back
           </button>
           <button className="btn btn-ghost" type="button" onClick={signOut}>
