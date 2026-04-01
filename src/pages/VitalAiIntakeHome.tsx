@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
@@ -79,7 +79,7 @@ export default function VitalAiIntakeHome() {
     saveStoredIntakeGender(intakeGender);
   }, [intakeGender]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
     setErr(null);
@@ -102,17 +102,16 @@ export default function VitalAiIntakeHome() {
       setPathways(pathwayRows);
       setPatient(patientRow);
       setDrafts((draftRows.data as VitalAiSessionRow[]) ?? []);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load Vital AI intake options.");
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : "Failed to load Vital AI intake options.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resumeKey, user?.id]);
+    void load();
+  }, [load, resumeKey, user?.id]);
 
   useEffect(() => {
     if (!shouldAutostart || !requestedPathway) {
@@ -120,15 +119,7 @@ export default function VitalAiIntakeHome() {
     }
   }, [requestedPathway, shouldAutostart]);
 
-  useEffect(() => {
-    if (!shouldAutostart || loading || busySlug || !matchedRequestedPathway) return;
-    if (autoStartedPathwayRef.current === matchedRequestedPathway.slug) return;
-
-    autoStartedPathwayRef.current = matchedRequestedPathway.slug;
-    void startPathway(matchedRequestedPathway);
-  }, [busySlug, loading, matchedRequestedPathway, shouldAutostart]);
-
-  const startPathway = async (pathway: VitalAiPathwayRow) => {
+  const startPathway = useCallback(async (pathway: VitalAiPathwayRow) => {
     if (!user?.id) return;
     setBusySlug(pathway.slug);
     setErr(null);
@@ -140,13 +131,21 @@ export default function VitalAiIntakeHome() {
       }
       clearPublicBookingDraft();
       navigate(`/intake/session/${session.id}`, { replace: true });
-    } catch (e: any) {
+    } catch (e: unknown) {
       autoStartedPathwayRef.current = null;
-      setErr(e?.message ?? "Failed to start intake.");
+      setErr(e instanceof Error ? e.message : "Failed to start intake.");
     } finally {
       setBusySlug(null);
     }
-  };
+  }, [intakeGender, navigate, patient, user?.id]);
+
+  useEffect(() => {
+    if (!shouldAutostart || loading || busySlug || !matchedRequestedPathway) return;
+    if (autoStartedPathwayRef.current === matchedRequestedPathway.slug) return;
+
+    autoStartedPathwayRef.current = matchedRequestedPathway.slug;
+    void startPathway(matchedRequestedPathway);
+  }, [busySlug, loading, matchedRequestedPathway, shouldAutostart, startPathway]);
 
   return (
     <div className="app-bg">

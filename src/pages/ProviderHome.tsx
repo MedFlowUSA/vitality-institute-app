@@ -1,5 +1,5 @@
 // src/pages/ProviderHome.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
@@ -121,10 +121,10 @@ export default function ProviderHome() {
   const fmtDateTime = (iso: string) =>
     new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-  const getLocationScopeFilter = <T extends { eq(column: string, value: string): T }>(query: T) => {
+  const getLocationScopeFilter = useCallback(<T extends { eq(column: string, value: string): T }>(query: T) => {
     if (!activeLocationId) return query;
     return query.eq("location_id", activeLocationId);
-  };
+  }, [activeLocationId]);
 
   const resolvePatientRecordId = async (candidateId: string) => {
     if (!candidateId) throw new Error("Missing patient id.");
@@ -144,7 +144,7 @@ export default function ProviderHome() {
     throw new Error("Patient record not found.");
   };
 
-  const loadBase = async (uid: string) => {
+  const loadBase = useCallback(async (uid: string) => {
     setErr(null);
 
     if (isAdmin) {
@@ -191,9 +191,9 @@ export default function ProviderHome() {
 
     if (serviceErr) throw serviceErr;
     setServices((serviceRows as ServiceRow[]) ?? []);
-  };
+  }, [activeLocationId, isAdmin, setActiveLocationId]);
 
-  const loadAppointments = async () => {
+  const loadAppointments = useCallback(async () => {
     setErr(null);
     setLoading(true);
 
@@ -249,9 +249,9 @@ export default function ProviderHome() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeLocationId, getLocationScopeFilter]);
 
-  const loadCounts = async () => {
+  const loadCounts = useCallback(async () => {
     if (!user?.id) return;
 
     setCountsLoading(true);
@@ -320,7 +320,12 @@ export default function ProviderHome() {
     } finally {
       setCountsLoading(false);
     }
-  };
+  }, [activeLocationId, getLocationScopeFilter, user?.id]);
+
+  const refreshAll = useCallback(async () => {
+    await loadAppointments();
+    await loadCounts();
+  }, [loadAppointments, loadCounts]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -337,14 +342,14 @@ export default function ProviderHome() {
         setLoading(false);
       }
     })();
-  }, [activeLocationId, isAdmin, setActiveLocationId, user?.id]);
+  }, [loadBase, user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
 
-    loadAppointments();
-    loadCounts();
-  }, [activeLocationId, resumeKey, user?.id]);
+    void loadAppointments();
+    void loadCounts();
+  }, [loadAppointments, loadCounts, resumeKey, user?.id]);
 
   useEffect(() => {
     if (!user?.id || resumeKey === 0) return;
@@ -357,12 +362,7 @@ export default function ProviderHome() {
         setErr(getErrorMessage(e, "Failed to recover the provider dashboard after returning to the app."));
       }
     })();
-  }, [resumeKey, user?.id]);
-
-  const refreshAll = async () => {
-    await loadAppointments();
-    await loadCounts();
-  };
+  }, [loadBase, refreshAll, resumeKey, user?.id]);
 
   const updateActiveLocation = async (nextLocationId: string) => {
     setLocationSaving(true);

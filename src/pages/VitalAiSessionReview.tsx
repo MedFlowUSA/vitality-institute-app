@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
@@ -30,8 +30,7 @@ export default function VitalAiSessionReview() {
   const [files, setFiles] = useState<VitalAiFileRow[]>([]);
   const submitLockRef = useRef(false);
 
-  useEffect(() => {
-    const load = async () => {
+  const load = useCallback(async () => {
       if (!sessionId || !user?.id) return;
       setLoading(true);
       setErr(null);
@@ -62,15 +61,16 @@ export default function VitalAiSessionReview() {
         setPatient(nextPatient);
         setAnswers(responsesToMap(responseRows));
         setFiles(fileRows);
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load intake review.");
+      } catch (e: unknown) {
+        setErr(e instanceof Error ? e.message : "Failed to load intake review.");
       } finally {
         setLoading(false);
       }
-    };
+    }, [navigate, sessionId, user?.id]);
 
-    load();
-  }, [resumeKey, sessionId, user?.id]);
+  useEffect(() => {
+    void load();
+  }, [load, resumeKey, sessionId, user?.id]);
 
   const handleSubmit = async () => {
     if (!session || !pathway || submitting || submitLockRef.current) return;
@@ -83,12 +83,12 @@ export default function VitalAiSessionReview() {
         throw new Error("Your intake was saved, but provider review setup is still incomplete. Please try again.");
       }
       navigate(`/intake/session/${session.id}/complete`, { replace: true });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("[VitalAI submit] review submit failed", {
         sessionId: session.id,
         error: e,
       });
-      setErr(e?.message ?? "Failed to submit intake.");
+      setErr(e instanceof Error ? e.message : "Failed to submit intake.");
     } finally {
       setSubmitting(false);
       submitLockRef.current = false;

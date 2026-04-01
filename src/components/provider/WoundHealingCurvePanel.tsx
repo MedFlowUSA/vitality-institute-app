@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 const LazyWoundHealingCurveChart = lazy(() => import("./WoundHealingCurveChart"));
@@ -45,7 +45,7 @@ export default function WoundHealingCurvePanel({ patientId, locationId }: Props)
   const [err, setErr] = useState<string | null>(null);
   const [label, setLabel] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!patientId || !locationId) return;
     setLoading(true);
     setErr(null);
@@ -65,11 +65,11 @@ export default function WoundHealingCurvePanel({ patientId, locationId }: Props)
     } finally {
       setLoading(false);
     }
-  };
+  }, [locationId, patientId]);
 
   useEffect(() => {
     void load();
-  }, [patientId, locationId]);
+  }, [load]);
 
   const labels = useMemo(() => {
     const labelSet = new Set<string>();

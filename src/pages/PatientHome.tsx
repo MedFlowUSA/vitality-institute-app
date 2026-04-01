@@ -1098,7 +1098,7 @@ export default function PatientHome() {
     return () => {
       cancelled = true;
     };
-  }, [selectedAppointment?.id, user?.id, serviceById]);
+  }, [selectedAppointment?.id, selectedAppointment?.service_id, user?.id, serviceById]);
 
   useEffect(() => {
     let cancelled = false;
