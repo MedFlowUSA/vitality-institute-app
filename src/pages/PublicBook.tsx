@@ -191,6 +191,21 @@ export default function PublicBook() {
     return selectedBookingOption?.intakePathway ?? null;
   }, [selectedBookingOption]);
 
+  const guestIntakePath = useMemo(() => {
+    return buildPatientIntakePath({
+      pathway: selectedServiceRow ? getPublicVitalAiPathwayParam(selectedServiceRow) : intakeOnlyPathway,
+      autostart: Boolean(selectedServiceRow || intakeOnlyPathway),
+    });
+  }, [intakeOnlyPathway, selectedServiceRow]);
+
+  const guestOnboardingPath = useMemo(() => {
+    return buildOnboardingRoute({ next: guestIntakePath, handoff: "booking_request" });
+  }, [guestIntakePath]);
+
+  const guestSignupPath = useMemo(() => {
+    return buildAuthRoute({ mode: "signup", next: guestOnboardingPath, handoff: "booking_request" });
+  }, [guestOnboardingPath]);
+
   const normalizedStartTime = useMemo(() => startTimeLocal.trim(), [startTimeLocal]);
   const hasCompleteStartTimeValue = normalizedStartTime.length >= 16;
 
@@ -359,8 +374,8 @@ export default function PublicBook() {
           return;
         }
 
-        const onboardingPath = buildOnboardingRoute({ next: intakePath });
-        navigate(buildAuthRoute({ mode: "signup", next: onboardingPath }));
+        const onboardingPath = buildOnboardingRoute({ next: intakePath, handoff: "booking_request" });
+        navigate(buildAuthRoute({ mode: "signup", next: onboardingPath, handoff: "booking_request" }));
         return;
       }
 
@@ -445,14 +460,10 @@ export default function PublicBook() {
         requestId: request.id,
       });
 
-      const nextIntakePath = buildPatientIntakePath({
-        pathway: selectedServiceRow ? getPublicVitalAiPathwayParam(selectedServiceRow) : null,
-        autostart: Boolean(selectedServiceRow),
-      });
-      const onboardingPath = buildOnboardingRoute({ next: nextIntakePath, handoff: "booking_request" });
-      navigate(buildAuthRoute({ mode: "signup", next: onboardingPath, handoff: "booking_request" }));
-    } catch {
-      setSubmitError("Something went wrong. Please try again.");
+      navigate(guestSignupPath);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Something went wrong. Please try again.";
+      setSubmitError(message);
     } finally {
       setSubmitting(false);
     }
@@ -464,7 +475,7 @@ export default function PublicBook() {
         subtitle={
           user?.id
             ? "Choose your service, location, and preferred time, then continue into intake."
-            : "Choose your preferred location, service, and time to begin intake. Our team will review and confirm your appointment."
+            : "Choose your preferred location and service first. We'll keep the request connected as you move into account setup and intake."
         }
         backFallbackTo={bookBackTo}
         preferFallbackBack
@@ -531,9 +542,9 @@ export default function PublicBook() {
               <div style={{ marginBottom: 14 }}>
                 <PublicFlowStatusCard
                   eyebrow="Guest Flow"
-                  title="You can begin before creating your account"
-                  body="We'll save this request first, then hand you into account setup and intake with your visit details carried forward."
-                  detail="That means you do not need to stop and register before choosing the service, location, and preferred time."
+                  title="You can start here before creating your account"
+                  body="We'll save your request first, then move you into account setup and intake with your visit details carried forward."
+                  detail="You do not need to stop and register before choosing the location, service, and preferred timing that fit best."
                 />
               </div>
             ) : null}
@@ -541,13 +552,14 @@ export default function PublicBook() {
             <div style={{ marginBottom: 14 }}>
               <PublicFlowStatusCard
                 eyebrow="Next Step"
-                title={user?.id ? "Intake follows this booking step" : "Clinic review follows this request"}
+                title={user?.id ? "Intake follows this booking step" : "Request first, then account setup and intake"}
                 body={
                   user?.id
                     ? "After you continue, you'll move into intake so the care team has the right context before the visit is finalized."
                     : "After you continue, your request is saved for review while you move through account setup and intake."
                 }
-                detail="A coordinator may follow up to confirm scheduling and next steps. Provider review may be required depending on the concern or service selected."
+                detail="A coordinator may follow up to confirm timing and next steps. Provider review may be required depending on the concern or service selected."
+                actions={!user?.id ? [{ label: "Create Account Now", to: guestSignupPath, variant: "ghost" }] : undefined}
               />
             </div>
 
@@ -603,7 +615,7 @@ export default function PublicBook() {
             </div>
 
             <div className="muted" style={{ fontSize: 12, marginTop: 8, minHeight: 18 }}>
-              {!isFormComplete || intakeOnlyPathway || catalogError ? fieldHelperMessage : " "}
+              {!isFormComplete || intakeOnlyPathway || catalogError ? fieldHelperMessage : "Your request details are ready to carry into the next step."}
             </div>
 
             <div className="space" />
@@ -649,7 +661,7 @@ export default function PublicBook() {
               body={
                 "Once you send your request, our team will review it and follow up with the right next step."
               }
-              detail="Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit."
+              detail="Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit. If you are not signed in yet, we will carry this request into account setup and intake for you."
               actions={[
                 { label: "Start with Vital AI", to: "/vital-ai", variant: "ghost" },
                 { label: "Explore Services", to: "/services", variant: "ghost" },

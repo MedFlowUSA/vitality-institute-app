@@ -2,19 +2,6 @@ import { Link } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { getPublicAccessRoute } from "../lib/publicMarketingCatalog";
 
-const howToBegin = [
-  {
-    title: "Book a Visit",
-    body: "Choose a service, location, and preferred time in one clean step.",
-    to: "/book",
-  },
-  {
-    title: "Start with Vital AI",
-    body: "Begin guided intake if you want help choosing the right next step first.",
-    to: "/vital-ai",
-  },
-];
-
 const featuredServices = [
   {
     title: "GLP-1 / Weight Optimization",
@@ -84,15 +71,20 @@ export default function PublicLandingSimplified() {
           <Link to="/vital-ai" className="btn btn-secondary">
             Get Help Choosing
           </Link>
-          <Link to={getPublicAccessRoute("signup")} className="btn btn-secondary">
-            Create Account
-          </Link>
         </div>
 
         <div className="space" />
 
         <div className="surface-light-helper" style={{ lineHeight: 1.7 }}>
-          Every public request is reviewed by the clinic before scheduling is finalized.
+          Every public request is reviewed by the clinic before scheduling is finalized. Already started with us?{" "}
+          <Link to={getPublicAccessRoute("signup")} style={{ color: "inherit", fontWeight: 700 }}>
+            Create your account
+          </Link>{" "}
+          or{" "}
+          <Link to={getPublicAccessRoute("login")} style={{ color: "inherit", fontWeight: 700 }}>
+            sign in
+          </Link>
+          .
         </div>
       </div>
 
@@ -100,43 +92,38 @@ export default function PublicLandingSimplified() {
 
       <div className="card card-pad card-light surface-light">
         <div className="h2" style={{ color: "#1F1633" }}>Choose the clearest first step</div>
-        <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75, maxWidth: 720 }}>
+        <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75, maxWidth: 760 }}>
           Book directly if you already know what you need. Start with Vital AI if you want guided routing before the clinic reviews next steps.
         </div>
 
         <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch", marginTop: 16 }}>
-          {howToBegin.map((item) => (
-            <Link
-              key={item.title}
-              to={item.to}
-              className="card card-pad card-light surface-light"
-              style={{
-                flex: "1 1 220px",
-                minWidth: 220,
-                textDecoration: "none",
-                border: "1px solid rgba(184,164,255,0.18)",
-                boxShadow: "0 14px 28px rgba(16,24,40,0.06)",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 900,
-                  color: "var(--v-helper-dark)",
-                  letterSpacing: ".12em",
-                  textTransform: "uppercase",
-                }}
-              >
-                {item.title}
-              </div>
-              <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
-                {item.body}
-              </div>
-              <div style={{ marginTop: 14 }}>
-                <span className="btn btn-secondary">Open</span>
-              </div>
-            </Link>
-          ))}
+          <div className="card card-pad card-light surface-light" style={{ flex: "1 1 280px", minWidth: 240 }}>
+            <div style={{ fontSize: 12, fontWeight: 900, color: "var(--v-helper-dark)", letterSpacing: ".12em", textTransform: "uppercase" }}>
+              Primary
+            </div>
+            <div className="h2" style={{ marginTop: 10 }}>Book a Visit</div>
+            <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
+              Best if you already know the service, program, or consultation you want.
+            </div>
+          </div>
+          <div className="card card-pad card-light surface-light" style={{ flex: "1 1 280px", minWidth: 240 }}>
+            <div style={{ fontSize: 12, fontWeight: 900, color: "var(--v-helper-dark)", letterSpacing: ".12em", textTransform: "uppercase" }}>
+              Guided
+            </div>
+            <div className="h2" style={{ marginTop: 10 }}>Start with Vital AI</div>
+            <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
+              Best if you want help choosing the right path before booking or need the clinic to review urgency first.
+            </div>
+          </div>
+          <div className="card card-pad card-light surface-light" style={{ flex: "1 1 280px", minWidth: 240 }}>
+            <div style={{ fontSize: 12, fontWeight: 900, color: "var(--v-helper-dark)", letterSpacing: ".12em", textTransform: "uppercase" }}>
+              Support
+            </div>
+            <div className="h2" style={{ marginTop: 10 }}>Need a hand?</div>
+            <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
+              Call the clinic or use the contact page if you want help choosing between services, intake, or follow-up.
+            </div>
+          </div>
         </div>
       </div>
 

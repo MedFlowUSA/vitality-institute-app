@@ -18,7 +18,7 @@ import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { submitPublicVitalAiRequest } from "../lib/publicVitalAiSubmission";
 import { loadCatalogLocations, type CatalogLocation } from "../lib/services/catalog";
 import { scoreConversionLead } from "../lib/vitalAi/conversionEngine";
-import { buildPatientIntakePath } from "../lib/routeFlow";
+import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath } from "../lib/routeFlow";
 
 type StepKey = "pathway" | "questions" | "contact" | "review" | "success";
 
@@ -60,6 +60,9 @@ export default function PublicVitalAiLite() {
   const pathwayDef = useMemo(() => getPublicVitalAiPathway(pathway), [pathway]);
   const questions = useMemo(() => getPathwayQuestions(pathway), [pathway]);
   const leadMetadata = useMemo(() => scoreConversionLead({ pathway, answers }), [answers, pathway]);
+  const fullIntakePath = useMemo(() => buildPatientIntakePath({ pathway, autostart: true }), [pathway]);
+  const guestPortalPath = useMemo(() => buildOnboardingRoute({ next: fullIntakePath, handoff: "vital_ai_lite" }), [fullIntakePath]);
+  const guestSignupPath = useMemo(() => buildAuthRoute({ mode: "signup", next: guestPortalPath, handoff: "vital_ai_lite" }), [guestPortalPath]);
   const followUp = useMemo(
     () => buildFollowUpMessage(leadMetadata.leadType, leadMetadata.urgencyLevel),
     [leadMetadata.leadType, leadMetadata.urgencyLevel]
@@ -235,7 +238,7 @@ export default function PublicVitalAiLite() {
             title="Prefer the full guided intake?"
             body="Your full Vital AI intake is available in the patient portal if you want the richer workflow with saved sessions, uploads, and provider review routing."
             detail="This public version is still useful for a lightweight request, but the full portal experience keeps more of your progress and care context together."
-            actions={[{ label: "Open Full Intake", to: buildPatientIntakePath({ pathway, autostart: true }) }]}
+            actions={[{ label: "Open Full Intake", to: fullIntakePath }]}
           />
           <div className="space" />
         </>
@@ -246,6 +249,7 @@ export default function PublicVitalAiLite() {
             title="You can complete this guided request without an account"
             body="This public version is designed for a lightweight start. You can answer the questions now and the clinic can still review your request."
             detail="If you later need the full portal intake, uploads, or saved session flow, we will route you there clearly."
+            actions={[{ label: "Create Account for Full Intake", to: guestSignupPath, variant: "ghost" }]}
           />
           <div className="space" />
         </>
@@ -333,6 +337,11 @@ export default function PublicVitalAiLite() {
             <div className="surface-light-helper" style={{ marginTop: 12 }}>
               {pathwayDef.purpose}
             </div>
+            {!user?.id ? (
+              <div className="surface-light-helper" style={{ marginTop: 12, lineHeight: 1.7 }}>
+                You can submit this as a guest now, or create your account first if you want the fuller saved-intake experience.
+              </div>
+            ) : null}
 
             <div className="space" />
 
@@ -350,6 +359,11 @@ export default function PublicVitalAiLite() {
               <Link to="/book" className="btn btn-ghost">
                 Book Instead
               </Link>
+              {!user?.id ? (
+                <Link to={guestSignupPath} className="btn btn-ghost">
+                  Create Account First
+                </Link>
+              ) : null}
               <Link to="/contact" className="btn btn-ghost">
                 Contact Us
               </Link>
@@ -558,7 +572,7 @@ export default function PublicVitalAiLite() {
             { label: "Explore Services", to: "/services" },
             { label: "Request Booking", to: "/book", variant: "ghost" },
             { label: "Contact the Clinic", to: "/contact", variant: "ghost" },
-            ...(!user?.id ? [{ label: "Create Account", to: "/access?mode=signup", variant: "ghost" as const }] : []),
+            ...(!user?.id ? [{ label: "Create Account for Full Intake", to: guestSignupPath, variant: "ghost" as const }] : [{ label: "Open Full Intake", to: fullIntakePath, variant: "ghost" as const }]),
             {
               label: "Start Another",
               variant: "ghost",

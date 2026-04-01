@@ -22,7 +22,9 @@ function getBackFallback(pathname: string) {
   if (pathname.startsWith("/services/")) return "/services";
   if (pathname === "/contact") return "/";
   if (pathname === "/book") return "/services";
+  if (pathname === "/access" || pathname === "/patient/auth" || pathname === "/login") return "/";
   if (pathname === "/vital-ai" || pathname === "/start") return "/";
+  if (pathname === "/privacy-policy" || pathname === "/terms-of-service") return "/";
   return "/";
 }
 

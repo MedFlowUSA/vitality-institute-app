@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, normalizeRedirectTarget } from "../lib/routeFlow";
@@ -100,6 +100,11 @@ export default function PatientAuth() {
           return;
         }
 
+        if (data.session) {
+          nav(nextPath, { replace: true });
+          return;
+        }
+
         setMsg("Account created. Check your email to confirm your access, then return here to continue.");
         return;
       }
@@ -130,6 +135,11 @@ export default function PatientAuth() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void submit();
   };
 
   return (
@@ -210,7 +220,7 @@ export default function PatientAuth() {
             </div>
           </div>
 
-          <div style={{ padding: 28 }}>
+          <form style={{ padding: 28 }} onSubmit={handleSubmit}>
             <div
               style={{
                 display: "grid",
@@ -280,7 +290,7 @@ export default function PatientAuth() {
                 className="input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@company.com"
+                placeholder="name@example.com"
                 autoComplete="email"
               />
               {!trimmedEmail || isEmailValid ? null : (
@@ -300,14 +310,20 @@ export default function PatientAuth() {
                   autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 />
                 {mode === "signup" ? (
-                  <div style={helperStyle}>
+                  <div style={{ ...helperStyle, color: trimmedPassword && trimmedPassword.length < 6 ? "#fecaca" : helperStyle.color }}>
                     Use at least 6 characters so your account can be created successfully.
                   </div>
                 ) : null}
               </label>
             ) : null}
 
-            <button className="btn btn-primary" type="button" disabled={!canSubmit || busy} onClick={submit} style={{ width: "100%" }}>
+            <button
+              className="btn btn-primary"
+              type="submit"
+              disabled={!canSubmit || busy}
+              aria-disabled={!canSubmit || busy}
+              style={{ width: "100%", opacity: !canSubmit && !busy ? 0.72 : 1, cursor: !canSubmit && !busy ? "not-allowed" : "pointer" }}
+            >
               {busy ? "Working..." : mode === "signup" ? "Create account" : mode === "login" ? "Sign in" : "Send magic link"}
             </button>
 
@@ -346,7 +362,7 @@ export default function PatientAuth() {
             >
               Back to Home
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </div>
