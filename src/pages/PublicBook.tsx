@@ -12,6 +12,8 @@ import { getPublicOfferingBySlug, PUBLIC_OFFERINGS, type PublicOffering } from "
 import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath } from "../lib/routeFlow";
 import {
+  formatCatalogLocationDetails,
+  formatCatalogLocationLabel,
   getIntakeOnlyPathwayForService,
   getPublicVitalAiPathwayParam,
   loadCatalogLocations,
@@ -585,10 +587,15 @@ export default function PublicBook() {
                   <option value="">Select location...</option>
                   {locations.map((location) => (
                     <option key={location.id} value={location.id}>
-                      {location.name ?? location.id}
+                      {formatCatalogLocationLabel(location)}
                     </option>
                   ))}
                 </select>
+                {selectedLocation ? (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                    {formatCatalogLocationDetails(selectedLocation)}
+                  </div>
+                ) : null}
               </div>
 
               <div style={{ flex: "2 1 320px" }}>

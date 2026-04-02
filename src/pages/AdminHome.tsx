@@ -9,8 +9,11 @@ import LocationPicker from "../components/LocationPicker";
 type LocationRow = {
   id: string;
   name: string;
+  address_line1: string | null;
+  address_line2: string | null;
   city: string | null;
   state: string | null;
+  zip: string | null;
   is_active: boolean | null;
 };
 
@@ -174,7 +177,7 @@ export default function AdminHome() {
 
     const { data, error } = await supabase
       .from("locations")
-      .select("id,name,city,state,is_active")
+      .select("id,name,address_line1,address_line2,city,state,zip,is_active")
       .order("name");
 
     if (error) setErr(error.message);
@@ -494,11 +497,22 @@ export default function AdminHome() {
                       e.preventDefault();
                       const form = e.currentTarget as HTMLFormElement;
                       const name = (form.elements.namedItem("name") as HTMLInputElement).value;
+                      const addressLine1 = (form.elements.namedItem("address_line1") as HTMLInputElement).value;
+                      const addressLine2 = (form.elements.namedItem("address_line2") as HTMLInputElement).value;
                       const city = (form.elements.namedItem("city") as HTMLInputElement).value;
                       const state = (form.elements.namedItem("state") as HTMLInputElement).value;
+                      const zip = (form.elements.namedItem("zip") as HTMLInputElement).value;
 
                       const { error } = await supabase.from("locations").insert([
-                        { name, city: city || null, state: state || null, is_active: true },
+                        {
+                          name,
+                          address_line1: addressLine1 || null,
+                          address_line2: addressLine2 || null,
+                          city: city || null,
+                          state: state || null,
+                          zip: zip || null,
+                          is_active: true,
+                        },
                       ]);
 
                       if (error) return alert(error.message);
@@ -510,8 +524,11 @@ export default function AdminHome() {
                   >
                     <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                       <input className="input" style={{ flex: "1 1 220px" }} name="name" placeholder="Location Name" required />
+                      <input className="input" style={{ flex: "2 1 260px" }} name="address_line1" placeholder="Street address" />
+                      <input className="input" style={{ flex: "1 1 180px" }} name="address_line2" placeholder="Suite / unit" />
                       <input className="input" style={{ flex: "1 1 160px" }} name="city" placeholder="City" />
                       <input className="input" style={{ flex: "1 1 110px" }} name="state" placeholder="State" />
+                      <input className="input" style={{ flex: "1 1 120px" }} name="zip" placeholder="ZIP" />
                       <button className="btn btn-primary" type="submit">Save</button>
                     </div>
                   </form>
@@ -521,14 +538,12 @@ export default function AdminHome() {
               {locations.map((l) => (
                 <div key={l.id} className="card card-pad" style={{ marginBottom: 12 }}>
                   <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                    <div>
-                      <div className="h2">{l.name}</div>
-                      <div className="muted">
-                        {(l.city ?? "")}
-                        {l.city && l.state ? ", " : ""}
-                        {(l.state ?? "")}
+                      <div>
+                        <div className="h2">{l.name}</div>
+                        <div className="muted">
+                          {[l.address_line1, l.address_line2, [l.city, l.state, l.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "Address not set"}
+                        </div>
                       </div>
-                    </div>
 
                     <button
                       className="btn btn-secondary"

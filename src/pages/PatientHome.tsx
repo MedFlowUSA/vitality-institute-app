@@ -19,7 +19,14 @@ import { countUnreadConversationsForPatient, ensureAppointmentConversation } fro
 import { getErrorMessage, getPatientRecordIdForProfile, isDatabaseErrorWithCode } from "../lib/patientRecords";
 import { getVirtualVisitState } from "../lib/virtualVisits";
 
-type LocationRow = { id: string; name: string; city: string | null; state: string | null };
+type LocationRow = {
+  id: string;
+  name: string;
+  address_line1: string | null;
+  city: string | null;
+  state: string | null;
+  zip?: string | null;
+};
 type ServiceRow = {
   id: string;
   name: string;
@@ -1462,7 +1469,7 @@ export default function PatientHome() {
       try {
         const { data: locs, error: locErr } = await supabase
           .from("locations")
-          .select("id,name,city,state")
+          .select("id,name,address_line1,city,state,zip")
           .order("name");
         if (locErr) throw locErr;
 
@@ -2431,10 +2438,17 @@ export default function PatientHome() {
                   {locations.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name}
-                      {l.city ? ` - ${l.city}` : ""}
+                      {[l.city, l.state].filter(Boolean).join(", ") ? ` - ${[l.city, l.state].filter(Boolean).join(", ")}` : ""}
                     </option>
                   ))}
                 </select>
+                {selectedLocation ? (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                    {[selectedLocation.address_line1, [selectedLocation.city, selectedLocation.state, selectedLocation.zip].filter(Boolean).join(" ")]
+                      .filter(Boolean)
+                      .join(", ")}
+                  </div>
+                ) : null}
 
                 <select
                   className="input"

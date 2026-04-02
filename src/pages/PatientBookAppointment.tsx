@@ -7,7 +7,13 @@ import { getGuidedIntakePathwayForService, getIntakeOnlyPathwayForService } from
 import { supabase } from "../lib/supabase";
 import RouteHeader from "../components/RouteHeader";
 
-type LocationRow = { id: string; name: string };
+type LocationRow = {
+  id: string;
+  name: string;
+  address_line1: string | null;
+  city: string | null;
+  state: string | null;
+};
 type ServiceRow = {
   id: string;
   name: string;
@@ -122,7 +128,7 @@ export default function PatientBookAppointment() {
         // 2) Locations
         const { data: locs, error: locErr } = await supabase
           .from("locations")
-          .select("id,name")
+          .select("id,name,address_line1,city,state")
           .order("name");
         if (locErr) throw locErr;
         setLocations((locs as LocationRow[]) ?? []);
@@ -346,7 +352,7 @@ export default function PatientBookAppointment() {
                   <option value="">Select location...</option>
                   {locations.map((l) => (
                     <option key={l.id} value={l.id}>
-                      {l.name}
+                      {[l.name, [l.city, l.state].filter(Boolean).join(", ")].filter(Boolean).join(" - ")}
                     </option>
                   ))}
                 </select>

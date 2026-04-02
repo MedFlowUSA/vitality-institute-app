@@ -16,7 +16,7 @@ import {
 import { buildFollowUpMessage } from "../lib/publicFollowUpEngine";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { submitPublicVitalAiRequest } from "../lib/publicVitalAiSubmission";
-import { loadCatalogLocations, type CatalogLocation } from "../lib/services/catalog";
+import { formatCatalogLocationDetails, formatCatalogLocationLabel, loadCatalogLocations, type CatalogLocation } from "../lib/services/catalog";
 import { scoreConversionLead } from "../lib/vitalAi/conversionEngine";
 import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath } from "../lib/routeFlow";
 
@@ -505,10 +505,17 @@ export default function PublicVitalAiLite() {
                 <option value="">Select...</option>
                 {locations.map((location) => (
                   <option key={location.id} value={location.id}>
-                    {location.name ?? location.id}
+                    {formatCatalogLocationLabel(location)}
                   </option>
                 ))}
               </select>
+              {preferredLocationId ? (
+                <div className="surface-light-helper" style={{ fontSize: 12, marginTop: 6 }}>
+                  {formatCatalogLocationDetails(
+                    locations.find((location) => location.id === preferredLocationId) ?? { id: preferredLocationId, name: preferredLocationId }
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="space" />

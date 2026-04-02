@@ -20,6 +20,11 @@ export type CatalogService = {
 export type CatalogLocation = {
   id: string;
   name: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
 };
 
 export type IntakeOnlyPathway = "glp1" | "peptides" | "wellness";
@@ -252,6 +257,18 @@ export function serviceOverview(service: CatalogService) {
   return "This service is tailored around provider-guided care planning, clear next steps, and a premium clinical experience from evaluation through follow-up.";
 }
 
+export function formatCatalogLocationLabel(location: CatalogLocation) {
+  const name = location.name ?? location.id;
+  const place = [location.city, location.state].filter(Boolean).join(", ");
+  return place ? `${name} - ${place}` : name;
+}
+
+export function formatCatalogLocationDetails(location: CatalogLocation) {
+  return [location.address_line1, location.address_line2, [location.city, location.state, location.zip].filter(Boolean).join(" ")]
+    .filter(Boolean)
+    .join(", ");
+}
+
 export function serviceDetails(service: CatalogService) {
   const parts = [
     service.requires_consult ? "Provider review may be required before final treatment confirmation." : "This service can typically begin with online booking.",
@@ -317,7 +334,10 @@ export async function loadCatalogServices() {
 }
 
 export async function loadCatalogLocations() {
-  const { data, error } = await supabase.from("locations").select("id,name").order("name");
+  const { data, error } = await supabase
+    .from("locations")
+    .select("id,name,address_line1,address_line2,city,state,zip")
+    .order("name");
   if (error) throw error;
   return (data as CatalogLocation[]) ?? [];
 }
