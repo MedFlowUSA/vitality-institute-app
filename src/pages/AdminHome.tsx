@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
@@ -88,18 +88,17 @@ export default function AdminHome() {
   const [analyticsEvents, setAnalyticsEvents] = useState<AnalyticsEventRow[]>([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsErr, setAnalyticsErr] = useState<string | null>(null);
+  const [analyticsCutoff] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   const selectedLocation = useMemo(
     () => locations.find((l) => l.id === selectedLocationId) ?? null,
     [locations, selectedLocationId]
   );
-
   const locName = (id: string) => locations.find((l) => l.id === id)?.name ?? id;
 
   const analyticsSummary = useMemo(() => {
     const last30Days = analyticsEvents.filter((event) => {
-      const age = Date.now() - new Date(event.created_at).getTime();
-      return age <= 30 * 24 * 60 * 60 * 1000;
+      return new Date(event.created_at).getTime() >= analyticsCutoff;
     });
 
     const countBy = (predicate: (event: AnalyticsEventRow) => boolean) => last30Days.filter(predicate).length;
@@ -129,23 +128,9 @@ export default function AdminHome() {
         general: countBy((event) => event.lead_type === "general" && event.event_name === "vital_ai_submitted"),
       },
     };
-  }, [analyticsEvents]);
+  }, [analyticsCutoff, analyticsEvents]);
 
-  const loadLocations = async () => {
-    setErr(null);
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from("locations")
-      .select("id,name,city,state,is_active")
-      .order("name");
-
-    if (error) setErr(error.message);
-    setLocations((data as LocationRow[]) ?? []);
-    setLoading(false);
-  };
-
-  const loadHours = async (locationId: string) => {
+  const loadHours = useCallback(async (locationId: string) => {
     setHoursMsg(null);
 
     if (!locationId) {
@@ -181,7 +166,26 @@ export default function AdminHome() {
     });
 
     setHoursByDay(base);
-  };
+  }, []);
+
+  const loadLocations = useCallback(async () => {
+    setErr(null);
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("locations")
+      .select("id,name,city,state,is_active")
+      .order("name");
+
+    if (error) setErr(error.message);
+    const nextLocations = (data as LocationRow[]) ?? [];
+    setLocations(nextLocations);
+    if (!selectedLocationId && nextLocations[0]?.id) {
+      setSelectedLocationId(nextLocations[0].id);
+      await loadHours(nextLocations[0].id);
+    }
+    setLoading(false);
+  }, [loadHours, selectedLocationId]);
 
   const upsertOneDay = async (row: HoursRow) => {
     return supabase.from("location_hours").upsert(
@@ -233,7 +237,7 @@ export default function AdminHome() {
     }));
   };
 
-  const loadAppointments = async () => {
+  const loadAppointments = useCallback(async () => {
     setApptsErr(null);
     setApptsLoading(true);
 
@@ -246,9 +250,9 @@ export default function AdminHome() {
     if (error) setApptsErr(error.message);
     setAppointments((data as AppointmentRow[]) ?? []);
     setApptsLoading(false);
-  };
+  }, []);
 
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     setAnalyticsErr(null);
     setAnalyticsLoading(true);
 
@@ -261,19 +265,13 @@ export default function AdminHome() {
     if (error) setAnalyticsErr(error.message);
     setAnalyticsEvents((data as AnalyticsEventRow[]) ?? []);
     setAnalyticsLoading(false);
-  };
-
-  useEffect(() => {
-    loadLocations();
-    loadAppointments();
-    loadAnalytics();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (selectedLocationId) loadHours(selectedLocationId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLocationId]);
+    void (async () => {
+      await Promise.all([loadLocations(), loadAppointments(), loadAnalytics()]);
+    })();
+  }, [loadAnalytics, loadAppointments, loadLocations]);
 
   return (
     <div className="app-bg">
@@ -535,7 +533,10 @@ export default function AdminHome() {
                     <button
                       className="btn btn-secondary"
                       type="button"
-                      onClick={() => setSelectedLocationId(l.id)}
+                      onClick={() => {
+                        setSelectedLocationId(l.id);
+                        void loadHours(l.id);
+                      }}
                       title="Edit business hours"
                     >
                       Edit Hours
@@ -558,7 +559,14 @@ export default function AdminHome() {
 
           <div className="space" />
 
-          <select className="input" value={selectedLocationId} onChange={(e) => setSelectedLocationId(e.target.value)}>
+          <select
+            className="input"
+            value={selectedLocationId}
+            onChange={(e) => {
+              setSelectedLocationId(e.target.value);
+              void loadHours(e.target.value);
+            }}
+          >
             <option value="">Select Location</option>
             {locations.map((l) => (
               <option key={l.id} value={l.id}>

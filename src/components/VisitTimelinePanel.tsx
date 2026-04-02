@@ -1,15 +1,14 @@
 // src/components/VisitTimelinePanel.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 type TimelineRow = {
   visit_id: string;
   patient_id: string;
   location_id: string;
-  visit_date: string; // timestamptz
+  visit_date: string;
   visit_status: string | null;
   summary: string | null;
-
   soap_id: string | null;
   soap_status: string | null;
   is_signed: boolean | null;
@@ -21,10 +20,8 @@ type TimelineRow = {
 type Props = {
   patientId: string;
   locationId?: string | null;
-
   activeVisitId?: string | null;
   onSelectVisit?: (visitId: string) => void;
-
   title?: string;
   compact?: boolean;
 };
@@ -46,25 +43,25 @@ export default function VisitTimelinePanel({
     return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
   };
 
-  const soapLabel = (r: TimelineRow) => {
-    if (!r.soap_id) return "No SOAP";
-    if (r.is_locked || r.is_signed) return "Signed";
-    return r.soap_status ? r.soap_status : "Draft";
+  const soapLabel = (row: TimelineRow) => {
+    if (!row.soap_id) return "No SOAP";
+    if (row.is_locked || row.is_signed) return "Signed";
+    return row.soap_status ? row.soap_status : "Draft";
   };
 
-  const soapTone = (r: TimelineRow) => {
-    if (!r.soap_id) return "rgba(255,255,255,.25)";
-    if (r.is_locked || r.is_signed) return "rgba(68, 220, 155, .55)";
+  const soapTone = (row: TimelineRow) => {
+    if (!row.soap_id) return "rgba(255,255,255,.25)";
+    if (row.is_locked || row.is_signed) return "rgba(68, 220, 155, .55)";
     return "rgba(255, 210, 80, .55)";
   };
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!patientId) return;
     setErr(null);
     setLoading(true);
 
     try {
-      let q = supabase
+      let query = supabase
         .from("v_patient_visit_timeline")
         .select(
           "visit_id,patient_id,location_id,visit_date,visit_status,summary,soap_id,soap_status,is_signed,is_locked,signed_at,soap_created_at"
@@ -72,25 +69,23 @@ export default function VisitTimelinePanel({
         .eq("patient_id", patientId)
         .order("visit_date", { ascending: false });
 
-      // optional filter
-      if (locationId) q = q.eq("location_id", locationId);
+      if (locationId) query = query.eq("location_id", locationId);
 
-      const { data, error } = await q;
+      const { data, error } = await query;
       if (error) throw error;
 
       setRows((data as TimelineRow[]) ?? []);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load visit timeline.");
+    } catch (error: unknown) {
+      setErr(error instanceof Error ? error.message : "Failed to load visit timeline.");
       setRows([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [locationId, patientId]);
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId, locationId]);
+    void load();
+  }, [load]);
 
   const emptyText = useMemo(() => {
     if (!patientId) return "Missing patient id.";
@@ -103,7 +98,7 @@ export default function VisitTimelinePanel({
       <div className="card card-pad">
         <div className="h2">{title}</div>
         <div className="space" />
-        <div className="muted">Loading visits…</div>
+        <div className="muted">Loading visits...</div>
       </div>
     );
   }
@@ -115,7 +110,7 @@ export default function VisitTimelinePanel({
         <div className="space" />
         <div style={{ color: "crimson" }}>{err}</div>
         <div className="space" />
-        <button className="btn btn-ghost" type="button" onClick={load}>
+        <button className="btn btn-ghost" type="button" onClick={() => void load()}>
           Retry
         </button>
       </div>
@@ -128,13 +123,14 @@ export default function VisitTimelinePanel({
         <div>
           <div className="h2">{title}</div>
           <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-            Click a visit to set it active.
+            Past and current visits linked to this patient.
           </div>
         </div>
-
-        <button className="btn btn-ghost" type="button" onClick={load}>
-          Refresh
-        </button>
+        {!compact ? (
+          <div className="muted" style={{ fontSize: 12 }}>
+            {rows.length} visit{rows.length === 1 ? "" : "s"}
+          </div>
+        ) : null}
       </div>
 
       <div className="space" />
@@ -142,54 +138,33 @@ export default function VisitTimelinePanel({
       {rows.length === 0 ? (
         <div className="muted">{emptyText}</div>
       ) : (
-        <div className="card card-pad" style={{ maxHeight: compact ? 340 : 520, overflow: "auto" }}>
-          {rows.map((r) => {
-            const active = activeVisitId === r.visit_id;
-
+        <div style={{ display: "grid", gap: 10 }}>
+          {rows.map((row) => {
+            const selected = activeVisitId === row.visit_id;
             return (
               <button
-                key={r.visit_id}
+                key={row.visit_id}
                 type="button"
-                className={active ? "btn btn-primary" : "btn btn-ghost"}
-                style={{
-                  width: "100%",
-                  justifyContent: "space-between",
-                  textAlign: "left",
-                  marginBottom: 8,
-                  borderColor: active ? "rgba(255,255,255,.35)" : undefined,
-                }}
-                onClick={() => onSelectVisit?.(r.visit_id)}
+                className={selected ? "btn btn-primary" : "btn btn-ghost"}
+                style={{ width: "100%", justifyContent: "space-between", textAlign: "left", padding: compact ? "10px 12px" : "12px 14px" }}
+                onClick={() => onSelectVisit?.(row.visit_id)}
               >
-                <span style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <span>{new Date(r.visit_date).toLocaleDateString()}</span>
-                    <span className="muted" style={{ fontSize: 12 }}>
-                      {r.visit_status ?? "—"}
-                    </span>
-                    <span
-                      className="muted"
-                      style={{
-                        fontSize: 12,
-                        padding: "3px 10px",
-                        borderRadius: 999,
-                        border: `1px solid ${soapTone(r)}`,
-                        background: "rgba(0,0,0,.18)",
-                        whiteSpace: "nowrap",
-                      }}
-                      title={r.soap_id ? `SOAP: ${soapLabel(r)}` : "No SOAP note yet"}
-                    >
-                      {soapLabel(r)}
-                      {r.signed_at ? ` • ${new Date(r.signed_at).toLocaleDateString()}` : ""}
-                    </span>
-                  </div>
-
-                  <div className="muted" style={{ fontSize: 12, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {r.summary ?? ""}
+                <span>
+                  <div style={{ fontWeight: 800 }}>{fmtDate(row.visit_date)}</div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                    {row.visit_status ?? "Visit"}
+                    {row.summary ? ` � ${row.summary}` : ""}
                   </div>
                 </span>
-
-                <span className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
-                  {fmtDate(r.visit_date)}
+                <span
+                  className="v-chip"
+                  style={{
+                    background: soapTone(row),
+                    color: "#fff",
+                    border: "1px solid rgba(255,255,255,.12)",
+                  }}
+                >
+                  {soapLabel(row)}
                 </span>
               </button>
             );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -61,7 +61,7 @@ export default function VitalityHero({
 
   const canSeeKpis = useMemo(() => !!user && !!role && showKpis, [user, role, showKpis]);
 
-  const loadKpis = async () => {
+  const loadKpis = useCallback(async () => {
     if (!user) return;
     setKpiErr(null);
 
@@ -113,19 +113,18 @@ export default function VitalityHero({
         pendingIntakes: pendingIntakes ?? 0,
         labsPending: labsPending ?? 0,
       });
-    } catch (e: any) {
-      setKpiErr(e?.message ?? "Failed to load KPIs.");
+    } catch (error: unknown) {
+      setKpiErr(error instanceof Error ? error.message : "Failed to load KPIs.");
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     if (!canSeeKpis) return;
 
-    loadKpis();
-    const t = setInterval(() => loadKpis(), 25000);
+    void loadKpis();
+    const t = setInterval(() => void loadKpis(), 25000);
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSeeKpis, user?.id, role]);
+  }, [canSeeKpis, loadKpis]);
 
   const go = (to?: string, onClick?: () => void) => {
     if (onClick) return onClick();
