@@ -1,6 +1,6 @@
+import { useMemo, useState } from "react";
 import { PUBLIC_CLINIC_LOCATIONS } from "../lib/publicClinicLocations";
 import { Link } from "react-router-dom";
-import PublicLocationCard from "../components/public/PublicLocationCard";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { getPublicAccessRoute } from "../lib/publicMarketingCatalog";
 
@@ -36,6 +36,15 @@ const featuredServices = [
 ];
 
 export default function PublicLandingSimplified() {
+  const [selectedLocationName, setSelectedLocationName] = useState(PUBLIC_CLINIC_LOCATIONS[0]?.name ?? "");
+
+  const selectedLocation = useMemo(
+    () =>
+      PUBLIC_CLINIC_LOCATIONS.find((location) => location.name === selectedLocationName) ??
+      PUBLIC_CLINIC_LOCATIONS[0],
+    [selectedLocationName],
+  );
+
   return (
     <PublicSiteLayout title="Vitality Institute" compactHeader>
       <div
@@ -222,35 +231,160 @@ export default function PublicLandingSimplified() {
       <div className="card card-pad card-light surface-light">
         <div className="h2">Visit or Contact Us</div>
         <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8, maxWidth: 760 }}>
-          Reach either location directly and choose the clinic that fits your care needs best.
+          Choose a location to see the quickest contact details without expanding the page.
         </div>
 
         <div className="space" />
 
-        <div className="row" style={{ gap: 14, flexWrap: "wrap", alignItems: "stretch" }}>
-          {PUBLIC_CLINIC_LOCATIONS.map((location, index) => (
-            <div key={location.name} style={{ flex: "1 1 320px", minWidth: 280 }}>
-              <PublicLocationCard
-                location={location}
-                eyebrow={index === 0 ? "Primary Location" : "Second Location"}
-                compact
-              />
+        <div
+          className="card card-pad card-light surface-light"
+          style={{
+            border: "1px solid rgba(184,164,255,0.18)",
+            boxShadow: "0 14px 28px rgba(16,24,40,0.06)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 900,
+              color: "var(--v-helper-dark)",
+              letterSpacing: ".12em",
+              textTransform: "uppercase",
+            }}
+          >
+            Locations
+          </div>
+
+          <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "end", marginTop: 12 }}>
+            <label style={{ flex: "1 1 280px", minWidth: 240 }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: ".08em",
+                  textTransform: "uppercase",
+                  color: "var(--v-helper-dark)",
+                  marginBottom: 8,
+                }}
+              >
+                Select clinic
+              </div>
+              <select
+                value={selectedLocation?.name ?? ""}
+                onChange={(event) => setSelectedLocationName(event.target.value)}
+                className="input"
+                aria-label="Select clinic location"
+              >
+                {PUBLIC_CLINIC_LOCATIONS.map((location) => (
+                  <option key={location.name} value={location.name}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <Link to="/contact" className="btn btn-secondary">
+              Contact Page
+            </Link>
+          </div>
+
+          {selectedLocation ? (
+            <div
+              className="row"
+              style={{
+                gap: 18,
+                flexWrap: "wrap",
+                alignItems: "flex-start",
+                marginTop: 18,
+              }}
+            >
+              <div style={{ flex: "1 1 260px", minWidth: 220 }}>
+                <div className="h2" style={{ marginTop: 0 }}>
+                  {selectedLocation.name}
+                </div>
+                <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
+                  {selectedLocation.addressLine1}
+                  {selectedLocation.addressLine2 ? (
+                    <>
+                      <br />
+                      {selectedLocation.addressLine2}
+                    </>
+                  ) : null}
+                  <br />
+                  {selectedLocation.cityStateZip}
+                </div>
+              </div>
+
+              <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 800,
+                    letterSpacing: ".08em",
+                    textTransform: "uppercase",
+                    color: "var(--v-helper-dark)",
+                  }}
+                >
+                  Hours
+                </div>
+                <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.8 }}>
+                  {selectedLocation.hoursLabel}
+                </div>
+              </div>
+
+              {selectedLocation.phone ? (
+                <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      letterSpacing: ".08em",
+                      textTransform: "uppercase",
+                      color: "var(--v-helper-dark)",
+                    }}
+                  >
+                    Phone
+                  </div>
+                  <a
+                    href={`tel:+1${selectedLocation.phone.replace(/\D/g, "")}`}
+                    className="surface-light-body"
+                    style={{ display: "inline-block", marginTop: 8, color: "#140f24", textDecoration: "none" }}
+                  >
+                    {selectedLocation.phone}
+                  </a>
+                </div>
+              ) : null}
             </div>
-          ))}
-        </div>
+          ) : null}
 
-        <div className="space" />
+          {selectedLocation?.note ? (
+            <div className="surface-light-helper" style={{ marginTop: 14, lineHeight: 1.7 }}>
+              {selectedLocation.note}
+            </div>
+          ) : null}
 
-        <div className="surface-light-helper" style={{ lineHeight: 1.7 }}>
-          Questions before you begin? Call the clinic or use the contact page for help across either location.
-        </div>
-        <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 14 }}>
-          <Link to="/contact" className="btn btn-secondary">
-            Contact Page
-          </Link>
-          <a href="tel:+19095004572" className="btn btn-primary" style={{ textDecoration: "none" }}>
-            Call Redlands
-          </a>
+          <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 16 }}>
+            {selectedLocation?.website ? (
+              <a
+                href={selectedLocation.website}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-secondary"
+                style={{ textDecoration: "none" }}
+              >
+                Visit Website
+              </a>
+            ) : null}
+            {selectedLocation?.phone ? (
+              <a
+                href={`tel:+1${selectedLocation.phone.replace(/\D/g, "")}`}
+                className="btn btn-primary"
+                style={{ textDecoration: "none" }}
+              >
+                Call This Location
+              </a>
+            ) : null}
+          </div>
         </div>
       </div>
     </PublicSiteLayout>
