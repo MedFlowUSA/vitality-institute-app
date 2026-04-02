@@ -18,6 +18,7 @@ export const PUBLIC_CLINIC_LOCATIONS: PublicClinicLocation[] = [
     addressLine1: "411 W. State Street, Suite B",
     cityStateZip: "Redlands, CA 92373",
     hoursLabel: "Monday to Friday, 10:00 AM to 4:00 PM",
+    website: "http://www.redlandsvitality.com/",
   },
   {
     name: "Touch of Vitality",

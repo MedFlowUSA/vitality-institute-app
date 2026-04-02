@@ -1,5 +1,6 @@
 import { PUBLIC_CLINIC_LOCATIONS } from "../lib/publicClinicLocations";
 import { Link } from "react-router-dom";
+import PublicLocationCard from "../components/public/PublicLocationCard";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { getPublicAccessRoute } from "../lib/publicMarketingCatalog";
 
@@ -35,9 +36,6 @@ const featuredServices = [
 ];
 
 export default function PublicLandingSimplified() {
-  const primaryLocation = PUBLIC_CLINIC_LOCATIONS[0];
-  const secondaryLocation = PUBLIC_CLINIC_LOCATIONS[1];
-
   return (
     <PublicSiteLayout title="Vitality Institute" compactHeader>
       <div
@@ -223,74 +221,22 @@ export default function PublicLandingSimplified() {
 
       <div className="card card-pad card-light surface-light">
         <div className="h2">Visit or Contact Us</div>
-        <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
-          {primaryLocation.name}
-          <br />
-          {primaryLocation.addressLine1}
-          <br />
-          {primaryLocation.cityStateZip}
+        <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8, maxWidth: 760 }}>
+          Reach either location directly and choose the clinic that fits your care needs best.
         </div>
 
         <div className="space" />
 
-        <div className="row" style={{ gap: 20, flexWrap: "wrap", alignItems: "flex-start" }}>
-          <div style={{ flex: "1 1 220px" }}>
-            <div className="surface-light-helper" style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
-              Phone
+        <div className="row" style={{ gap: 14, flexWrap: "wrap", alignItems: "stretch" }}>
+          {PUBLIC_CLINIC_LOCATIONS.map((location, index) => (
+            <div key={location.name} style={{ flex: "1 1 320px", minWidth: 280 }}>
+              <PublicLocationCard
+                location={location}
+                eyebrow={index === 0 ? "Primary Location" : "Second Location"}
+                compact
+              />
             </div>
-            <a href="tel:+19095004572" className="h2" style={{ display: "inline-block", marginTop: 8, textDecoration: "none", color: "#140f24" }}>
-              {primaryLocation.phone}
-            </a>
-          </div>
-
-          <div style={{ flex: "1 1 220px" }}>
-            <div className="surface-light-helper" style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
-              Hours
-            </div>
-            <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.8 }}>
-              {primaryLocation.hoursLabel}
-            </div>
-          </div>
-        </div>
-
-        <div className="space" />
-
-        <div className="card card-pad card-light surface-light" style={{ marginTop: 4 }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "var(--v-helper-dark)", letterSpacing: ".12em", textTransform: "uppercase" }}>
-            Second Location
-          </div>
-          <div className="h2" style={{ marginTop: 10 }}>{secondaryLocation.name}</div>
-          <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
-            {secondaryLocation.addressLine1}
-            <br />
-            {secondaryLocation.cityStateZip}
-            <br />
-            {secondaryLocation.hoursLabel}
-          </div>
-          {secondaryLocation.note ? (
-            <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
-              {secondaryLocation.note}
-            </div>
-          ) : null}
-          {secondaryLocation.website ? (
-            <>
-              <div className="surface-light-helper" style={{ marginTop: 10, fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
-                Website
-              </div>
-              <a
-                href={secondaryLocation.website}
-                target="_blank"
-                rel="noreferrer"
-                className="surface-light-body"
-                style={{ display: "inline-block", marginTop: 8, lineHeight: 1.7, wordBreak: "break-word" }}
-              >
-                {secondaryLocation.website}
-              </a>
-              <a href={secondaryLocation.website} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ marginTop: 14, textDecoration: "none" }}>
-                Touch of Vitality Site
-              </a>
-            </>
-          ) : null}
+          ))}
         </div>
 
         <div className="space" />
@@ -303,7 +249,7 @@ export default function PublicLandingSimplified() {
             Contact Page
           </Link>
           <a href="tel:+19095004572" className="btn btn-primary" style={{ textDecoration: "none" }}>
-            Call the Clinic
+            Call Redlands
           </a>
         </div>
       </div>
