@@ -1,9 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
 import LeadStatusCard from "../components/vital-ai/LeadStatusCard";
 import { supabase } from "../lib/supabase";
 import type { PatientRecord, VitalAiLeadRow, VitalAiPathwayRow, VitalAiSessionRow } from "../lib/vitalAi/types";
+
+type LeadJson = {
+  name?: string | null;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
 
 export default function AdminVitalAiQueue() {
   const navigate = useNavigate();
@@ -17,67 +27,77 @@ export default function AdminVitalAiQueue() {
 
   const selected = useMemo(() => leads.find((lead) => lead.id === selectedId) ?? null, [leads, selectedId]);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setErr(null);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
 
-      try {
-        const { data: leadRows, error: leadError } = await supabase
-          .from("vital_ai_leads")
-          .select("*")
-          .order("created_at", { ascending: false });
-        if (leadError) throw leadError;
+    try {
+      const { data: leadRows, error: leadError } = await supabase
+        .from("vital_ai_leads")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (leadError) throw leadError;
 
-        const nextLeads = (leadRows as VitalAiLeadRow[]) ?? [];
-        setLeads(nextLeads);
-        if (!selectedId && nextLeads[0]) setSelectedId(nextLeads[0].id);
+      const nextLeads = (leadRows as VitalAiLeadRow[]) ?? [];
+      setLeads(nextLeads);
+      setSelectedId((current) => {
+        if (current && nextLeads.some((lead) => lead.id === current)) return current;
+        return nextLeads[0]?.id ?? "";
+      });
 
-        const sessionIds = nextLeads.map((lead) => lead.session_id);
-        const pathwayIds = Array.from(new Set(nextLeads.map((lead) => lead.pathway_id)));
-        const patientIds = Array.from(new Set(nextLeads.map((lead) => lead.patient_id).filter(Boolean))) as string[];
+      const sessionIds = nextLeads.map((lead) => lead.session_id);
+      const pathwayIds = Array.from(new Set(nextLeads.map((lead) => lead.pathway_id)));
+      const patientIds = Array.from(new Set(nextLeads.map((lead) => lead.patient_id).filter(Boolean))) as string[];
 
-        const [sessionRows, pathwayRows, patientRows] = await Promise.all([
-          sessionIds.length ? supabase.from("vital_ai_sessions").select("*").in("id", sessionIds) : Promise.resolve({ data: [], error: null }),
-          pathwayIds.length ? supabase.from("vital_ai_pathways").select("*").in("id", pathwayIds) : Promise.resolve({ data: [], error: null }),
-          patientIds.length ? supabase.from("patients").select("id,profile_id,first_name,last_name,phone,email,dob").in("id", patientIds) : Promise.resolve({ data: [], error: null }),
-        ]);
+      const [sessionRows, pathwayRows, patientRows] = await Promise.all([
+        sessionIds.length ? supabase.from("vital_ai_sessions").select("*").in("id", sessionIds) : Promise.resolve({ data: [], error: null }),
+        pathwayIds.length ? supabase.from("vital_ai_pathways").select("*").in("id", pathwayIds) : Promise.resolve({ data: [], error: null }),
+        patientIds.length
+          ? supabase.from("patients").select("id,profile_id,first_name,last_name,phone,email,dob").in("id", patientIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
 
-        if (sessionRows.error) throw sessionRows.error;
-        if (pathwayRows.error) throw pathwayRows.error;
-        if (patientRows.error) throw patientRows.error;
+      if (sessionRows.error) throw sessionRows.error;
+      if (pathwayRows.error) throw pathwayRows.error;
+      if (patientRows.error) throw patientRows.error;
 
-        const nextSessions: Record<string, VitalAiSessionRow> = {};
-        for (const row of (sessionRows.data as VitalAiSessionRow[]) ?? []) nextSessions[row.id] = row;
-        setSessions(nextSessions);
+      const nextSessions: Record<string, VitalAiSessionRow> = {};
+      for (const row of (sessionRows.data as VitalAiSessionRow[]) ?? []) nextSessions[row.id] = row;
+      setSessions(nextSessions);
 
-        const nextPathways: Record<string, VitalAiPathwayRow> = {};
-        for (const row of (pathwayRows.data as VitalAiPathwayRow[]) ?? []) nextPathways[row.id] = row;
-        setPathways(nextPathways);
+      const nextPathways: Record<string, VitalAiPathwayRow> = {};
+      for (const row of (pathwayRows.data as VitalAiPathwayRow[]) ?? []) nextPathways[row.id] = row;
+      setPathways(nextPathways);
 
-        const nextPatients: Record<string, PatientRecord> = {};
-        for (const row of (patientRows.data as PatientRecord[]) ?? []) nextPatients[row.id] = row;
-        setPatients(nextPatients);
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load Vital AI lead queue.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
+      const nextPatients: Record<string, PatientRecord> = {};
+      for (const row of (patientRows.data as PatientRecord[]) ?? []) nextPatients[row.id] = row;
+      setPatients(nextPatients);
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to load Vital AI lead queue."));
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const patientLabel = (lead: VitalAiLeadRow) => {
     const patient = lead.patient_id ? patients[lead.patient_id] : null;
-    if (!patient) return String((lead.lead_json as any)?.name ?? "Unknown patient");
+    if (!patient) return String(((lead.lead_json as LeadJson | null)?.name) ?? "Unknown patient");
     return `${patient.first_name ?? ""} ${patient.last_name ?? ""}`.trim() || patient.email || patient.phone || "Unknown patient";
   };
 
   return (
     <div className="app-bg">
       <div className="shell">
-        <VitalityHero title="Vital AI Staff Queue" subtitle="Phase 1 operational queue for new general consultation and wound care leads." secondaryCta={{ label: "Back", to: "/admin" }} showKpis={false} />
+        <VitalityHero
+          title="Vital AI Staff Queue"
+          subtitle="Phase 1 operational queue for new general consultation and wound care leads."
+          secondaryCta={{ label: "Back", to: "/admin" }}
+          showKpis={false}
+        />
 
         <div className="space" />
 
@@ -93,11 +113,17 @@ export default function AdminVitalAiQueue() {
               {leads.length === 0 ? (
                 <div className="muted">No Vital AI leads yet.</div>
               ) : leads.map((lead) => (
-                <button key={lead.id} className={selectedId === lead.id ? "btn btn-primary" : "btn btn-ghost"} type="button" style={{ width: "100%", justifyContent: "space-between", marginBottom: 8, textAlign: "left" }} onClick={() => setSelectedId(lead.id)}>
+                <button
+                  key={lead.id}
+                  className={selectedId === lead.id ? "btn btn-primary" : "btn btn-ghost"}
+                  type="button"
+                  style={{ width: "100%", justifyContent: "space-between", marginBottom: 8, textAlign: "left" }}
+                  onClick={() => setSelectedId(lead.id)}
+                >
                   <span>
                     <div style={{ fontWeight: 800 }}>{patientLabel(lead)}</div>
                     <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                      {(pathways[lead.pathway_id]?.name ?? "Pathway")} â€¢ {lead.lead_status} â€¢ {new Date(lead.created_at).toLocaleString()}
+                      {(pathways[lead.pathway_id]?.name ?? "Pathway")} • {lead.lead_status} • {new Date(lead.created_at).toLocaleString()}
                     </div>
                   </span>
                   <span className="muted" style={{ fontSize: 12 }}>Open</span>
@@ -114,7 +140,7 @@ export default function AdminVitalAiQueue() {
                     <div>
                       <div className="h2">Lead Detail</div>
                       <div className="muted" style={{ marginTop: 6 }}>
-                        {patientLabel(selected)} â€¢ {(pathways[selected.pathway_id]?.name ?? "Pathway")}
+                        {patientLabel(selected)} • {(pathways[selected.pathway_id]?.name ?? "Pathway")}
                       </div>
                     </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import ConversationList from "../components/messaging/ConversationList";
@@ -65,7 +65,7 @@ export default function ProviderConversationCenter() {
     );
   }, [conversations, listSearch]);
 
-  const loadBase = async () => {
+  const loadBase = useCallback(async () => {
     if (!user?.id) return;
 
     const { data: locationRows, error: locationErr } = await supabase.from("locations").select("id,name").order("name");
@@ -89,9 +89,9 @@ export default function ProviderConversationCenter() {
     const ids = ((data as Array<{ location_id: string; is_primary: boolean }>) ?? []).map((item) => item.location_id);
     setAllowedLocationIds(ids);
     if (!locationId) setLocationId(ids[0] ?? "");
-  };
+  }, [isAdmin, locationId, user?.id]);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     if (!user?.id) return;
     const items = await loadProviderConversationList({ userId: user.id, locationIds: allowedLocationIds, activeLocationId: locationId || undefined });
     setConversations(items);
@@ -102,15 +102,20 @@ export default function ProviderConversationCenter() {
     }
 
     if (!activeConversationId && items.length > 0) setActiveConversationId(items[0].id);
-  };
+  }, [activeConversationId, allowedLocationIds, locationId, preselectConversationId, user?.id]);
 
-  const loadMessages = async (conversationId: string) => {
+  const loadMessages = useCallback(async (conversationId: string) => {
     if (!user?.id) return;
     await joinConversationAsUser({ conversationId, userId: user.id, role });
     const nextMessages = await loadConversationMessages({ conversationId, role });
     setMessages(nextMessages);
     await markConversationRead(conversationId, user.id);
-  };
+  }, [role, user?.id]);
+
+  const loadStaff = useCallback(async () => {
+    const items = await loadStaffDirectory(locationId || undefined);
+    setStaffDirectory(items);
+  }, [locationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,17 +134,13 @@ export default function ProviderConversationCenter() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, role, resumeKey]);
+  }, [loadBase, resumeKey, role, user?.id]);
 
   useEffect(() => {
     if (!user?.id || allowedLocationIds.length === 0) return;
     loadConversations().catch((error: unknown) => setErr(getErrorMessage(error, "Failed to load conversations.")));
-    loadStaffDirectory(locationId || undefined)
-      .then(setStaffDirectory)
-      .catch((error: unknown) => setErr(getErrorMessage(error, "Failed to load staff directory.")));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, locationId, allowedLocationIds.join(","), preselectConversationId, resumeKey]);
+    loadStaff().catch((error: unknown) => setErr(getErrorMessage(error, "Failed to load staff directory.")));
+  }, [allowedLocationIds.length, loadConversations, loadStaff, user?.id, resumeKey]);
 
   useEffect(() => {
     if (!activeConversationId) {
@@ -147,8 +148,7 @@ export default function ProviderConversationCenter() {
       return;
     }
     loadMessages(activeConversationId).catch((error: unknown) => setErr(getErrorMessage(error, "Failed to load messages.")));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversationId]);
+  }, [activeConversationId, loadMessages]);
 
   useEffect(() => {
     if (!activeConversationId) return;
@@ -168,8 +168,7 @@ export default function ProviderConversationCenter() {
     return () => {
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversationId, user?.id]);
+  }, [activeConversationId, loadConversations, loadMessages, user?.id]);
 
   const send = async (mentionUserIds: string[], files: File[]) => {
     if (!user?.id || !activeConversationId) return;

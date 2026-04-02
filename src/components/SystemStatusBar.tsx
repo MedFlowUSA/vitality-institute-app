@@ -6,6 +6,12 @@ type LocationRow = { id: string; name: string };
 
 type Status = "online" | "slow" | "offline";
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
+
 export default function SystemStatusBar() {
   const { user, role, activeLocationId, setActiveLocationId } = useAuth();
 
@@ -17,10 +23,9 @@ export default function SystemStatusBar() {
 
   const activeLocationName = useMemo(() => {
     if (!activeLocationId) return null;
-    return locations.find((l) => l.id === activeLocationId)?.name ?? null;
+    return locations.find((location) => location.id === activeLocationId)?.name ?? null;
   }, [activeLocationId, locations]);
 
-  // Ping (visual feedback)
   useEffect(() => {
     let cancelled = false;
 
@@ -30,19 +35,19 @@ export default function SystemStatusBar() {
       const t1 = performance.now();
       if (cancelled) return;
 
-      const dur = Math.round(t1 - t0);
-      setMs(dur);
+      const duration = Math.round(t1 - t0);
+      setMs(duration);
 
       if (error) {
         setStatus("offline");
-      } else if (dur > 900) {
+      } else if (duration > 900) {
         setStatus("slow");
       } else {
         setStatus("online");
       }
     };
 
-    ping();
+    void ping();
     const id = window.setInterval(ping, 12000);
     return () => {
       cancelled = true;
@@ -50,37 +55,34 @@ export default function SystemStatusBar() {
     };
   }, []);
 
-  // Load locations + active location
   useEffect(() => {
     if (!user?.id) return;
 
     let cancelled = false;
 
     (async () => {
-      // Load locations list (expects a public.locations table)
-      const { data: locs, error: lErr } = await supabase
+      const { data: locationRows, error: locationError } = await supabase
         .from("locations")
         .select("id,name")
         .order("name", { ascending: true });
 
       if (cancelled) return;
-
-      if (!lErr) setLocations((locs as LocationRow[]) ?? []);
+      if (!locationError) setLocations((locationRows as LocationRow[]) ?? []);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [user?.id, activeLocationId, setActiveLocationId]);
+  }, [user?.id]);
 
   const saveActiveLocation = async (nextId: string) => {
     if (!user?.id) return;
     setSaving(true);
     try {
       await setActiveLocationId(nextId || null);
-    } catch (e: any) {
-      console.error("save active location error:", e);
-      alert(e?.message ?? "Failed to save active location.");
+    } catch (error: unknown) {
+      console.error("save active location error:", error);
+      alert(getErrorMessage(error, "Failed to save active location."));
     } finally {
       setSaving(false);
     }
@@ -98,15 +100,15 @@ export default function SystemStatusBar() {
       <div className="v-status-left">
         <span className={pillClass}>
           {status.toUpperCase()}
-          {ms !== null ? ` • ${ms}ms` : ""}
+          {ms !== null ? ` � ${ms}ms` : ""}
         </span>
 
         <span className="v-pill v-pill-neutral">
-          Role: <strong>{role ?? "—"}</strong>
+          Role: <strong>{role ?? "-"}</strong>
         </span>
 
         <span className="v-pill v-pill-neutral">
-          Location: <strong>{activeLocationName ?? "—"}</strong>
+          Location: <strong>{activeLocationName ?? "-"}</strong>
         </span>
       </div>
 
@@ -119,11 +121,11 @@ export default function SystemStatusBar() {
           disabled={saving || locations.length === 0}
         >
           <option value="" disabled>
-            Select active location…
+            Select active location...
           </option>
-          {locations.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.name}
+          {locations.map((location) => (
+            <option key={location.id} value={location.id}>
+              {location.name}
             </option>
           ))}
         </select>

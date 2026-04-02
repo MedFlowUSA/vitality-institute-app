@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import ConversationList from "../components/messaging/ConversationList";
@@ -15,6 +15,14 @@ import {
 import { supabase } from "../lib/supabase";
 
 type LocationRow = { id: string; name: string };
+type ConversationListItem = import("../lib/messaging/conversationService").ConversationListItem;
+type ConversationMessage = import("../lib/messaging/conversationService").ConversationMessage;
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
 
 export default function PatientConversationCenter() {
   const { user, role, signOut, resumeKey } = useAuth();
@@ -24,9 +32,9 @@ export default function PatientConversationCenter() {
   const preselectConversationId = params.get("conversationId") ?? params.get("threadId") ?? "";
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
-  const [conversations, setConversations] = useState<any[]>([]);
+  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [body, setBody] = useState("");
   const [listSearch, setListSearch] = useState("");
   const [messageSearch, setMessageSearch] = useState("");
@@ -42,18 +50,18 @@ export default function PatientConversationCenter() {
     const needle = listSearch.trim().toLowerCase();
     return conversations.filter((item) =>
       [item.title, item.last_message_preview, ...(item.participant_names ?? [])]
-        .filter(Boolean)
-        .some((value: string) => value.toLowerCase().includes(needle))
+        .filter((value): value is string => Boolean(value))
+        .some((value) => value.toLowerCase().includes(needle))
     );
   }, [conversations, listSearch]);
 
-  const loadLocations = async () => {
+  const loadLocations = useCallback(async () => {
     const { data, error } = await supabase.from("locations").select("id,name").order("name");
     if (error) throw error;
     setLocations((data as LocationRow[]) ?? []);
-  };
+  }, []);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     if (!user?.id) return;
     const items = await loadPatientConversationList(user.id);
     setConversations(items);
@@ -64,14 +72,14 @@ export default function PatientConversationCenter() {
     }
 
     if (!activeConversationId && items.length > 0) setActiveConversationId(items[0].id);
-  };
+  }, [activeConversationId, preselectConversationId, user?.id]);
 
-  const loadMessages = async (conversationId: string) => {
+  const loadMessages = useCallback(async (conversationId: string) => {
     if (!user?.id) return;
     const nextMessages = await loadConversationMessages({ conversationId, role });
     setMessages(nextMessages);
     await markConversationRead(conversationId, user.id);
-  };
+  }, [role, user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,8 +89,8 @@ export default function PatientConversationCenter() {
       try {
         await loadLocations();
         await loadConversations();
-      } catch (error: any) {
-        if (!cancelled) setErr(error?.message ?? "Failed to load conversations.");
+      } catch (error: unknown) {
+        if (!cancelled) setErr(getErrorMessage(error, "Failed to load conversations."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -91,8 +99,7 @@ export default function PatientConversationCenter() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, preselectConversationId, resumeKey]);
+  }, [loadConversations, loadLocations, resumeKey, user?.id]);
 
   useEffect(() => {
     if (!activeConversationId) {
@@ -100,9 +107,8 @@ export default function PatientConversationCenter() {
       return;
     }
 
-    loadMessages(activeConversationId).catch((error: any) => setErr(error?.message ?? "Failed to load messages."));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversationId]);
+    loadMessages(activeConversationId).catch((error: unknown) => setErr(getErrorMessage(error, "Failed to load messages.")));
+  }, [activeConversationId, loadMessages]);
 
   useEffect(() => {
     if (!activeConversationId) return;
@@ -122,8 +128,7 @@ export default function PatientConversationCenter() {
     return () => {
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversationId, user?.id]);
+  }, [activeConversationId, loadConversations, loadMessages, user?.id]);
 
   const createConversation = async () => {
     if (!user?.id) return;
@@ -140,8 +145,8 @@ export default function PatientConversationCenter() {
       const conversationId = await createPatientConversation({ userId: user.id, locationId });
       await loadConversations();
       setActiveConversationId(conversationId);
-    } catch (error: any) {
-      setErr(error?.message ?? "Failed to start a conversation.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to start a conversation."));
     } finally {
       setCreating(false);
     }
@@ -164,8 +169,8 @@ export default function PatientConversationCenter() {
       setBody("");
       await loadMessages(activeConversationId);
       await loadConversations();
-    } catch (error: any) {
-      setErr(error?.message ?? "Failed to send message.");
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to send message."));
     } finally {
       setSending(false);
     }

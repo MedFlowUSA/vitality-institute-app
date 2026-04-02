@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -16,6 +16,12 @@ type LocationRow = {
   state: string | null;
 };
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
+
 export default function LocationPicker() {
   const { user, activeLocationId, setActiveLocationId } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -26,90 +32,85 @@ export default function LocationPicker() {
 
   const activeLabel = useMemo(() => {
     if (!activeLocationId) return "No location";
-    const l = locMap[activeLocationId];
-    if (!l) return activeLocationId.slice(0, 8);
-    const place = [l.city, l.state].filter(Boolean).join(", ");
-    return place ? `${l.name} • ${place}` : l.name;
+    const location = locMap[activeLocationId];
+    if (!location) return activeLocationId.slice(0, 8);
+    const place = [location.city, location.state].filter(Boolean).join(", ");
+    return place ? `${location.name} � ${place}` : location.name;
   }, [activeLocationId, locMap]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadLocations = useCallback(async () => {
+    if (!user?.id) {
+      setUserLocs([]);
+      setLocMap({});
+      setLoading(false);
+      return;
+    }
 
-    (async () => {
-      if (!user?.id) return;
-      setErr(null);
-      setLoading(true);
-
-      try {
-        const { data: ul, error: ulErr } = await supabase
-          .from("user_locations")
-          .select("id,user_id,location_id,is_primary")
-          .eq("user_id", user.id);
-
-        if (ulErr) throw ulErr;
-        const rows = (ul as UserLocationRow[]) ?? [];
-        if (cancelled) return;
-
-        setUserLocs(rows);
-
-        const locIds = Array.from(new Set(rows.map((r) => r.location_id)));
-        if (locIds.length === 0) {
-          setLocMap({});
-          return;
-        }
-
-        const { data: locs, error: locErr } = await supabase
-          .from("locations")
-          .select("id,name,city,state")
-          .in("id", locIds);
-
-        if (locErr) throw locErr;
-        if (cancelled) return;
-
-        const next: Record<string, LocationRow> = {};
-        for (const l of (locs as LocationRow[]) ?? []) next[l.id] = l;
-        setLocMap(next);
-
-        // If profile has no active_location_id yet, default to primary (or first)
-        if (!activeLocationId) {
-          const primary = rows.find((r) => r.is_primary)?.location_id ?? rows[0]?.location_id ?? null;
-          if (primary) await setActiveLocationId(primary);
-        }
-      } catch (e: any) {
-        if (!cancelled) setErr(e?.message ?? "Failed to load locations.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]); // intentionally not depending on activeLocationId to avoid loops
-
-  const setPrimaryAndActive = async (locationId: string) => {
-    if (!user?.id) return;
-    setSaving(true);
     setErr(null);
-    try {
-      // mark chosen as primary (trigger will unset others)
-      const row = userLocs.find((r) => r.location_id === locationId);
-      if (row?.id) {
-        const { error } = await supabase.from("user_locations").update({ is_primary: true }).eq("id", row.id);
-        if (error) throw error;
-      }
-      await setActiveLocationId(locationId);
+    setLoading(true);
 
-      // refresh local userLocs
-      const { data: ul, error: ulErr } = await supabase
+    try {
+      const { data: userLocationRows, error: userLocationError } = await supabase
         .from("user_locations")
         .select("id,user_id,location_id,is_primary")
         .eq("user_id", user.id);
 
-      if (ulErr) throw ulErr;
-      setUserLocs((ul as UserLocationRow[]) ?? []);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to set active location.");
+      if (userLocationError) throw userLocationError;
+      const rows = (userLocationRows as UserLocationRow[]) ?? [];
+      setUserLocs(rows);
+
+      const locationIds = Array.from(new Set(rows.map((row) => row.location_id)));
+      if (locationIds.length === 0) {
+        setLocMap({});
+      } else {
+        const { data: locationRows, error: locationError } = await supabase
+          .from("locations")
+          .select("id,name,city,state")
+          .in("id", locationIds);
+
+        if (locationError) throw locationError;
+
+        const nextMap: Record<string, LocationRow> = {};
+        for (const location of (locationRows as LocationRow[]) ?? []) {
+          nextMap[location.id] = location;
+        }
+        setLocMap(nextMap);
+      }
+
+      if (!activeLocationId) {
+        const primaryLocationId = rows.find((row) => row.is_primary)?.location_id ?? rows[0]?.location_id ?? null;
+        if (primaryLocationId) {
+          await setActiveLocationId(primaryLocationId);
+        }
+      }
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to load locations."));
+    } finally {
+      setLoading(false);
+    }
+  }, [activeLocationId, setActiveLocationId, user?.id]);
+
+  useEffect(() => {
+    void loadLocations();
+  }, [loadLocations]);
+
+  const setPrimaryAndActive = async (locationId: string) => {
+    if (!user?.id) return;
+
+    setSaving(true);
+    setErr(null);
+
+    try {
+      const row = userLocs.find((item) => item.location_id === locationId);
+      if (row?.id) {
+        const { error } = await supabase.from("user_locations").update({ is_primary: true }).eq("id", row.id);
+        if (error) throw error;
+      }
+
+      await setActiveLocationId(locationId);
+      await loadLocations();
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to set active location."));
     } finally {
       setSaving(false);
     }
@@ -118,7 +119,7 @@ export default function LocationPicker() {
   if (loading) {
     return (
       <div className="v-chip">
-        Location: <strong className="muted">Loading…</strong>
+        Location: <strong className="muted">Loading...</strong>
       </div>
     );
   }
@@ -141,22 +142,22 @@ export default function LocationPicker() {
         className="input"
         style={{ width: 280 }}
         value={activeLocationId ?? ""}
-        onChange={(e) => setPrimaryAndActive(e.target.value)}
+        onChange={(event) => setPrimaryAndActive(event.target.value)}
         disabled={saving}
         title="Switch active location"
       >
         <option value="" disabled>
-          Select location…
+          Select location...
         </option>
         {userLocs
           .slice()
           .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
-          .map((ul) => {
-            const l = locMap[ul.location_id];
-            const label = l ? l.name : ul.location_id;
+          .map((row) => {
+            const location = locMap[row.location_id];
+            const label = location ? location.name : row.location_id;
             return (
-              <option key={ul.location_id} value={ul.location_id}>
-                {ul.is_primary ? "★ " : ""}
+              <option key={row.location_id} value={row.location_id}>
+                {row.is_primary ? "? " : ""}
                 {label}
               </option>
             );
