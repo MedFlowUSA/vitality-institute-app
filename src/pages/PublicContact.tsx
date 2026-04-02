@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
+import { PUBLIC_CLINIC_LOCATIONS } from "../lib/publicClinicLocations";
 import { supabase } from "../lib/supabase";
 
 export default function PublicContact() {
@@ -19,6 +20,8 @@ export default function PublicContact() {
   const bookingLink = useMemo(() => {
     return serviceId ? `/book?interest=${encodeURIComponent(serviceId)}` : "/book";
   }, [serviceId]);
+  const primaryLocation = PUBLIC_CLINIC_LOCATIONS[0];
+  const secondaryLocations = PUBLIC_CLINIC_LOCATIONS.slice(1);
 
   async function submitInquiry() {
     setSubmitError(null);
@@ -70,16 +73,61 @@ export default function PublicContact() {
       <div className="row" style={{ gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
         <div className="card card-pad card-light surface-light" style={{ flex: "1 1 340px" }}>
           <div className="h2">Clinic Contact</div>
-          <div className="surface-light-body" style={{ marginTop: 12, lineHeight: 1.8 }}>
-            Vitality Institute of Redlands
-            <br />
-            Phone: 909-500-4572
-            <br />
-            Email: hello@vitalityinstitute.com
-            <br />
-            Address: 411 W. State Street, Suite B, Redlands, CA 92373
-            <br />
-            Hours: Monday to Friday, 10:00 AM to 4:00 PM
+          <div style={{ display: "grid", gap: 16, marginTop: 12 }}>
+            <div className="surface-light-body" style={{ lineHeight: 1.8 }}>
+              {primaryLocation.name}
+              {primaryLocation.phone ? (
+                <>
+                  <br />
+                  Phone: {primaryLocation.phone}
+                </>
+              ) : null}
+              {primaryLocation.email ? (
+                <>
+                  <br />
+                  Email: {primaryLocation.email}
+                </>
+              ) : null}
+              <br />
+              Address: {[primaryLocation.addressLine1, primaryLocation.addressLine2, primaryLocation.cityStateZip].filter(Boolean).join(", ")}
+              <br />
+              Hours: {primaryLocation.hoursLabel}
+            </div>
+
+            {secondaryLocations.map((location) => (
+              <div key={location.name} className="card card-pad card-light surface-light" style={{ border: "1px solid rgba(184,164,255,0.18)" }}>
+                <div style={{ fontSize: 12, fontWeight: 900, color: "var(--v-helper-dark)", letterSpacing: ".12em", textTransform: "uppercase" }}>
+                  Additional Location
+                </div>
+                <div className="h2" style={{ marginTop: 10, fontSize: 22 }}>{location.name}</div>
+                <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
+                  Address: {[location.addressLine1, location.addressLine2, location.cityStateZip].filter(Boolean).join(", ")}
+                  <br />
+                  Hours: {location.hoursLabel}
+                </div>
+                {location.note ? (
+                  <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
+                    {location.note}
+                  </div>
+                ) : null}
+                {location.website ? (
+                  <>
+                    <div className="surface-light-helper" style={{ marginTop: 10, fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
+                      Website
+                    </div>
+                    <a
+                      href={location.website}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="surface-light-body"
+                      style={{ display: "inline-block", marginTop: 8, lineHeight: 1.7, wordBreak: "break-word" }}
+                    >
+                      {location.website}
+                    </a>
+                  </>
+                ) : null}
+              </div>
+            ))}
           </div>
         </div>
 
@@ -117,7 +165,7 @@ export default function PublicContact() {
             <div className="card card-pad card-light surface-light">
               <div className="h2">Inquiry sent</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                Your message has been sent to Vitality Institute of Redlands. The team can follow up by {preferredContactMethod === "either" ? "phone or email" : preferredContactMethod}.
+                Your message has been sent to the Vitality team. The team can follow up by {preferredContactMethod === "either" ? "phone or email" : preferredContactMethod}.
               </div>
             </div>
           ) : null}
@@ -170,15 +218,36 @@ export default function PublicContact() {
 
         <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
           <div className="h2">Location Blocks</div>
-          <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
-            Redlands
-            <br />
-            411 W. State Street, Suite B
-            <br />
-            Monday to Friday, 10:00 AM to 4:00 PM
-          </div>
-          <div className="surface-light-helper" style={{ marginTop: 12 }}>
-            More locations can be added here later without changing the public funnel structure.
+          <div style={{ display: "grid", gap: 14, marginTop: 10 }}>
+            {PUBLIC_CLINIC_LOCATIONS.map((location) => (
+              <div key={location.name}>
+                <div className="surface-light-body" style={{ lineHeight: 1.8 }}>
+                  {location.name}
+                  <br />
+                  {location.addressLine1}
+                  {location.addressLine2 ? (
+                    <>
+                      <br />
+                      {location.addressLine2}
+                    </>
+                  ) : null}
+                  <br />
+                  {location.cityStateZip}
+                  <br />
+                  {location.hoursLabel}
+                </div>
+                {location.note ? (
+                  <div className="surface-light-helper" style={{ marginTop: 6, lineHeight: 1.7 }}>
+                    {location.note}
+                  </div>
+                ) : null}
+                {location.website ? (
+                  <a href={location.website} target="_blank" rel="noreferrer" className="btn btn-ghost" style={{ marginTop: 8, textDecoration: "none" }}>
+                    Visit Location Site
+                  </a>
+                ) : null}
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { PUBLIC_CLINIC_LOCATIONS } from "../lib/publicClinicLocations";
 import { Link } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { getPublicAccessRoute } from "../lib/publicMarketingCatalog";
@@ -34,6 +35,9 @@ const featuredServices = [
 ];
 
 export default function PublicLandingSimplified() {
+  const primaryLocation = PUBLIC_CLINIC_LOCATIONS[0];
+  const secondaryLocation = PUBLIC_CLINIC_LOCATIONS[1];
+
   return (
     <PublicSiteLayout title="Vitality Institute" compactHeader>
       <div
@@ -52,7 +56,7 @@ export default function PublicLandingSimplified() {
             textTransform: "uppercase",
           }}
         >
-          Patient-Centered Care in Redlands
+          Patient-Centered Care in Redlands and Los Angeles
         </div>
         <div className="h1 public-hero-heading" style={{ marginTop: 18, maxWidth: 760 }}>
           Get the care you need, with a clear and guided next step.
@@ -220,11 +224,11 @@ export default function PublicLandingSimplified() {
       <div className="card card-pad card-light surface-light">
         <div className="h2">Visit or Contact Us</div>
         <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
-          Vitality Institute of Redlands
+          {primaryLocation.name}
           <br />
-          411 W. State Street, Suite B
+          {primaryLocation.addressLine1}
           <br />
-          Redlands, CA 92373
+          {primaryLocation.cityStateZip}
         </div>
 
         <div className="space" />
@@ -235,7 +239,7 @@ export default function PublicLandingSimplified() {
               Phone
             </div>
             <a href="tel:+19095004572" className="h2" style={{ display: "inline-block", marginTop: 8, textDecoration: "none", color: "#140f24" }}>
-              909-500-4572
+              {primaryLocation.phone}
             </a>
           </div>
 
@@ -244,17 +248,55 @@ export default function PublicLandingSimplified() {
               Hours
             </div>
             <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.8 }}>
-              Monday to Friday
-              <br />
-              10:00 AM to 4:00 PM
+              {primaryLocation.hoursLabel}
             </div>
           </div>
         </div>
 
         <div className="space" />
 
+        <div className="card card-pad card-light surface-light" style={{ marginTop: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: "var(--v-helper-dark)", letterSpacing: ".12em", textTransform: "uppercase" }}>
+            Second Location
+          </div>
+          <div className="h2" style={{ marginTop: 10 }}>{secondaryLocation.name}</div>
+          <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
+            {secondaryLocation.addressLine1}
+            <br />
+            {secondaryLocation.cityStateZip}
+            <br />
+            {secondaryLocation.hoursLabel}
+          </div>
+          {secondaryLocation.note ? (
+            <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
+              {secondaryLocation.note}
+            </div>
+          ) : null}
+          {secondaryLocation.website ? (
+            <>
+              <div className="surface-light-helper" style={{ marginTop: 10, fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
+                Website
+              </div>
+              <a
+                href={secondaryLocation.website}
+                target="_blank"
+                rel="noreferrer"
+                className="surface-light-body"
+                style={{ display: "inline-block", marginTop: 8, lineHeight: 1.7, wordBreak: "break-word" }}
+              >
+                {secondaryLocation.website}
+              </a>
+              <a href={secondaryLocation.website} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ marginTop: 14, textDecoration: "none" }}>
+                Touch of Vitality Site
+              </a>
+            </>
+          ) : null}
+        </div>
+
+        <div className="space" />
+
         <div className="surface-light-helper" style={{ lineHeight: 1.7 }}>
-          Questions before you begin? Call the clinic or use the contact page for help.
+          Questions before you begin? Call the clinic or use the contact page for help across either location.
         </div>
         <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 14 }}>
           <Link to="/contact" className="btn btn-secondary">
