@@ -18,7 +18,7 @@ import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { submitPublicVitalAiRequest } from "../lib/publicVitalAiSubmission";
 import { formatCatalogLocationDetails, formatCatalogLocationLabel, loadCatalogLocations, type CatalogLocation } from "../lib/services/catalog";
 import { scoreConversionLead } from "../lib/vitalAi/conversionEngine";
-import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath } from "../lib/routeFlow";
+import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath, sanitizeInternalPath } from "../lib/routeFlow";
 
 type StepKey = "pathway" | "questions" | "contact" | "review" | "success";
 
@@ -37,6 +37,7 @@ function getHomeRouteForRole(role: AppRole | null) {
 export default function PublicVitalAiLite() {
   const { user, role } = useAuth();
   const [searchParams] = useSearchParams();
+  const returnTo = sanitizeInternalPath(searchParams.get("returnTo"), "/");
   const [step, setStep] = useState<StepKey>("pathway");
   const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
   const [pathway, setPathway] = useState<PublicVitalAiPathway>(() => {
@@ -69,6 +70,7 @@ export default function PublicVitalAiLite() {
   const fullIntakePath = useMemo(() => buildPatientIntakePath({ pathway, autostart: true }), [pathway]);
   const guestPortalPath = useMemo(() => buildOnboardingRoute({ next: fullIntakePath, handoff: "vital_ai_lite" }), [fullIntakePath]);
   const guestSignupPath = useMemo(() => buildAuthRoute({ mode: "signup", next: guestPortalPath, handoff: "vital_ai_lite" }), [guestPortalPath]);
+  const guestLoginPath = useMemo(() => buildAuthRoute({ mode: "login", next: guestPortalPath, handoff: "vital_ai_lite" }), [guestPortalPath]);
   const fullPortalAction = useMemo(() => {
     if (!user?.id) {
       return { label: "Create Account for Full Intake", to: guestSignupPath, variant: "ghost" as const };
@@ -80,6 +82,38 @@ export default function PublicVitalAiLite() {
 
     return { label: "Return to Dashboard", to: getHomeRouteForRole(role), variant: "ghost" as const };
   }, [fullIntakePath, guestSignupPath, role, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!email && user.email) {
+      setEmail(user.email);
+    }
+
+    const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const first = typeof metadata.first_name === "string" ? metadata.first_name : "";
+    const last = typeof metadata.last_name === "string" ? metadata.last_name : "";
+    const full = typeof metadata.full_name === "string" ? metadata.full_name : "";
+    const phoneNumber = typeof metadata.phone === "string" ? metadata.phone : "";
+
+    if (!firstName && first) {
+      setFirstName(first);
+    }
+    if (!lastName && last) {
+      setLastName(last);
+    }
+    if ((!firstName || !lastName) && full) {
+      const parts = full.trim().split(/\s+/);
+      if (!firstName && parts[0]) {
+        setFirstName(parts[0]);
+      }
+      if (!lastName && parts.length > 1) {
+        setLastName(parts.slice(1).join(" "));
+      }
+    }
+    if (!phone && phoneNumber) {
+      setPhone(phoneNumber);
+    }
+  }, [email, firstName, lastName, phone, user?.email, user?.id, user?.user_metadata]);
   const followUp = useMemo(
     () => buildFollowUpMessage(leadMetadata.leadType, leadMetadata.urgencyLevel),
     [leadMetadata.leadType, leadMetadata.urgencyLevel]
@@ -142,6 +176,7 @@ export default function PublicVitalAiLite() {
     if (!firstName.trim()) return "Enter a first name.";
     if (!lastName.trim()) return "Enter a last name.";
     if (!email.trim() && !phone.trim()) return "Enter an email or phone number so the clinic can reach you.";
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return "Enter a valid email address.";
     if (!preferredLocationId.trim() && locations.length > 0) return "Select the clinic location you prefer.";
     return null;
   }
@@ -223,7 +258,7 @@ export default function PublicVitalAiLite() {
     <PublicSiteLayout
       title="Start with Vital AI"
       subtitle="Use a short guided pre-intake so the clinic can review your concern and help route the right next step."
-      backFallbackTo="/"
+      backFallbackTo={returnTo || "/"}
       preferFallbackBack
     >
       <div className="card card-pad card-light surface-light">
@@ -275,7 +310,7 @@ export default function PublicVitalAiLite() {
             title="You can complete this guided request without an account"
             body="This public version is designed for a lightweight start. You can answer the questions now and the clinic can still review your request."
             detail="If you later need the full portal intake, uploads, or saved session flow, we will route you there clearly."
-            actions={[fullPortalAction]}
+            actions={[fullPortalAction, { label: "Already Have an Account?", to: guestLoginPath, variant: "ghost" }]}
           />
           <div className="space" />
         </>
@@ -365,7 +400,7 @@ export default function PublicVitalAiLite() {
             </div>
             {!user?.id ? (
               <div className="surface-light-helper" style={{ marginTop: 12, lineHeight: 1.7 }}>
-                You can submit this as a guest now, or create your account first if you want the fuller saved-intake experience.
+                You can submit this as a guest now, sign in if you already have an account, or create your account first if you want the fuller saved-intake experience.
               </div>
             ) : null}
 
@@ -382,12 +417,17 @@ export default function PublicVitalAiLite() {
               >
                 Continue
               </button>
-              <Link to="/book" className="btn btn-ghost">
+              <Link to={returnTo || "/book"} className="btn btn-ghost">
                 Book Instead
               </Link>
               {!user?.id ? (
                 <Link to={guestSignupPath} className="btn btn-ghost">
                   Create Account First
+                </Link>
+              ) : null}
+              {!user?.id ? (
+                <Link to={guestLoginPath} className="btn btn-ghost">
+                  Sign In Instead
                 </Link>
               ) : null}
               <Link to="/contact" className="btn btn-ghost">
@@ -613,9 +653,10 @@ export default function PublicVitalAiLite() {
           detail={`${followUp.supportingLine} A coordinator may follow up by ${preferredContactMethod === "either" ? "phone or email" : preferredContactMethod} to confirm scheduling and next steps.${bookingDraft?.requestId ? ` Linked visit request: ${bookingDraft.requestId}.` : ""} Reference: ${submissionId ?? "submitted"}. Final recommendations and treatment decisions are always determined by medical evaluation.`}
           actions={[
             { label: "Explore Services", to: "/services" },
-            { label: "Request Booking", to: "/book", variant: "ghost" },
+            { label: "Request Booking", to: returnTo && returnTo !== "/" ? `/book?returnTo=${encodeURIComponent(returnTo)}` : "/book", variant: "ghost" },
             { label: "Contact the Clinic", to: "/contact", variant: "ghost" },
             fullPortalAction,
+            ...(!user?.id ? [{ label: "Already Have an Account?", to: guestLoginPath, variant: "ghost" as const }] : []),
             {
               label: "Start Another",
               variant: "ghost",

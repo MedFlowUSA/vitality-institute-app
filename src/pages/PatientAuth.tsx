@@ -115,6 +115,7 @@ export default function PatientAuth() {
         if (error) throw error;
 
         if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          setMode("login");
           setErr("An account already exists for this email. Sign in or use a magic link instead.");
           return;
         }
@@ -150,6 +151,11 @@ export default function PatientAuth() {
       setMsg("Magic link sent. Open that email from this environment to continue.");
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Authentication failed.";
+      if (message.toLowerCase().includes("already registered") || message.toLowerCase().includes("user already registered")) {
+        setMode("login");
+        setErr("An account already exists for this email. Sign in or use a magic link instead.");
+        return;
+      }
       if (message.toLowerCase().includes("email not confirmed")) {
         setErr("Check your email and confirm your account before signing in, or use the magic link tab to continue.");
         return;
@@ -305,6 +311,26 @@ export default function PatientAuth() {
                 <div style={{ marginTop: 10, color: "rgba(226,232,240,0.62)", fontSize: 12, lineHeight: 1.6 }}>
                   Reference: {bookingDraft.requestId}. A coordinator may follow up to confirm scheduling, and provider review may be required depending on your concern.
                 </div>
+              </div>
+            ) : null}
+
+            {handoff === "vital_ai_lite" ? (
+              <div style={contextCardStyle}>
+                <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", color: "#C8B6FF" }}>
+                  Vital AI Handoff
+                </div>
+                <div style={{ marginTop: 8, fontSize: 18, fontWeight: 800, color: "#F8FAFC" }}>
+                  Continue into your fuller intake
+                </div>
+                <div style={{ marginTop: 8, color: "rgba(226,232,240,0.78)", lineHeight: 1.7 }}>
+                  You can sign in or create your account now, and we&apos;ll carry you into the full intake flow without losing the care direction you selected.
+                </div>
+                {bookingDraft?.serviceName || bookingDraft?.locationName ? (
+                  <div style={{ marginTop: 10, color: "rgba(226,232,240,0.62)", fontSize: 12, lineHeight: 1.6 }}>
+                    Saved context: {bookingDraft?.serviceName || "Selected service"}
+                    {bookingDraft?.locationName ? ` at ${bookingDraft.locationName}` : ""}.
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

@@ -1,12 +1,37 @@
-import { Link, useParams } from "react-router-dom";
+import { useMemo } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { getPublicAccessRoute, getPublicOfferingBySlug, getPublicOfferingPrimaryCta, getPublicOfferingVitalAiPath } from "../lib/publicMarketingCatalog";
 
 export default function PublicServiceDetail() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
   const service = getPublicOfferingBySlug(slug);
   const primaryCta = service ? getPublicOfferingPrimaryCta(service) : null;
   const vitalAiPath = service ? getPublicOfferingVitalAiPath(service) : "/vital-ai";
+  const servicesBackTo = useMemo(() => {
+    const params = new URLSearchParams();
+    const category = searchParams.get("category");
+    const query = searchParams.get("q");
+    const open = searchParams.get("open");
+
+    if (category && category !== "all") params.set("category", category);
+    if (query) params.set("q", query);
+    if (open) params.set("open", open);
+
+    const encoded = params.toString();
+    return encoded ? `/services?${encoded}` : "/services";
+  }, [searchParams]);
+  const bookingPath = useMemo(() => {
+    if (!service) return `/book?returnTo=${encodeURIComponent(servicesBackTo)}`;
+    const base = primaryCta?.to ?? `/book?interest=${encodeURIComponent(service.slug)}`;
+    const joiner = base.includes("?") ? "&" : "?";
+    return `${base}${joiner}returnTo=${encodeURIComponent(servicesBackTo)}`;
+  }, [primaryCta?.to, service, servicesBackTo]);
+  const guidedPath = useMemo(() => {
+    const joiner = vitalAiPath.includes("?") ? "&" : "?";
+    return `${vitalAiPath}${joiner}returnTo=${encodeURIComponent(servicesBackTo)}`;
+  }, [servicesBackTo, vitalAiPath]);
 
   return (
     <PublicSiteLayout
@@ -14,11 +39,11 @@ export default function PublicServiceDetail() {
       subtitle="Review the service, then choose the clearest public next step before scheduling is finalized."
       rightAction={
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-          <Link to="/services" className="btn btn-secondary">
+          <Link to={servicesBackTo} className="btn btn-secondary">
             Back to Services
           </Link>
           {primaryCta ? (
-            <Link to={primaryCta.to} className="btn btn-primary">
+            <Link to={bookingPath} className="btn btn-primary">
               {primaryCta.label}
             </Link>
           ) : null}
@@ -37,6 +62,14 @@ export default function PublicServiceDetail() {
         </div>
       ) : (
         <>
+          <div className="surface-light-helper" style={{ marginBottom: 12, lineHeight: 1.7 }}>
+            <Link to="/services" style={{ color: "inherit" }}>Services</Link>
+            {" / "}
+            <Link to={servicesBackTo} style={{ color: "inherit" }}>{service.category}</Link>
+            {" / "}
+            <span>{service.title}</span>
+          </div>
+
           <div
             className="card card-pad"
             style={{
@@ -78,13 +111,13 @@ export default function PublicServiceDetail() {
             </div>
 
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-              <Link to={primaryCta?.to ?? `/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
+              <Link to={bookingPath} className="btn btn-primary">
                 {primaryCta?.label ?? "Request Visit"}
               </Link>
               <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-secondary">
                 Contact Us
               </Link>
-              <Link to={vitalAiPath} className="btn btn-secondary">
+              <Link to={guidedPath} className="btn btn-secondary">
                 Start with Vital AI
               </Link>
             </div>
@@ -136,7 +169,7 @@ export default function PublicServiceDetail() {
                 <div className="space" />
                 {service.faqNotes.map((note) => (
                   <div key={note} className="surface-light-body" style={{ marginBottom: 10, lineHeight: 1.75 }}>
-                    • {note}
+                    {"-"} {note}
                   </div>
                 ))}
               </div>
@@ -153,10 +186,10 @@ export default function PublicServiceDetail() {
                 </div>
               </div>
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                 <Link to={primaryCta?.to ?? `/book?interest=${encodeURIComponent(service.slug)}`} className="btn btn-primary">
+                 <Link to={bookingPath} className="btn btn-primary">
                    {primaryCta?.label ?? "Request Visit"}
                  </Link>
-                 <Link to={vitalAiPath} className="btn btn-secondary">
+                 <Link to={guidedPath} className="btn btn-secondary">
                    Start with Vital AI
                  </Link>
                  <Link to={getPublicAccessRoute("login")} className="btn btn-secondary">

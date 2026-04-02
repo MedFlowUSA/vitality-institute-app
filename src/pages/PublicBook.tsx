@@ -10,7 +10,7 @@ import { createBookingRequest } from "../lib/bookingRequests";
 import { buildFollowUpMessage, resolveBookingRequestLead } from "../lib/publicFollowUpEngine";
 import { getPublicOfferingBySlug, PUBLIC_OFFERINGS, type PublicOffering } from "../lib/publicMarketingCatalog";
 import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
-import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath } from "../lib/routeFlow";
+import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath, sanitizeInternalPath } from "../lib/routeFlow";
 import {
   formatCatalogLocationDetails,
   formatCatalogLocationLabel,
@@ -61,6 +61,7 @@ export default function PublicBook() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const selectedInterestSlug = searchParams.get("interest") ?? "";
+  const returnTo = sanitizeInternalPath(searchParams.get("returnTo"), "");
   const selectedInterest =
     getPublicOfferingBySlug(selectedInterestSlug) ?? {
       slug: "",
@@ -75,7 +76,7 @@ export default function PublicBook() {
       faqNotes: [],
     };
   const hasSelectedInterest = !!selectedInterest.slug;
-  const bookBackTo = hasSelectedInterest ? `/services/${selectedInterest.slug}` : "/services";
+  const bookBackTo = returnTo || (hasSelectedInterest ? `/services/${selectedInterest.slug}` : "/services");
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -206,6 +207,9 @@ export default function PublicBook() {
 
   const guestSignupPath = useMemo(() => {
     return buildAuthRoute({ mode: "signup", next: guestOnboardingPath, handoff: "booking_request" });
+  }, [guestOnboardingPath]);
+  const guestLoginPath = useMemo(() => {
+    return buildAuthRoute({ mode: "login", next: guestOnboardingPath, handoff: "booking_request" });
   }, [guestOnboardingPath]);
 
   const normalizedStartTime = useMemo(() => startTimeLocal.trim(), [startTimeLocal]);
@@ -550,7 +554,7 @@ export default function PublicBook() {
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
                 {user?.id
                   ? "Choose your service and preferred time now, then continue into a guided intake before your visit."
-                  : "Choose your service and preferred time now. We'll save your request, then guide you through account setup and intake while the clinic reviews availability."}
+                  : "Choose your service and preferred time now. We will save your request first, then guide you through sign-in or account setup and intake while the clinic reviews availability."}
               </div>
             </div>
 
@@ -560,7 +564,11 @@ export default function PublicBook() {
                   eyebrow="Guest Flow"
                   title="You can start here before creating your account"
                   body="We'll save your request first, then move you into account setup and intake with your visit details carried forward."
-                  detail="You do not need to stop and register before choosing the location, service, and preferred timing that fit best."
+                  detail="You do not need to stop and register before choosing the location, service, and preferred timing that fit best. If you already have an account, you can sign in instead."
+                  actions={[
+                    { label: "Create Account First", to: guestSignupPath, variant: "ghost" },
+                    { label: "Sign In Instead", to: guestLoginPath, variant: "ghost" },
+                  ]}
                 />
               </div>
             ) : null}
@@ -574,8 +582,11 @@ export default function PublicBook() {
                     ? "After you continue, you'll move into intake so the care team has the right context before the visit is finalized."
                     : "After you continue, your request is saved for review while you move through account setup and intake."
                 }
-                detail="A coordinator may follow up to confirm timing and next steps. Provider review may be required depending on the concern or service selected."
-                actions={!user?.id ? [{ label: "Create Account Now", to: guestSignupPath, variant: "ghost" }] : undefined}
+                detail="A coordinator may follow up to confirm timing and next steps. Provider review may be required depending on the concern or service selected, and final scheduling is confirmed by the clinic."
+                actions={!user?.id ? [
+                  { label: "Create Account Now", to: guestSignupPath, variant: "ghost" },
+                  { label: "Already Have an Account?", to: guestLoginPath, variant: "ghost" },
+                ] : undefined}
               />
             </div>
 
@@ -684,8 +695,8 @@ export default function PublicBook() {
               }
               detail="Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit. If you are not signed in yet, we will carry this request into account setup and intake for you."
               actions={[
-                { label: "Start with Vital AI", to: "/vital-ai", variant: "ghost" },
-                { label: "Explore Services", to: "/services", variant: "ghost" },
+                { label: "Start with Vital AI", to: returnTo ? `/vital-ai?returnTo=${encodeURIComponent(bookBackTo)}` : "/vital-ai", variant: "ghost" },
+                { label: "Explore Services", to: bookBackTo, variant: "ghost" },
               ]}
             />
           </>
