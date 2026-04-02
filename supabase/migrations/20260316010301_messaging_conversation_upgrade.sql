@@ -156,7 +156,6 @@ create index if not exists idx_chat_messages_body_search
 -- This inserts participant rows for both shapes where resolvable.
 insert into public.chat_thread_participants (
   thread_id,
-  user_id,
   patient_id,
   participant_role,
   can_view_internal,
@@ -164,7 +163,6 @@ insert into public.chat_thread_participants (
 )
 select
   t.id,
-  p.profile_id,
   p.id,
   'patient',
   false,
@@ -176,7 +174,6 @@ on conflict do nothing;
 
 insert into public.chat_thread_participants (
   thread_id,
-  user_id,
   patient_id,
   participant_role,
   can_view_internal,
@@ -184,7 +181,6 @@ insert into public.chat_thread_participants (
 )
 select
   t.id,
-  p.profile_id,
   p.id,
   'patient',
   false,
