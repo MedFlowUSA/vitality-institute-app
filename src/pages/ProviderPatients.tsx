@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
+import { getErrorMessage, isProviderAccountLinkingError } from "../lib/patientRecords";
 
 type LocationRow = { id: string; name: string };
 type MembershipRow = {
@@ -59,7 +60,7 @@ export default function ProviderPatients() {
     const { data, error } = await supabase.from("user_locations").select("location_id").eq("user_id", user.id);
     if (error) throw new Error(error.message);
 
-    const ids = (data ?? []).map((r: any) => r.location_id).filter(Boolean);
+      const ids = (data ?? []).map((r: { location_id?: string | null }) => r.location_id).filter(Boolean) as string[];
     setAllowedLocationIds(ids);
 
     // if exactly one location, lock selection to it
@@ -140,8 +141,8 @@ export default function ProviderPatients() {
       }
       out.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
       setPatients(out);
-    } catch (e: any) {
-      setErr(e?.message ?? "Failed to load patients.");
+    } catch (e: unknown) {
+      setErr(getErrorMessage(e, "Failed to load patients."));
       setPatients([]);
     } finally {
       setLoading(false);
@@ -155,8 +156,8 @@ export default function ProviderPatients() {
       try {
         await loadLocations();
         await loadAllowed();
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load base data.");
+      } catch (e: unknown) {
+        setErr(getErrorMessage(e, "Failed to load base data."));
       } finally {
         setLoadingBase(false);
       }
@@ -275,7 +276,24 @@ export default function ProviderPatients() {
           <div className="space" />
 
           {loadingBase && <div className="muted">Loading…</div>}
-          {!loadingBase && err && <div style={{ color: "crimson" }}>{err}</div>}
+          {!loadingBase && err && (
+            <div
+              style={
+                isProviderAccountLinkingError(err)
+                  ? {
+                      padding: "12px 14px",
+                      borderRadius: 16,
+                      background: "rgba(245, 158, 11, 0.10)",
+                      border: "1px solid rgba(245, 158, 11, 0.22)",
+                      color: "#8A5A00",
+                      lineHeight: 1.6,
+                    }
+                  : { color: "crimson" }
+              }
+            >
+              {err}
+            </div>
+          )}
 
           {!loadingBase && !err && (
             <div>
