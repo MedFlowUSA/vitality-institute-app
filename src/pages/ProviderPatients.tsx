@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
-import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 import { getErrorMessage, isProviderAccountLinkingError } from "../lib/patientRecords";
+import { supabase } from "../lib/supabase";
 
 type LocationRow = { id: string; name: string };
 type MembershipRow = {
@@ -14,7 +14,7 @@ type MembershipRow = {
 };
 
 type PatientRow = {
-  id: string; // patient uuid
+  id: string;
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
@@ -28,19 +28,21 @@ export default function ProviderPatients() {
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [allowedLocationIds, setAllowedLocationIds] = useState<string[]>([]);
   const [locationId, setLocationId] = useState<string>("");
-
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [q, setQ] = useState("");
-
   const [loadingBase, setLoadingBase] = useState(true);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const isAdmin = useMemo(() => role === "super_admin" || role === "location_admin", [role]);
+  const visibleLocations = useMemo(
+    () => locations.filter((location) => (isAdmin ? true : allowedLocationIds.includes(location.id))),
+    [allowedLocationIds, isAdmin, locations],
+  );
 
-  const fullName = (p: PatientRow) => {
-    const n = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
-    return n || "Patient";
+  const fullName = (patient: PatientRow) => {
+    const name = `${patient.first_name ?? ""} ${patient.last_name ?? ""}`.trim();
+    return name || "Patient";
   };
 
   const loadLocations = async () => {
@@ -60,10 +62,9 @@ export default function ProviderPatients() {
     const { data, error } = await supabase.from("user_locations").select("location_id").eq("user_id", user.id);
     if (error) throw new Error(error.message);
 
-      const ids = (data ?? []).map((r: { location_id?: string | null }) => r.location_id).filter(Boolean) as string[];
+    const ids = (data ?? []).map((row: { location_id?: string | null }) => row.location_id).filter(Boolean) as string[];
     setAllowedLocationIds(ids);
 
-    // if exactly one location, lock selection to it
     if (ids.length === 1) setLocationId(ids[0]);
   };
 
@@ -72,7 +73,6 @@ export default function ProviderPatients() {
     setLoading(true);
 
     try {
-      // 1) Read scoped memberships from the view
       let query = supabase
         .from("v_patient_location_memberships")
         .select("patient_id, created_at, location_id")
@@ -96,13 +96,10 @@ export default function ProviderPatients() {
       if (error) throw error;
 
       const membershipRows = (data as MembershipRow[]) ?? [];
-
-      // De-dupe memberships by patient_id while preserving newest-first ordering.
       const membershipByPatient = new Map<string, MembershipRow>();
-      for (const r of membershipRows) {
-        const pid = r.patient_id;
-        if (!pid) continue;
-        if (!membershipByPatient.has(pid)) membershipByPatient.set(pid, r);
+      for (const row of membershipRows) {
+        if (!row.patient_id) continue;
+        if (!membershipByPatient.has(row.patient_id)) membershipByPatient.set(row.patient_id, row);
       }
 
       const patientIds = Array.from(membershipByPatient.keys());
@@ -111,14 +108,13 @@ export default function ProviderPatients() {
         return;
       }
 
-      // 2) Fetch patient demographics from patients table (source of first/last/phone).
-      let pQuery = supabase.from("patients").select("id,first_name,last_name,phone").in("id", patientIds);
+      let patientQuery = supabase.from("patients").select("id,first_name,last_name,phone").in("id", patientIds);
       if (q.trim()) {
-        const t = q.trim();
-        pQuery = pQuery.or(`first_name.ilike.%${t}%,last_name.ilike.%${t}%,phone.ilike.%${t}%`);
+        const term = q.trim();
+        patientQuery = patientQuery.or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%,phone.ilike.%${term}%`);
       }
 
-      const { data: patientData, error: patientErr } = await pQuery;
+      const { data: patientData, error: patientErr } = await patientQuery;
       if (patientErr) throw patientErr;
 
       const patientRows = (patientData ?? []) as Array<{
@@ -128,21 +124,18 @@ export default function ProviderPatients() {
         phone: string | null;
       }>;
 
-      const out: PatientRow[] = [];
-      for (const p of patientRows) {
-        const m = membershipByPatient.get(p.id);
-        out.push({
-          id: p.id,
-          first_name: p.first_name ?? null,
-          last_name: p.last_name ?? null,
-          phone: p.phone ?? null,
-          created_at: m?.created_at ?? new Date().toISOString(),
-        });
-      }
-      out.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-      setPatients(out);
-    } catch (e: unknown) {
-      setErr(getErrorMessage(e, "Failed to load patients."));
+      const nextPatients: PatientRow[] = patientRows.map((patient) => ({
+        id: patient.id,
+        first_name: patient.first_name ?? null,
+        last_name: patient.last_name ?? null,
+        phone: patient.phone ?? null,
+        created_at: membershipByPatient.get(patient.id)?.created_at ?? new Date().toISOString(),
+      }));
+
+      nextPatients.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+      setPatients(nextPatients);
+    } catch (error: unknown) {
+      setErr(getErrorMessage(error, "Failed to load patients."));
       setPatients([]);
     } finally {
       setLoading(false);
@@ -156,8 +149,8 @@ export default function ProviderPatients() {
       try {
         await loadLocations();
         await loadAllowed();
-      } catch (e: unknown) {
-        setErr(getErrorMessage(e, "Failed to load base data."));
+      } catch (error: unknown) {
+        setErr(getErrorMessage(error, "Failed to load base data."));
       } finally {
         setLoadingBase(false);
       }
@@ -169,11 +162,10 @@ export default function ProviderPatients() {
     if (activeLocationId) setLocationId(activeLocationId);
   }, [activeLocationId]);
 
-  // Load directory once base is ready + when location access changes (keeps it feeling “alive”)
   useEffect(() => {
     if (loadingBase) return;
     if (!isAdmin && allowedLocationIds.length === 0) return;
-    loadPatients();
+    void loadPatients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadingBase, locationId, allowedLocationIds.join(","), isAdmin, activeLocationId]);
 
@@ -182,7 +174,7 @@ export default function ProviderPatients() {
       <div className="shell">
         <VitalityHero
           title="Patients"
-          subtitle="Search patients • open patient center • manage visits/files/notes"
+          subtitle="Search patients, open the patient center, and manage visits, files, and notes."
           secondaryCta={{ label: "Back", to: "/provider" }}
           primaryCta={{ label: "AI Plan Builder", to: "/provider/ai" }}
           rightActions={
@@ -195,25 +187,34 @@ export default function ProviderPatients() {
 
         <div className="space" />
 
-        {/* Quick actions */}
         <div className="card card-pad">
-          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <div>
+          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <div style={{ flex: "1 1 280px", minWidth: 240 }}>
               <div className="h1">Patient Directory</div>
-              <div className="muted">Filter by location + search by name/phone.</div>
+              <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
+                Filter by location, search by name or phone, and jump into the next patient quickly.
+              </div>
             </div>
 
-            <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <button className="btn btn-primary" type="button" onClick={() => nav("/provider/intakes")}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(132px, 1fr))",
+                gap: 8,
+                flex: "1 1 360px",
+                minWidth: 260,
+              }}
+            >
+              <button className="btn btn-primary" type="button" onClick={() => nav("/provider/intakes")} style={{ width: "100%" }}>
                 Intakes
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/labs")}>
+              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/labs")} style={{ width: "100%" }}>
                 Labs
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/chat")}>
+              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/chat")} style={{ width: "100%" }}>
                 Messages
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/queue")}>
+              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/queue")} style={{ width: "100%" }}>
                 Queue
               </button>
             </div>
@@ -223,51 +224,66 @@ export default function ProviderPatients() {
         <div className="space" />
 
         <div className="card card-pad">
-          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ minWidth: 280 }}>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "end", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 240px", minWidth: 220 }}>
               <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
                 Location
               </div>
               <select
                 className="input"
                 value={locationId}
-                onChange={(e) => setLocationId(e.target.value)}
+                onChange={(event) => setLocationId(event.target.value)}
                 disabled={!isAdmin && allowedLocationIds.length <= 1}
-                title={!isAdmin && allowedLocationIds.length <= 1 ? "You’re assigned to one location." : ""}
+                title={!isAdmin && allowedLocationIds.length <= 1 ? "You're assigned to one location." : ""}
                 style={{ width: "100%" }}
               >
                 <option value="">{isAdmin ? "All Locations" : "My Locations"}</option>
-                {locations
-                  .filter((l) => (isAdmin ? true : allowedLocationIds.includes(l.id)))
-                  .map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
+                {visibleLocations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
               </select>
             </div>
 
-            <div style={{ flex: 1, minWidth: 260 }}>
+            <div style={{ flex: "2 1 320px", minWidth: 240 }}>
               <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
                 Search
               </div>
               <input
                 className="input"
                 value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search first/last name or phone…"
+                onChange={(event) => setQ(event.target.value)}
+                placeholder="Search first name, last name, or phone..."
                 style={{ width: "100%" }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") loadPatients();
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") void loadPatients();
                 }}
               />
             </div>
 
-            <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
-              <button className="btn btn-primary" type="button" onClick={loadPatients} disabled={loading}>
-                {loading ? "Searching…" : "Search"}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                gap: 8,
+                flex: "1 1 220px",
+                minWidth: 220,
+              }}
+            >
+              <button className="btn btn-primary" type="button" onClick={() => void loadPatients()} disabled={loading} style={{ width: "100%" }}>
+                {loading ? "Searching..." : "Search"}
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => { setQ(""); loadPatients(); }} disabled={loading}>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => {
+                  setQ("");
+                  void loadPatients();
+                }}
+                disabled={loading}
+                style={{ width: "100%" }}
+              >
                 Clear
               </button>
             </div>
@@ -275,18 +291,19 @@ export default function ProviderPatients() {
 
           <div className="space" />
 
-          {loadingBase && <div className="muted">Loading…</div>}
+          {loadingBase && <div className="muted">Loading...</div>}
           {!loadingBase && err && (
             <div
               style={
                 isProviderAccountLinkingError(err)
                   ? {
-                      padding: "12px 14px",
+                      padding: "14px 16px",
                       borderRadius: 16,
                       background: "rgba(245, 158, 11, 0.10)",
                       border: "1px solid rgba(245, 158, 11, 0.22)",
                       color: "#8A5A00",
                       lineHeight: 1.6,
+                      maxWidth: 760,
                     }
                   : { color: "crimson" }
               }
@@ -297,43 +314,69 @@ export default function ProviderPatients() {
 
           {!loadingBase && !err && (
             <div>
+              <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+                <div className="muted" style={{ fontSize: 13 }}>
+                  {loading ? "Refreshing patient list..." : `${patients.length} patient${patients.length === 1 ? "" : "s"} in view`}
+                </div>
+                {activeLocationId ? (
+                  <div className="v-chip">
+                    Active location: <strong>{visibleLocations.find((location) => location.id === activeLocationId)?.name ?? activeLocationId}</strong>
+                  </div>
+                ) : null}
+              </div>
+
               {loading ? (
-                <div className="muted">Loading patients…</div>
+                <div className="muted">Loading patients...</div>
               ) : patients.length === 0 ? (
                 <div className="muted">No patients found.</div>
               ) : (
-                patients.map((p) => (
-                  <div key={p.id} className="card card-pad" style={{ marginBottom: 12 }}>
-                    <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                      <div style={{ flex: 1, minWidth: 260 }}>
-                        <div className="h2">{fullName(p)}</div>
+                patients.map((patient) => (
+                  <div
+                    key={patient.id}
+                    className="card card-pad card-light surface-light"
+                    style={{
+                      marginBottom: 12,
+                      background: "rgba(250,247,255,0.82)",
+                      border: "1px solid rgba(184,164,255,0.18)",
+                    }}
+                  >
+                    <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+                      <div style={{ flex: "1 1 260px", minWidth: 220 }}>
+                        <div className="h2">{fullName(patient)}</div>
                         <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
-                          {p.phone ? p.phone : "—"}
+                          {patient.phone ? patient.phone : "No phone on file"}
                         </div>
-                        <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
-                          Patient ID: {p.id}
+                        <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                          <div className="v-chip">New patient chart</div>
+                          <div className="v-chip">active</div>
+                        </div>
+                        <div className="muted" style={{ marginTop: 6, fontSize: 12, wordBreak: "break-word" }}>
+                          Patient ID: {patient.id}
                         </div>
                       </div>
 
-                      <div className="row" style={{ gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                        {/* ✅ FIXED ROUTE: matches App.tsx /provider/patients/:patientId */}
-                        <button className="btn btn-primary" type="button" onClick={() => nav(`/provider/patients/${p.id}`)}>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(132px, 1fr))",
+                          gap: 8,
+                          flex: "1 1 320px",
+                          minWidth: 220,
+                        }}
+                      >
+                        <button className="btn btn-primary" type="button" onClick={() => nav(`/provider/patients/${patient.id}`)} style={{ width: "100%" }}>
                           Open Patient
                         </button>
-
-                        <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/visit-builder/${p.id}`)}>
+                        <button className="btn btn-secondary" type="button" onClick={() => nav(`/provider/visit-builder/${patient.id}`)} style={{ width: "100%" }}>
                           New Visit
                         </button>
-
-                        <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/intakes`)}>
+                        <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/intakes")} style={{ width: "100%" }}>
                           Intake
                         </button>
-
-                        <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/labs`)}>
+                        <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/labs")} style={{ width: "100%" }}>
                           Labs
                         </button>
-
-                        <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/chat`)}>
+                        <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/chat")} style={{ width: "100%" }}>
                           Messages
                         </button>
                       </div>
