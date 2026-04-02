@@ -77,6 +77,21 @@ create table if not exists public.conversations (
   )
 );
 
+alter table if exists public.conversations
+  add column if not exists legacy_thread_id uuid null,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now(),
+  add column if not exists location_id uuid null,
+  add column if not exists patient_id uuid null,
+  add column if not exists appointment_id uuid null,
+  add column if not exists intake_submission_id uuid null,
+  add column if not exists title text null,
+  add column if not exists status text not null default 'open',
+  add column if not exists context_type text not null default 'general',
+  add column if not exists last_message_at timestamptz null,
+  add column if not exists last_message_preview text null,
+  add column if not exists metadata_json jsonb not null default '{}'::jsonb;
+
 create unique index if not exists idx_conversations_appointment_unique
   on public.conversations(appointment_id)
   where appointment_id is not null;
@@ -101,6 +116,15 @@ create table if not exists public.conversation_participants (
   )
 );
 
+alter table if exists public.conversation_participants
+  add column if not exists user_id uuid null,
+  add column if not exists participant_role text not null default 'staff',
+  add column if not exists can_view_internal boolean not null default false,
+  add column if not exists can_post_internal boolean not null default false,
+  add column if not exists joined_at timestamptz not null default now(),
+  add column if not exists last_read_at timestamptz null,
+  add column if not exists notifications_muted boolean not null default false;
+
 create index if not exists idx_conversation_participants_user on public.conversation_participants(user_id, last_read_at);
 create index if not exists idx_conversation_participants_conversation on public.conversation_participants(conversation_id);
 
@@ -121,6 +145,19 @@ create table if not exists public.messages (
   constraint messages_type_check check (message_type in ('message', 'internal_note', 'system'))
 );
 
+alter table if exists public.messages
+  add column if not exists legacy_message_id uuid null,
+  add column if not exists conversation_id uuid null,
+  add column if not exists sender_user_id uuid null,
+  add column if not exists sender_patient_id uuid null,
+  add column if not exists visibility text not null default 'patient_visible',
+  add column if not exists message_type text not null default 'message',
+  add column if not exists body text not null default '',
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists edited_at timestamptz null,
+  add column if not exists reply_to_message_id uuid null,
+  add column if not exists metadata_json jsonb not null default '{}'::jsonb;
+
 create index if not exists idx_messages_conversation_created on public.messages(conversation_id, created_at);
 create index if not exists idx_messages_visibility on public.messages(visibility);
 create index if not exists idx_messages_body_search
@@ -135,6 +172,12 @@ create table if not exists public.message_mentions (
   unique (message_id, mentioned_user_id)
 );
 
+alter table if exists public.message_mentions
+  add column if not exists message_id uuid null,
+  add column if not exists mentioned_user_id uuid null,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists acknowledged_at timestamptz null;
+
 create index if not exists idx_message_mentions_user on public.message_mentions(mentioned_user_id, created_at desc);
 
 create table if not exists public.message_attachments (
@@ -146,6 +189,14 @@ create table if not exists public.message_attachments (
   mime_type text null,
   created_at timestamptz not null default now()
 );
+
+alter table if exists public.message_attachments
+  add column if not exists message_id uuid null,
+  add column if not exists patient_file_id uuid null,
+  add column if not exists file_name text null,
+  add column if not exists file_url text null,
+  add column if not exists mime_type text null,
+  add column if not exists created_at timestamptz not null default now();
 
 create index if not exists idx_message_attachments_message on public.message_attachments(message_id);
 
