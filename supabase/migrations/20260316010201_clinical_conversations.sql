@@ -92,6 +92,9 @@ alter table if exists public.conversations
   add column if not exists last_message_preview text null,
   add column if not exists metadata_json jsonb not null default '{}'::jsonb;
 
+create unique index if not exists idx_conversations_legacy_thread_unique
+  on public.conversations(legacy_thread_id);
+
 create unique index if not exists idx_conversations_appointment_unique
   on public.conversations(appointment_id)
   where appointment_id is not null;
@@ -125,6 +128,9 @@ alter table if exists public.conversation_participants
   add column if not exists last_read_at timestamptz null,
   add column if not exists notifications_muted boolean not null default false;
 
+create unique index if not exists idx_conversation_participants_conversation_user_unique
+  on public.conversation_participants(conversation_id, user_id);
+
 create index if not exists idx_conversation_participants_user on public.conversation_participants(user_id, last_read_at);
 create index if not exists idx_conversation_participants_conversation on public.conversation_participants(conversation_id);
 
@@ -157,6 +163,9 @@ alter table if exists public.messages
   add column if not exists edited_at timestamptz null,
   add column if not exists reply_to_message_id uuid null,
   add column if not exists metadata_json jsonb not null default '{}'::jsonb;
+
+create unique index if not exists idx_messages_legacy_message_unique
+  on public.messages(legacy_message_id);
 
 create index if not exists idx_messages_conversation_created on public.messages(conversation_id, created_at);
 create index if not exists idx_messages_visibility on public.messages(visibility);
@@ -333,15 +342,19 @@ set
   last_message_preview = latest.body,
   last_message_at = latest.created_at,
   updated_at = now()
-from lateral (
-  select body, created_at
+from (
+  select distinct on (m.conversation_id)
+    m.conversation_id,
+    m.body,
+    m.created_at
   from public.messages m
-  where m.conversation_id = c.id
-  order by m.created_at desc
-  limit 1
+  order by m.conversation_id, m.created_at desc
 ) latest
-where c.last_message_preview is distinct from latest.body
-   or c.last_message_at is distinct from latest.created_at;
+where latest.conversation_id = c.id
+  and (
+    c.last_message_preview is distinct from latest.body
+    or c.last_message_at is distinct from latest.created_at
+  );
 
 alter table public.conversations enable row level security;
 alter table public.conversation_participants enable row level security;
