@@ -16,7 +16,7 @@ import {
 import { buildFollowUpMessage } from "../lib/publicFollowUpEngine";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { submitPublicVitalAiRequest } from "../lib/publicVitalAiSubmission";
-import { formatCatalogLocationDetails, formatCatalogLocationLabel, loadCatalogLocations, type CatalogLocation } from "../lib/services/catalog";
+import { formatCatalogLocationDetails, formatCatalogLocationLabel, formatCatalogLocationName, loadCatalogLocations, type CatalogLocation } from "../lib/services/catalog";
 import { scoreConversionLead } from "../lib/vitalAi/conversionEngine";
 import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath, sanitizeInternalPath } from "../lib/routeFlow";
 
@@ -608,7 +608,10 @@ export default function PublicVitalAiLite() {
               <div>{email || "-"}</div>
               <div>{phone || "-"}</div>
               <div className="surface-light-helper" style={{ marginTop: 6 }}>
-                Contact by {preferredContactMethod}. Location: {locations.find((location) => location.id === preferredLocationId)?.name ?? "Not provided"}.
+                Contact by {preferredContactMethod}. Location: {(() => {
+                  const location = locations.find((item) => item.id === preferredLocationId);
+                  return location ? formatCatalogLocationName(location) : "Not provided";
+                })()}.
               </div>
               {bookingDraft?.requestId ? (
                 <div className="surface-light-helper" style={{ marginTop: 6 }}>

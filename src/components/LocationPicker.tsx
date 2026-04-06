@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "../lib/supabase";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthProvider";
+import { formatCatalogLocationName } from "../lib/services/catalog";
+import { supabase } from "../lib/supabase";
 
 type UserLocationRow = {
   id: string;
@@ -35,7 +36,8 @@ export default function LocationPicker() {
     const location = locMap[activeLocationId];
     if (!location) return activeLocationId.slice(0, 8);
     const place = [location.city, location.state].filter(Boolean).join(", ");
-    return place ? `${location.name} � ${place}` : location.name;
+    const displayName = formatCatalogLocationName(location);
+    return place ? `${displayName} • ${place}` : displayName;
   }, [activeLocationId, locMap]);
 
   const loadLocations = useCallback(async () => {
@@ -154,10 +156,10 @@ export default function LocationPicker() {
           .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
           .map((row) => {
             const location = locMap[row.location_id];
-            const label = location ? location.name : row.location_id;
+            const label = location ? formatCatalogLocationName(location) : row.location_id;
             return (
               <option key={row.location_id} value={row.location_id}>
-                {row.is_primary ? "? " : ""}
+                {row.is_primary ? "• " : ""}
                 {label}
               </option>
             );

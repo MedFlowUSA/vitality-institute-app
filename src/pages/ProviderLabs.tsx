@@ -18,6 +18,8 @@ type LabRow = {
   appointment_id: string | null;
   intake_submission_id: string | null;
   panel_id: string;
+  lab_source: string | null;
+  lab_source_other: string | null;
   status: "submitted" | "reviewed";
   collected_on: string | null;
   values: Record<string, unknown> | null;
@@ -111,7 +113,7 @@ export default function ProviderLabs() {
     let q = supabase
       .from("lab_results")
       .select(
-        "id,created_at,location_id,patient_id,appointment_id,intake_submission_id,panel_id,status,collected_on,values,provider_notes,reviewed_by,reviewed_at"
+        "id,created_at,location_id,patient_id,appointment_id,intake_submission_id,panel_id,lab_source,lab_source_other,status,collected_on,values,provider_notes,reviewed_by,reviewed_at"
       )
       .order("created_at", { ascending: false })
       .limit(250);
@@ -391,6 +393,12 @@ export default function ProviderLabs() {
                         <div className="muted" style={{ fontSize: 13 }}>
                           Submitted: {fmt(active.created_at)} | Location: {locName(active.location_id)}
                         </div>
+
+                        {active.lab_source && (
+                          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                            Lab source: {active.lab_source === "Other local lab" && active.lab_source_other ? active.lab_source_other : active.lab_source}
+                          </div>
+                        )}
 
                         {active.collected_on && (
                           <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>

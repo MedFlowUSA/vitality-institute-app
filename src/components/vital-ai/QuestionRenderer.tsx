@@ -2,6 +2,22 @@ import type { IntakeQuestion } from "../../lib/vitalAi/types";
 import DictationTextarea from "../DictationTextarea";
 import { guidedPanelSoftStyle } from "./guidedIntakeStyles";
 
+function getSelectPlaceholder(question: IntakeQuestion) {
+  if (question.placeholder) return question.placeholder;
+  if (question.key === "labs_source" || question.key === "prior_labs_source") {
+    return "Select Labcorp, Quest, or another local lab";
+  }
+  return "Select...";
+}
+
+function getInputPlaceholder(question: IntakeQuestion) {
+  if (question.placeholder) return question.placeholder;
+  if (question.key === "labs_source_other" || question.key === "prior_labs_source_other") {
+    return "Enter the lab name if it was not Labcorp or Quest";
+  }
+  return undefined;
+}
+
 export default function QuestionRenderer({
   question,
   value,
@@ -75,7 +91,7 @@ export default function QuestionRenderer({
             onChange={(e) => onChange(e.target.value)}
           >
             <option value="" style={{ color: "#5B5670", background: "#FFFFFF" }}>
-              Select...
+              {getSelectPlaceholder(question)}
             </option>
             {(question.options ?? []).map((option) => (
               <option key={option} value={option} style={{ color: "#1F1633", background: "#FFFFFF" }}>
@@ -167,6 +183,7 @@ export default function QuestionRenderer({
         spellCheck={question.type === "text"}
         autoCorrect={question.type === "text" ? "on" : undefined}
         autoCapitalize={question.type === "text" ? "sentences" : undefined}
+        placeholder={getInputPlaceholder(question)}
       />
     </div>
   );

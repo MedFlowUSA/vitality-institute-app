@@ -43,6 +43,8 @@ export default function PatientLabs() {
   const [panelId, setPanelId] = useState("");
   const [appointmentId, setAppointmentId] = useState(prefillApptId);
   const [intakeId, setIntakeId] = useState(prefillIntakeId);
+  const [labSource, setLabSource] = useState("");
+  const [labSourceOther, setLabSourceOther] = useState("");
 
   const [collectedOn, setCollectedOn] = useState<string>("");
 
@@ -119,7 +121,6 @@ export default function PatientLabs() {
       return;
     }
     setPanels((p as PanelRow[]) ?? []);
-    if (!panelId && (p?.length ?? 0) > 0) setPanelId((p as any)[0].id);
 
     const { data: m, error: mErr } = await supabase
       .from("lab_markers")
@@ -151,6 +152,8 @@ export default function PatientLabs() {
     if (!user) return;
 
     if (!panelId) return setErr("Please select a lab panel.");
+    if (!labSource) return setErr("Please select the lab source.");
+    if (labSource === "Other local lab" && !labSourceOther.trim()) return setErr("Please enter the lab name.");
     if (!appointmentId && locations.length === 0) return setErr("No locations found.");
 
     const appt = appointments.find((a) => a.id === appointmentId) ?? null;
@@ -181,6 +184,8 @@ export default function PatientLabs() {
         appointment_id: appointmentId || null,
         intake_submission_id: intakeId || null,
         panel_id: panelId,
+        lab_source: labSource || null,
+        lab_source_other: labSource === "Other local lab" ? labSourceOther.trim() || null : null,
         status: "submitted",
         collected_on: collectedOn || null,
         values,
@@ -293,11 +298,16 @@ export default function PatientLabs() {
               <div className="muted" style={{ marginTop: 4 }}>
                 Mostly dropdown selections to minimize freehand input.
               </div>
+              <div className="muted" style={{ marginTop: 8 }}>
+                If your results came from Labcorp or Quest, use this form to capture the panel values. If they came from another local lab,
+                you can still submit them here.
+              </div>
 
               <div className="space" />
 
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                 <select className="input" style={{ flex: "1 1 260px" }} value={panelId} onChange={(e) => setPanelId(e.target.value)}>
+                  <option value="">Select a lab panel</option>
                   {panels.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -339,6 +349,31 @@ export default function PatientLabs() {
                   onChange={(e) => setIntakeId(e.target.value)}
                   placeholder="Link to Intake ID (optional)"
                 />
+              </div>
+
+              <div className="space" />
+
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <select className="input" style={{ flex: "1 1 260px" }} value={labSource} onChange={(e) => setLabSource(e.target.value)}>
+                  <option value="">Select Labcorp, Quest, or another local lab</option>
+                  <option value="Labcorp">Labcorp</option>
+                  <option value="Quest">Quest</option>
+                  <option value="Other local lab">Other local lab</option>
+                </select>
+
+                {labSource === "Other local lab" ? (
+                  <input
+                    className="input"
+                    style={{ flex: "2 1 320px" }}
+                    value={labSourceOther}
+                    onChange={(e) => setLabSourceOther(e.target.value)}
+                    placeholder="Enter the lab name if it was not Labcorp or Quest"
+                  />
+                ) : null}
+              </div>
+
+              <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+                Common sources include Labcorp, Quest, and other local labs.
               </div>
 
               <div className="space" />

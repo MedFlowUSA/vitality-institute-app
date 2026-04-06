@@ -14,6 +14,7 @@ import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath, sanitizeI
 import {
   formatCatalogLocationDetails,
   formatCatalogLocationLabel,
+  formatCatalogLocationName,
   getIntakeOnlyPathwayForService,
   getPublicVitalAiPathwayParam,
   loadCatalogLocations,
@@ -174,6 +175,9 @@ export default function PublicBook() {
   const selectedLocation = useMemo(() => {
     return locations.find((location) => location.id === renderedLocationId) ?? null;
   }, [locations, renderedLocationId]);
+  const selectedLocationName = useMemo(() => {
+    return selectedLocation ? formatCatalogLocationName(selectedLocation) : null;
+  }, [selectedLocation]);
 
   const selectedServiceRow = selectedBookingOption?.catalogService ?? null;
 
@@ -331,11 +335,11 @@ export default function PublicBook() {
       serviceId: renderedServiceId,
       startTimeLocal: normalizedStartTime,
       notes,
-      locationName: selectedLocation?.name ?? draft?.locationName,
+      locationName: selectedLocationName ?? draft?.locationName,
       serviceName: selectedBookingOption?.serviceLabel ?? draft?.serviceName,
       requestId,
     });
-  }, [draft, draft?.locationName, draft?.serviceName, normalizedStartTime, notes, renderedLocationId, renderedServiceId, selectedBookingOption?.serviceLabel, selectedLocation?.name]);
+  }, [draft, draft?.locationName, draft?.serviceName, normalizedStartTime, notes, renderedLocationId, renderedServiceId, selectedBookingOption?.serviceLabel, selectedLocationName]);
 
   const fieldHelperMessage = useMemo(() => {
     if (loading) return " ";
@@ -374,7 +378,7 @@ export default function PublicBook() {
         serviceId: renderedServiceId,
         startTimeLocal: normalizedStartTime,
         notes,
-        locationName: selectedLocation?.name ?? draft?.locationName,
+        locationName: selectedLocationName ?? draft?.locationName,
         serviceName: selectedBookingOption.serviceLabel,
         requestId: getRequestIdForBookingSelection(draft, {
           locationId: renderedLocationId,
@@ -475,7 +479,7 @@ export default function PublicBook() {
         serviceId: renderedServiceId,
         startTimeLocal: normalizedStartTime,
         notes,
-        locationName: selectedLocation?.name ?? draft?.locationName,
+        locationName: selectedLocationName ?? draft?.locationName,
         serviceName: selectedBookingOption.serviceLabel,
         requestId: request.id,
       });

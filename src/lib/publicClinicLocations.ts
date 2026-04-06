@@ -10,6 +10,14 @@ export type PublicClinicLocation = {
   website?: string;
 };
 
+export function normalizePublicClinicLocationName(name: string) {
+  const trimmed = name.trim();
+  if (trimmed === "Touch of Vitality" || trimmed === "Touch of Vitality Los Angeles" || trimmed === "Touch of Vitality - Los Angeles") {
+    return "Touch of Vitality - Los Angeles";
+  }
+  return name;
+}
+
 export const PUBLIC_CLINIC_LOCATIONS: PublicClinicLocation[] = [
   {
     name: "Vitality Institute of Redlands",
@@ -21,7 +29,7 @@ export const PUBLIC_CLINIC_LOCATIONS: PublicClinicLocation[] = [
     website: "http://www.redlandsvitality.com/",
   },
   {
-    name: "Touch of Vitality",
+    name: "Touch of Vitality - Los Angeles",
     addressLine1: "900 Avila St, Suite 101",
     cityStateZip: "Los Angeles, CA 90012",
     hoursLabel: "Opening soon",

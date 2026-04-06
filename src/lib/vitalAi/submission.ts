@@ -513,7 +513,6 @@ export async function submitVitalAiSession(args: {
   let tasksCreated = false;
 
   try {
-    console.log("Creating profile for session", args.session.id);
     profileRecord = await persistVitalAiProfile({
       sessionId: args.session.id,
       pathwayId: args.pathway.id,
@@ -526,7 +525,6 @@ export async function submitVitalAiSession(args: {
       submittedAt,
     });
 
-    console.log("Creating lead for session", args.session.id);
     leadRecord = await persistVitalAiLead({
       sessionId: args.session.id,
       pathwayId: args.pathway.id,
@@ -537,7 +535,6 @@ export async function submitVitalAiSession(args: {
       submittedAt,
     });
 
-    console.log("Creating review tasks for session", args.session.id);
     await persistVitalAiReviewTasks({
       sessionId: args.session.id,
       profileRecordId: profileRecord.id,
@@ -546,7 +543,6 @@ export async function submitVitalAiSession(args: {
     });
     tasksCreated = true;
 
-    console.log("Marking session submitted:", args.session.id);
     const { error: sessionError } = await supabase
       .from("vital_ai_sessions")
       .update({

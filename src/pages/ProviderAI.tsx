@@ -21,6 +21,8 @@ type LabRow = {
   location_id: string;
   patient_id: string;
   panel_id: string;
+  lab_source: string | null;
+  lab_source_other: string | null;
   values: any;
   status: string;
 };
@@ -118,7 +120,7 @@ export default function ProviderAI() {
     if (!labId) return setLab(null);
     const { data, error } = await supabase
       .from("lab_results")
-      .select("id,location_id,patient_id,panel_id,values,status")
+      .select("id,location_id,patient_id,panel_id,lab_source,lab_source_other,values,status")
       .eq("id", labId)
       .maybeSingle();
 
@@ -196,6 +198,9 @@ export default function ProviderAI() {
 
     if (lab) {
       lines.push(`Labs: ${panelLabel} (${lab.status})`);
+      if (lab.lab_source) {
+        lines.push(`Lab source: ${lab.lab_source === "Other local lab" && lab.lab_source_other ? lab.lab_source_other : lab.lab_source}`);
+      }
       for (const [k, v] of Object.entries(labValues)) {
         lines.push(`- ${k}: ${String(v)}`);
       }
@@ -486,6 +491,11 @@ export default function ProviderAI() {
                       <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
                         {lab ? panelName(lab.panel_id) : ""}
                       </div>
+                      {lab?.lab_source ? (
+                        <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                          Source: {lab.lab_source === "Other local lab" && lab.lab_source_other ? lab.lab_source_other : lab.lab_source}
+                        </div>
+                      ) : null}
                       <div className="space" />
                       <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12, lineHeight: 1.35 }}>
                         {JSON.stringify(lab?.values ?? {}, null, 2)}

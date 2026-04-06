@@ -3,8 +3,8 @@
   "short_name": "Vitality",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#f5f1ff",
+  "theme_color": "#f5f1ff",
   "icons": [
     {
       "src": "/apple-touch-icon.png",

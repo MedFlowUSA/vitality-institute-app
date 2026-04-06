@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { getCanonicalPatientIntakeServiceType, getCanonicalServiceTypeKey } from "../lib/canonicalOfferRegistry";
-import { getGuidedIntakePathwayForService } from "../lib/services/catalog";
+import { formatCatalogLocationName, getGuidedIntakePathwayForService } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
 import {
   formatPatientFileSize,
@@ -604,7 +604,7 @@ export default function PatientHome() {
   );
 
   const locName = useMemo(() => {
-    const m = new Map(locations.map((l) => [l.id, l.name]));
+    const m = new Map(locations.map((l) => [l.id, formatCatalogLocationName(l)]));
     return (id: string) => m.get(id) ?? id;
   }, [locations]);
 
@@ -1660,7 +1660,7 @@ export default function PatientHome() {
 
       setBookingSuccess({
         appointmentId,
-        locationName: selectedLocation?.name ?? "Selected location",
+        locationName: selectedLocation ? formatCatalogLocationName(selectedLocation) : "Selected location",
         serviceName: serviceId ? svcName(serviceId) : "Requested service",
         slotIso: chosenSlot,
       });
@@ -2437,7 +2437,7 @@ export default function PatientHome() {
                   <option value="">Select Location</option>
                   {locations.map((l) => (
                     <option key={l.id} value={l.id}>
-                      {l.name}
+                      {formatCatalogLocationName(l)}
                       {[l.city, l.state].filter(Boolean).join(", ") ? ` - ${[l.city, l.state].filter(Boolean).join(", ")}` : ""}
                     </option>
                   ))}
@@ -2875,6 +2875,9 @@ export default function PatientHome() {
               <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Recent Labs</div>
               <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
                 A quick look at your most recent lab activity and results.
+              </div>
+              <div className="muted" style={{ marginTop: 6, color: "#4B5563" }}>
+                Upload or enter results from Labcorp, Quest, or another local lab in your Labs section.
               </div>
             </div>
 

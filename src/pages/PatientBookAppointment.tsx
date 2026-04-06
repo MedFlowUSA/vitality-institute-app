@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { clearPublicBookingDraft, getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
-import { getGuidedIntakePathwayForService, getIntakeOnlyPathwayForService } from "../lib/services/catalog";
+import { formatCatalogLocationName, getGuidedIntakePathwayForService, getIntakeOnlyPathwayForService } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
 import RouteHeader from "../components/RouteHeader";
 
@@ -225,7 +225,10 @@ export default function PatientBookAppointment() {
   }, [intakeOnlyPathway, renderedLocationId, renderedServiceId, selectedService, startTimeLocal]);
 
   useEffect(() => {
-    const locationName = locations.find((location) => location.id === renderedLocationId)?.name ?? storedDraft?.locationName;
+    const locationName = (() => {
+      const location = locations.find((item) => item.id === renderedLocationId);
+      return location ? formatCatalogLocationName(location) : storedDraft?.locationName;
+    })();
     const serviceName = servicesForLocation.find((service) => service.id === renderedServiceId)?.name ?? storedDraft?.serviceName;
     const requestId = getRequestIdForBookingSelection(storedDraft, {
       locationId: renderedLocationId,
@@ -352,7 +355,7 @@ export default function PatientBookAppointment() {
                   <option value="">Select location...</option>
                   {locations.map((l) => (
                     <option key={l.id} value={l.id}>
-                      {[l.name, [l.city, l.state].filter(Boolean).join(", ")].filter(Boolean).join(" - ")}
+                      {[formatCatalogLocationName(l), [l.city, l.state].filter(Boolean).join(", ")].filter(Boolean).join(" - ")}
                     </option>
                   ))}
                 </select>

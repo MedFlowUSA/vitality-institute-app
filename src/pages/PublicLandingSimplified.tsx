@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { PUBLIC_CLINIC_LOCATIONS } from "../lib/publicClinicLocations";
+import { normalizePublicClinicLocationName, PUBLIC_CLINIC_LOCATIONS } from "../lib/publicClinicLocations";
 import { Link } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { getPublicAccessRoute } from "../lib/publicMarketingCatalog";
@@ -37,12 +37,13 @@ const featuredServices = [
 
 export default function PublicLandingSimplified() {
   const [selectedLocationName, setSelectedLocationName] = useState(PUBLIC_CLINIC_LOCATIONS[0]?.name ?? "");
+  const normalizedSelectedLocationName = normalizePublicClinicLocationName(selectedLocationName);
 
   const selectedLocation = useMemo(
     () =>
-      PUBLIC_CLINIC_LOCATIONS.find((location) => location.name === selectedLocationName) ??
+      PUBLIC_CLINIC_LOCATIONS.find((location) => location.name === normalizedSelectedLocationName) ??
       PUBLIC_CLINIC_LOCATIONS[0],
-    [selectedLocationName],
+    [normalizedSelectedLocationName],
   );
 
   return (
@@ -270,14 +271,14 @@ export default function PublicLandingSimplified() {
                 Select clinic
               </div>
               <select
-                value={selectedLocation?.name ?? ""}
-                onChange={(event) => setSelectedLocationName(event.target.value)}
+                value={normalizedSelectedLocationName}
+                onChange={(event) => setSelectedLocationName(normalizePublicClinicLocationName(event.target.value))}
                 className="input"
                 aria-label="Select clinic location"
               >
                 {PUBLIC_CLINIC_LOCATIONS.map((location) => (
                   <option key={location.name} value={location.name}>
-                    {location.name}
+                    {normalizePublicClinicLocationName(location.name)}
                   </option>
                 ))}
               </select>

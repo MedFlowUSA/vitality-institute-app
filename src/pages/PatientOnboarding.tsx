@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { buildFollowUpMessage, resolveBookingRequestLead } from "../lib/publicFollowUpEngine";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { normalizeRedirectTarget } from "../lib/routeFlow";
+import { formatCatalogLocationName } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 
@@ -256,7 +257,7 @@ export default function PatientOnboarding() {
               <option value="">Select location</option>
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.name}
+                  {formatCatalogLocationName(l)}
                   {l.city ? ` - ${l.city}` : ""}
                 </option>
               ))}

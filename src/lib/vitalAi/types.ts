@@ -32,6 +32,7 @@ export type IntakeQuestion = {
   type: QuestionType;
   required?: boolean;
   helpText?: string;
+  placeholder?: string;
   options?: string[];
   category?: string;
   visibleWhen?: VisibilityCondition[];

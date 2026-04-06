@@ -36,6 +36,23 @@ const DISPLAY_SELECT =
 const RAW_SELECT =
   "id,name,description,category,service_group,location_id,requires_consult,pricing_unit,duration_minutes,visit_type,price_marketing_cents,price_regular_cents,is_active";
 
+export function formatCatalogLocationName(location: Pick<CatalogLocation, "id" | "name" | "city" | "state">) {
+  const rawName = location.name?.trim() || location.id;
+  const normalizedName = rawName.toLowerCase();
+  const normalizedCity = (location.city ?? "").trim().toLowerCase();
+  const normalizedState = (location.state ?? "").trim().toLowerCase();
+
+  if (
+    normalizedName === "touch of vitality - los angeles" ||
+    normalizedName === "touch of vitality los angeles" ||
+    (normalizedName === "touch of vitality" && normalizedCity === "los angeles" && normalizedState === "ca")
+  ) {
+    return "Touch of Vitality - Los Angeles";
+  }
+
+  return rawName;
+}
+
 export function fmtMoney(cents: number | null | undefined) {
   if (cents === null || cents === undefined) return null;
   const n = Number(cents);
@@ -258,7 +275,7 @@ export function serviceOverview(service: CatalogService) {
 }
 
 export function formatCatalogLocationLabel(location: CatalogLocation) {
-  const name = location.name ?? location.id;
+  const name = formatCatalogLocationName(location);
   const place = [location.city, location.state].filter(Boolean).join(", ");
   return place ? `${name} - ${place}` : name;
 }
