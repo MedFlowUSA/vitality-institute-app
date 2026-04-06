@@ -25,6 +25,17 @@ type ServiceRow = {
 
 type PatientRow = { id: string; profile_id: string; first_name: string | null; last_name: string | null };
 
+const LAW_ENFORCEMENT_DISCOUNT_CODE = "BLUE25";
+
+function buildBookingNotes(notes: string, discountCode: string) {
+  const trimmedNotes = notes.trim();
+  const trimmedCode = discountCode.trim().toUpperCase();
+  if (!trimmedCode) return trimmedNotes;
+  return trimmedNotes
+    ? `[Discount code: ${trimmedCode}] ${trimmedNotes}`
+    : `Discount code: ${trimmedCode}`;
+}
+
 function getBookingErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   if (!message) return "Something went wrong. Please try again.";
@@ -54,12 +65,15 @@ export default function PatientBookAppointment() {
   const [serviceId, setServiceId] = useState("");
   const [startTimeLocal, setStartTimeLocal] = useState(""); // datetime-local
   const [notes, setNotes] = useState("");
+  const [discountCode, setDiscountCode] = useState("");
 
   const storedDraft = readPublicBookingDraft();
   const prefillLocationId = searchParams.get("locationId") ?? storedDraft?.locationId ?? "";
   const prefillServiceId = searchParams.get("serviceId") ?? storedDraft?.serviceId ?? "";
   const prefillStart = searchParams.get("start") ?? storedDraft?.startTimeLocal ?? "";
   const prefillNotes = searchParams.get("notes") ?? storedDraft?.notes ?? "";
+  const prefillDiscountCode = searchParams.get("discount") ?? storedDraft?.discountCode ?? LAW_ENFORCEMENT_DISCOUNT_CODE;
+  const bookingNotes = useMemo(() => buildBookingNotes(notes, discountCode), [discountCode, notes]);
 
   const renderedLocationId = useMemo(() => {
     return locations.some((locationRow) => locationRow.id === locationId) ? locationId : "";
@@ -161,6 +175,7 @@ export default function PatientBookAppointment() {
         setServiceId(resolvedServiceId);
         setStartTimeLocal(prefillStart || "");
         setNotes(prefillNotes || "");
+        setDiscountCode(prefillDiscountCode || LAW_ENFORCEMENT_DISCOUNT_CODE);
         setErr(null);
       } catch (e: unknown) {
         setErr(getBookingErrorMessage(e));
@@ -170,7 +185,7 @@ export default function PatientBookAppointment() {
     };
 
     load();
-  }, [nav, prefillLocationId, prefillNotes, prefillServiceId, prefillStart, user?.id]);
+  }, [nav, prefillDiscountCode, prefillLocationId, prefillNotes, prefillServiceId, prefillStart, user?.id]);
 
   useEffect(() => {
     const selectedStillVisible = servicesForLocation.some((service) => service.id === serviceId);
@@ -235,17 +250,19 @@ export default function PatientBookAppointment() {
       serviceId: renderedServiceId,
       startTimeLocal,
       notes,
+      discountCode,
     });
     savePublicBookingDraft({
       locationId: renderedLocationId,
       serviceId: renderedServiceId,
       startTimeLocal,
       notes,
+      discountCode,
       locationName,
       serviceName,
       requestId,
     });
-  }, [locations, notes, renderedLocationId, renderedServiceId, servicesForLocation, startTimeLocal, storedDraft, storedDraft?.locationName, storedDraft?.serviceName]);
+  }, [discountCode, locations, notes, renderedLocationId, renderedServiceId, servicesForLocation, startTimeLocal, storedDraft, storedDraft?.locationName, storedDraft?.serviceName]);
 
   const computeEndTimeIso = (startIso: string) => {
     const mins = selectedService?.duration_minutes ?? 30;
@@ -296,7 +313,7 @@ export default function PatientBookAppointment() {
           status: "scheduled",
           visit_type: "in_person",
           telehealth_enabled: false,
-          notes: notes || null,
+          notes: bookingNotes || null,
           referral_id: null,
         },
       ])
@@ -399,6 +416,19 @@ export default function PatientBookAppointment() {
               <div className="space" />
 
               <div style={{ marginBottom: 10 }}>
+                <div className="muted" style={{ marginBottom: 6 }}>
+                  Discount code
+                </div>
+                <input
+                  className="input"
+                  style={{ width: "100%", marginBottom: 8 }}
+                  value={discountCode}
+                  onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                  placeholder={LAW_ENFORCEMENT_DISCOUNT_CODE}
+                />
+                <div className="muted" style={{ fontSize: 12, marginBottom: 10, lineHeight: 1.6 }}>
+                  Jane&apos;s Touch of Vitality police officers and other law enforcement clients can use {LAW_ENFORCEMENT_DISCOUNT_CODE} for 25% off eligible services. Verification may be requested at the visit.
+                </div>
                 <div className="muted" style={{ marginBottom: 6 }}>
                   Notes (optional)
                 </div>

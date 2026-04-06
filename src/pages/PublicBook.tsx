@@ -42,6 +42,17 @@ type PublicBookingOption = {
   requiresPreferredTime: boolean;
 };
 
+const LAW_ENFORCEMENT_DISCOUNT_CODE = "BLUE25";
+
+function buildBookingNotes(notes: string, discountCode: string) {
+  const trimmedNotes = notes.trim();
+  const trimmedCode = discountCode.trim().toUpperCase();
+  if (!trimmedCode) return trimmedNotes;
+  return trimmedNotes
+    ? `[Discount code: ${trimmedCode}] ${trimmedNotes}`
+    : `Discount code: ${trimmedCode}`;
+}
+
 function getMarketingIntakePathway(offering: PublicOffering) {
   return (
     resolveCanonicalOffer({
@@ -92,8 +103,10 @@ export default function PublicBook() {
   const [serviceId, setServiceId] = useState(searchParams.get("serviceId") ?? draft?.serviceId ?? "");
   const [startTimeLocal, setStartTimeLocal] = useState(searchParams.get("start") ?? draft?.startTimeLocal ?? "");
   const [notes, setNotes] = useState(searchParams.get("notes") ?? draft?.notes ?? "");
+  const [discountCode, setDiscountCode] = useState(searchParams.get("discount") ?? draft?.discountCode ?? LAW_ENFORCEMENT_DISCOUNT_CODE);
   const hydratedSelectionRef = useRef(false);
   const trackedStartRef = useRef(false);
+  const bookingNotes = useMemo(() => buildBookingNotes(notes, discountCode), [discountCode, notes]);
 
   useEffect(() => {
     let cancelled = false;
@@ -320,7 +333,7 @@ export default function PublicBook() {
 
   useEffect(() => {
     setSubmitError(null);
-  }, [locationId, notes, serviceId, startTimeLocal]);
+  }, [discountCode, locationId, notes, serviceId, startTimeLocal]);
 
   useEffect(() => {
     const requestId = getRequestIdForBookingSelection(draft, {
@@ -328,6 +341,7 @@ export default function PublicBook() {
       serviceId: renderedServiceId,
       startTimeLocal: normalizedStartTime,
       notes,
+      discountCode,
     });
 
     savePublicBookingDraft({
@@ -335,11 +349,12 @@ export default function PublicBook() {
       serviceId: renderedServiceId,
       startTimeLocal: normalizedStartTime,
       notes,
+      discountCode,
       locationName: selectedLocationName ?? draft?.locationName,
       serviceName: selectedBookingOption?.serviceLabel ?? draft?.serviceName,
       requestId,
     });
-  }, [draft, draft?.locationName, draft?.serviceName, normalizedStartTime, notes, renderedLocationId, renderedServiceId, selectedBookingOption?.serviceLabel, selectedLocationName]);
+  }, [discountCode, draft, draft?.locationName, draft?.serviceName, normalizedStartTime, notes, renderedLocationId, renderedServiceId, selectedBookingOption?.serviceLabel, selectedLocationName]);
 
   const fieldHelperMessage = useMemo(() => {
     if (loading) return " ";
@@ -385,6 +400,7 @@ export default function PublicBook() {
           serviceId: renderedServiceId,
           startTimeLocal: normalizedStartTime,
           notes,
+          discountCode,
         }),
       });
 
@@ -413,7 +429,8 @@ export default function PublicBook() {
       `/patient/book?locationId=${encodeURIComponent(renderedLocationId)}` +
       `&serviceId=${encodeURIComponent(renderedServiceId)}` +
       `&start=${encodeURIComponent(normalizedStartTime)}` +
-      `&notes=${encodeURIComponent(notes)}`;
+      `&notes=${encodeURIComponent(notes)}` +
+      `&discount=${encodeURIComponent(discountCode.trim().toUpperCase())}`;
 
     if (user?.id && role === "patient") {
       navigate(nextPath);
@@ -434,12 +451,12 @@ export default function PublicBook() {
         serviceId: selectedServiceRow?.id ?? null,
         serviceLabel: selectedBookingOption.serviceLabel,
         requestedStart: start.toISOString(),
-        notes,
+        notes: bookingNotes,
         source: selectedInterestSlug ? `public_booking_interest:${selectedInterestSlug}` : "public_booking_flow",
       });
       const resolvedLead = resolveBookingRequestLead({
         serviceName: selectedBookingOption.serviceLabel,
-        notes,
+        notes: bookingNotes,
       });
       const followUp = buildFollowUpMessage(resolvedLead.leadType, resolvedLead.urgencyLevel);
       const outboundPayload = prepareBookingRequestOutboundPayload({
@@ -448,7 +465,7 @@ export default function PublicBook() {
         serviceId: selectedServiceRow?.id ?? null,
         serviceName: selectedBookingOption.serviceLabel,
         requestedStart: start.toISOString(),
-        notes,
+        notes: bookingNotes,
         source: selectedInterestSlug ? `public_booking_interest:${selectedInterestSlug}` : "public_booking_flow",
       });
       console.info("[Public follow-up]", {
@@ -479,6 +496,7 @@ export default function PublicBook() {
         serviceId: renderedServiceId,
         startTimeLocal: normalizedStartTime,
         notes,
+        discountCode,
         locationName: selectedLocationName ?? draft?.locationName,
         serviceName: selectedBookingOption.serviceLabel,
         requestId: request.id,
@@ -559,6 +577,13 @@ export default function PublicBook() {
                 {user?.id
                   ? "Choose your service and preferred time now, then continue into a guided intake before your visit."
                   : "Choose your service and preferred time now. We will save your request first, then guide you through sign-in or account setup and intake while the clinic reviews availability."}
+              </div>
+            </div>
+
+            <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
+              <div className="h2">Law Enforcement Discount</div>
+              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
+                Police officers and other law enforcement professionals can use code <strong>{LAW_ENFORCEMENT_DISCOUNT_CODE}</strong> for 25% off eligible Touch of Vitality services.
               </div>
             </div>
 
@@ -657,6 +682,19 @@ export default function PublicBook() {
             <div className="space" />
 
             <div>
+              <div style={{ marginBottom: 10 }}>
+                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Discount code</div>
+                <input
+                  className="input"
+                  style={{ width: "100%" }}
+                  value={discountCode}
+                  onChange={(event) => setDiscountCode(event.target.value.toUpperCase())}
+                  placeholder={LAW_ENFORCEMENT_DISCOUNT_CODE}
+                />
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  For Jane&apos;s Touch of Vitality police officers and other law enforcement clients, use {LAW_ENFORCEMENT_DISCOUNT_CODE} for 25% off. Verification may be requested at the visit.
+                </div>
+              </div>
               <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Notes (optional)</div>
               <textarea
                 className="input"

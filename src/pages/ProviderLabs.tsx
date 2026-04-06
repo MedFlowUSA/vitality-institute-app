@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { getSignedUrl } from "../lib/patientFiles";
 import { supabase } from "../lib/supabase";
 import { getErrorMessage } from "../lib/patientRecords";
 import logo from "../assets/vitality-logo.png";
@@ -28,6 +29,14 @@ type LabRow = {
   reviewed_at: string | null;
 };
 
+type LabPdfFileRow = {
+  id: string;
+  bucket: string;
+  path: string;
+  filename: string;
+  created_at: string;
+};
+
 export default function ProviderLabs() {
   const { user, role, signOut, activeLocationId } = useAuth();
   const nav = useNavigate();
@@ -45,6 +54,9 @@ export default function ProviderLabs() {
 
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [labPdfUrl, setLabPdfUrl] = useState<string | null>(null);
+  const [labPdfName, setLabPdfName] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -181,6 +193,71 @@ export default function ProviderLabs() {
   useEffect(() => {
     setNote(active?.provider_notes ?? "");
   }, [active?.provider_notes, activeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadLabPdf = async () => {
+      setLabPdfUrl(null);
+      setLabPdfName(null);
+      if (!active) return;
+
+      setPdfLoading(true);
+      try {
+        const { data: patientRow, error: patientErr } = await supabase
+          .from("patients")
+          .select("profile_id")
+          .eq("id", active.patient_id)
+          .maybeSingle();
+        if (patientErr) throw patientErr;
+
+        const profileId = (patientRow?.profile_id as string | undefined) ?? null;
+        if (!profileId) return;
+
+        let query = supabase
+          .from("patient_files")
+          .select("id,bucket,path,filename,created_at")
+          .eq("patient_id", profileId)
+          .eq("location_id", active.location_id)
+          .eq("category", "lab_form_internal")
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        if (active.appointment_id) {
+          query = query.eq("appointment_id", active.appointment_id);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const matchingFile =
+          ((data as LabPdfFileRow[] | null) ?? []).find((row) => row.filename.includes(active.id)) ??
+          ((data as LabPdfFileRow[] | null) ?? [])[0] ??
+          null;
+
+        if (!matchingFile) return;
+
+        const signedUrl = await getSignedUrl(matchingFile.bucket, matchingFile.path);
+        if (cancelled) return;
+
+        setLabPdfUrl(signedUrl);
+        setLabPdfName(matchingFile.filename);
+      } catch {
+        if (!cancelled) {
+          setLabPdfUrl(null);
+          setLabPdfName(null);
+        }
+      } finally {
+        if (!cancelled) setPdfLoading(false);
+      }
+    };
+
+    void loadLabPdf();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
 
   const markReviewed = async () => {
     if (!user || !active) return;
@@ -437,7 +514,22 @@ export default function ProviderLabs() {
                           <button className="btn btn-ghost" type="button" onClick={openAI}>
                             Open AI Draft
                           </button>
+                          <button
+                            className="btn btn-ghost"
+                            type="button"
+                            onClick={() => {
+                              if (labPdfUrl) window.open(labPdfUrl, "_blank", "noopener,noreferrer");
+                            }}
+                            disabled={!labPdfUrl || pdfLoading}
+                          >
+                            {pdfLoading ? "Loading PDF..." : "Open Patient Lab Form PDF"}
+                          </button>
                         </div>
+                        {labPdfName ? (
+                          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                            Internal PDF: {labPdfName}
+                          </div>
+                        ) : null}
                       </div>
 
                       <div style={{ width: 420, maxWidth: "100%" }}>

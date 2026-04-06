@@ -1,8 +1,9 @@
 ﻿// src/pages/PatientLabs.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { getPatientRecordIdForProfile } from "../lib/patientRecords";
+import { uploadPatientFile } from "../lib/patientFiles";
 import { supabase } from "../lib/supabase";
 import logo from "../assets/vitality-logo.png";
 
@@ -25,6 +26,42 @@ type AppointmentRow = {
 };
 
 type LocationRow = { id: string; name: string };
+type PatientSummaryRow = { id: string; first_name: string | null; last_name: string | null; email: string | null };
+
+function formatDisplayDate(value: string | null | undefined) {
+  if (!value) return "-";
+  const next = new Date(value);
+  return Number.isNaN(next.getTime()) ? value : next.toLocaleDateString();
+}
+
+function formatDisplayDateTime(value: string | null | undefined) {
+  if (!value) return "-";
+  const next = new Date(value);
+  return Number.isNaN(next.getTime()) ? value : next.toLocaleString();
+}
+
+async function renderPdfBlob(element: HTMLElement, filename: string) {
+  const { default: html2pdf } = await import("html2pdf.js");
+
+  return (await html2pdf()
+    .set({
+      margin: 0.35,
+      filename,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      },
+      jsPDF: {
+        unit: "in",
+        format: "letter",
+        orientation: "portrait",
+      },
+    })
+    .from(element)
+    .outputPdf("blob")) as Blob;
+}
 
 export default function PatientLabs() {
   const { user, role, signOut } = useAuth();
@@ -36,6 +73,7 @@ export default function PatientLabs() {
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
+  const [patientSummary, setPatientSummary] = useState<PatientSummaryRow | null>(null);
 
   const [panels, setPanels] = useState<PanelRow[]>([]);
   const [markers, setMarkers] = useState<MarkerRow[]>([]);
@@ -50,9 +88,11 @@ export default function PatientLabs() {
 
   const [values, setValues] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const printRef = useRef<HTMLDivElement | null>(null);
 
   const locName = useMemo(() => {
     const m = new Map(locations.map((l) => [l.id, l.name]));
@@ -68,8 +108,106 @@ export default function PatientLabs() {
     () => markers.filter((m) => m.panel_id === panelId),
     [markers, panelId]
   );
+  const selectedAppointment = useMemo(
+    () => appointments.find((appointment) => appointment.id === appointmentId) ?? null,
+    [appointmentId, appointments]
+  );
+  const resolvedLocationId = useMemo(
+    () => selectedAppointment?.location_id ?? locations[0]?.id ?? "",
+    [locations, selectedAppointment]
+  );
+  const resolvedLocationName = useMemo(
+    () => (resolvedLocationId ? locName(resolvedLocationId) : "-"),
+    [locName, resolvedLocationId]
+  );
+  const selectedLabSourceLabel = useMemo(() => {
+    if (!labSource) return "-";
+    if (labSource === "Other local lab" && labSourceOther.trim()) return labSourceOther.trim();
+    return labSource;
+  }, [labSource, labSourceOther]);
+  const patientName = useMemo(() => {
+    if (!patientSummary) return user?.email ?? "Patient";
+    const fullName = `${patientSummary.first_name ?? ""} ${patientSummary.last_name ?? ""}`.trim();
+    return fullName || patientSummary.email || user?.email || "Patient";
+  }, [patientSummary, user?.email]);
 
   const setVal = (k: string, v: any) => setValues((p) => ({ ...p, [k]: v }));
+
+  const openPrintPreview = () => {
+    const node = printRef.current;
+    if (!node) return;
+
+    const printWindow = window.open("", "_blank", "width=1100,height=900");
+    if (!printWindow) {
+      setErr("Popup blocked. Allow popups to print or save the lab PDF.");
+      return;
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Touch of Vitality Lab Form</title>
+          <style>
+            body { font-family: Arial, Helvetica, sans-serif; margin: 24px; color: #111; background: #fff; }
+            .pdf-shell { max-width: 900px; margin: 0 auto; }
+            .pdf-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+            .pdf-header img { width: 72px; height: 72px; object-fit: contain; }
+            .pdf-title { font-size: 28px; font-weight: 700; }
+            .pdf-sub { color: #555; font-size: 13px; margin-top: 4px; }
+            .pdf-section { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin-bottom: 16px; page-break-inside: avoid; }
+            .pdf-section h3 { margin: 0 0 12px; font-size: 18px; }
+            .pdf-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+            .pdf-mini { border: 1px solid #ddd; border-radius: 10px; padding: 10px; }
+            .pdf-mini-label { color: #666; font-size: 12px; margin-bottom: 4px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border-bottom: 1px solid #ddd; text-align: left; padding: 8px; font-size: 13px; }
+          </style>
+        </head>
+        <body>
+          ${node.innerHTML}
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 300);
+  };
+
+  const uploadInternalPdf = async (patientId: string, locationId: string, resultId: string) => {
+    const node = printRef.current;
+    if (!node) throw new Error("Lab form preview is not available.");
+
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = node.innerHTML;
+    wrapper.style.position = "fixed";
+    wrapper.style.left = "-99999px";
+    wrapper.style.top = "0";
+    wrapper.style.width = "900px";
+    wrapper.style.background = "#fff";
+    document.body.appendChild(wrapper);
+
+    try {
+      const panelLabel = panelName(panelId).replace(/[^\w.-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "lab-panel";
+      const pdfBlob = await renderPdfBlob(wrapper, `touch-of-vitality-lab-form-${panelLabel}.pdf`);
+      const pdfFile = new File(
+        [pdfBlob],
+        `touch-of-vitality-lab-form-${panelLabel}-${resultId}.pdf`,
+        { type: "application/pdf" }
+      );
+
+      await uploadPatientFile({
+        patientId,
+        locationId,
+        visitId: null,
+        appointmentId: appointmentId || null,
+        category: "lab_form_internal",
+        file: pdfFile,
+      });
+    } finally {
+      document.body.removeChild(wrapper);
+    }
+  };
 
   const load = async () => {
     setErr(null);
@@ -94,6 +232,19 @@ export default function PatientLabs() {
         setLoading(false);
         return;
       }
+
+      const { data: patientRow, error: patientErr } = await supabase
+        .from("patients")
+        .select("id,first_name,last_name,email")
+        .eq("id", patientId)
+        .maybeSingle();
+
+      if (patientErr) {
+        setErr(patientErr.message);
+        setLoading(false);
+        return;
+      }
+      setPatientSummary((patientRow as PatientSummaryRow) ?? null);
 
       const { data: appts, error: apptErr } = await supabase
         .from("appointments")
@@ -177,27 +328,40 @@ export default function PatientLabs() {
       return setErr("Patient record not found.");
     }
 
-    const { error } = await supabase.from("lab_results").insert([
-      {
-        location_id: locationId,
-        patient_id: patientId,
-        appointment_id: appointmentId || null,
-        intake_submission_id: intakeId || null,
-        panel_id: panelId,
-        lab_source: labSource || null,
-        lab_source_other: labSource === "Other local lab" ? labSourceOther.trim() || null : null,
-        status: "submitted",
-        collected_on: collectedOn || null,
-        values,
-      },
-    ]);
+    try {
+      const { data, error } = await supabase
+        .from("lab_results")
+        .insert([
+          {
+            location_id: locationId,
+            patient_id: patientId,
+            appointment_id: appointmentId || null,
+            intake_submission_id: intakeId || null,
+            panel_id: panelId,
+            lab_source: labSource || null,
+            lab_source_other: labSource === "Other local lab" ? labSourceOther.trim() || null : null,
+            status: "submitted",
+            collected_on: collectedOn || null,
+            values,
+          },
+        ])
+        .select("id")
+        .single();
 
-    setSaving(false);
+      if (error) return setErr(error.message);
 
-    if (error) return setErr(error.message);
+      setPdfBusy(true);
+      await uploadInternalPdf(patientId, locationId, data.id);
 
-    alert("Labs submitted successfully.");
-    nav("/patient/home", { replace: true });
+      alert("Labs submitted successfully. An internal PDF copy was also saved.");
+      nav("/patient/home", { replace: true });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to save the internal PDF copy.";
+      setErr(message);
+    } finally {
+      setPdfBusy(false);
+      setSaving(false);
+    }
   };
 
   return (
@@ -429,8 +593,103 @@ export default function PatientLabs() {
 
               <div className="space" />
 
-              <button className="btn btn-primary" onClick={submit} disabled={saving}>
-                {saving ? "Submitting..." : "Submit Labs"}
+              <div className="card card-pad">
+                <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div>
+                    <div className="h2">Lab Form PDF Preview</div>
+                    <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                      After submission, this completed form will be converted into an internal PDF copy for Touch of Vitality.
+                    </div>
+                  </div>
+
+                  <button className="btn btn-ghost" type="button" onClick={openPrintPreview} disabled={!panelId}>
+                    Print / Save PDF
+                  </button>
+                </div>
+
+                <div className="space" />
+
+                <div ref={printRef} className="pdf-shell" style={{ background: "#fff", color: "#111" }}>
+                  <div className="pdf-header" style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
+                    <img src={logo} alt="Vitality Institute" style={{ width: 72, height: 72, objectFit: "contain" }} />
+                    <div>
+                      <div className="pdf-title" style={{ fontSize: 28, fontWeight: 700 }}>Touch of Vitality Lab Form</div>
+                      <div className="pdf-sub" style={{ color: "#555", fontSize: 13, marginTop: 4 }}>
+                        Completed patient lab snapshot for internal review and PDF filing.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pdf-section section">
+                    <div className="section-title">Patient and Order Details</div>
+                    <div className="pdf-grid grid">
+                      <div className="pdf-mini mini">
+                        <div className="pdf-mini-label muted">Patient</div>
+                        <div>{patientName}</div>
+                      </div>
+                      <div className="pdf-mini mini">
+                        <div className="pdf-mini-label muted">Email</div>
+                        <div>{patientSummary?.email ?? user?.email ?? "-"}</div>
+                      </div>
+                      <div className="pdf-mini mini">
+                        <div className="pdf-mini-label muted">Panel</div>
+                        <div>{panelName(panelId)}</div>
+                      </div>
+                      <div className="pdf-mini mini">
+                        <div className="pdf-mini-label muted">Lab source</div>
+                        <div>{selectedLabSourceLabel}</div>
+                      </div>
+                      <div className="pdf-mini mini">
+                        <div className="pdf-mini-label muted">Collected on</div>
+                        <div>{formatDisplayDate(collectedOn)}</div>
+                      </div>
+                      <div className="pdf-mini mini">
+                        <div className="pdf-mini-label muted">Location</div>
+                        <div>{resolvedLocationName}</div>
+                      </div>
+                      <div className="pdf-mini mini">
+                        <div className="pdf-mini-label muted">Appointment</div>
+                        <div>{selectedAppointment ? formatDisplayDateTime(selectedAppointment.start_time) : "Not linked"}</div>
+                      </div>
+                      <div className="pdf-mini mini">
+                        <div className="pdf-mini-label muted">Intake ID</div>
+                        <div>{intakeId || "-"}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pdf-section section">
+                    <div className="section-title">Submitted Lab Values</div>
+                    {panelMarkers.length === 0 ? (
+                      <div className="muted">No markers selected yet.</div>
+                    ) : (
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Marker</th>
+                            <th>Value</th>
+                            <th>Unit</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {panelMarkers.map((marker) => (
+                            <tr key={marker.id}>
+                              <td>{marker.label}</td>
+                              <td>{values[marker.key] ?? "-"}</td>
+                              <td>{marker.unit ?? "-"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space" />
+
+              <button className="btn btn-primary" onClick={submit} disabled={saving || pdfBusy}>
+                {saving || pdfBusy ? "Submitting..." : "Submit Labs and Save Internal PDF"}
               </button>
             </>
           )}

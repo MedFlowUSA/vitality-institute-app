@@ -3,6 +3,7 @@ export type PublicBookingDraft = {
   serviceId: string;
   startTimeLocal: string;
   notes: string;
+  discountCode?: string;
   locationName?: string;
   serviceName?: string;
   requestId?: string;
@@ -47,14 +48,15 @@ export function clearPublicBookingDraft() {
 
 export function getRequestIdForBookingSelection(
   draft: PublicBookingDraft | null,
-  selection: Pick<PublicBookingDraft, "locationId" | "serviceId" | "startTimeLocal" | "notes">
+  selection: Pick<PublicBookingDraft, "locationId" | "serviceId" | "startTimeLocal" | "notes" | "discountCode">
 ) {
   if (!draft?.requestId) return undefined;
   const matchesSelection =
     draft.locationId === selection.locationId &&
     draft.serviceId === selection.serviceId &&
     draft.startTimeLocal === selection.startTimeLocal &&
-    draft.notes === selection.notes;
+    draft.notes === selection.notes &&
+    (draft.discountCode ?? "") === (selection.discountCode ?? "");
 
   return matchesSelection ? draft.requestId : undefined;
 }
