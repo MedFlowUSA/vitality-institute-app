@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../auth/AuthProvider";
+import InlineNotice from "../InlineNotice";
 
 type Props = {
   patientId: string;
@@ -220,8 +221,8 @@ export default function ChargeCapturePanel({ patientId, locationId, visitId }: P
       </div>
 
       <div className="space" />
-      {saveMessage ? <div className="surface-light-helper" style={{ marginBottom: 10 }}>{saveMessage}</div> : null}
-      {err ? <div style={{ color: "crimson", marginBottom: 10 }}>{err}</div> : null}
+      {saveMessage ? <InlineNotice message={saveMessage} tone="success" style={{ marginBottom: 10 }} /> : null}
+      {err ? <InlineNotice message={err} tone="error" style={{ marginBottom: 10 }} /> : null}
       {loading ? <div className="muted">Loading...</div> : null}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>

@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import InlineNotice from "../InlineNotice";
 import { supabase } from "../../lib/supabase";
 import { getSignedUrl } from "../../lib/patientFiles";
 import { analyzeWoundRisk } from "../../lib/woundRiskAlerts";
@@ -798,8 +799,8 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
 
       <div className="space" />
       {loading && <div className="muted">Loading packet preview...</div>}
-      {actionMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div>}
-      {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
+      {actionMessage && <InlineNotice message={actionMessage} tone="success" style={{ marginBottom: 12 }} />}
+      {err && <InlineNotice message={err} tone="error" style={{ marginBottom: 12 }} />}
 
       {!loading && !err && (
         <div ref={printRef}>

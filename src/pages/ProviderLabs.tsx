@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { getSignedUrl } from "../lib/patientFiles";
+import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import { supabase } from "../lib/supabase";
 import { getErrorMessage } from "../lib/patientRecords";
 import logo from "../assets/vitality-logo.png";
@@ -295,7 +296,7 @@ export default function ProviderLabs() {
     if (!active) return;
     const intakeId = active.intake_submission_id ?? "";
     const labId = active.id;
-    nav(`/provider/ai?labId=${encodeURIComponent(labId)}${intakeId ? `&intakeId=${encodeURIComponent(intakeId)}` : ""}`);
+    nav(`${PROVIDER_ROUTES.ai}?labId=${encodeURIComponent(labId)}${intakeId ? `&intakeId=${encodeURIComponent(intakeId)}` : ""}`);
   };
 
   return (
@@ -338,7 +339,7 @@ export default function ProviderLabs() {
       <button className="btn btn-ghost" type="button" onClick={() => nav(-1)}>
         Back
       </button>
-      <button className="btn btn-primary" type="button" onClick={() => nav("/provider/ai")}>
+      <button className="btn btn-primary" type="button" onClick={() => nav(PROVIDER_ROUTES.ai)}>
         AI Plan Builder
       </button>
       <button className="btn btn-ghost" onClick={signOut}>
@@ -506,7 +507,7 @@ export default function ProviderLabs() {
                             <button
                               className="btn btn-ghost"
                               type="button"
-                              onClick={() => nav(`/provider/intakes?activeId=${encodeURIComponent(active.intake_submission_id!)}`)}
+                              onClick={() => nav(`${PROVIDER_ROUTES.intakes}?activeId=${encodeURIComponent(active.intake_submission_id!)}`)}
                             >
                               Open Intake
                             </button>

@@ -10,6 +10,13 @@ import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
 import { ensureAppointmentConversation } from "../lib/messaging/conversationService";
 import { getErrorMessage } from "../lib/patientRecords";
 import { buildProviderHomeGuide } from "../lib/provider/providerGuide";
+import {
+  PROVIDER_ROUTES,
+  providerMessagesPath,
+  providerPatientCenterPath,
+  providerVisitBuilderAppointmentPath,
+  providerVisitBuilderPath,
+} from "../lib/providerRoutes";
 import { getVirtualVisitState } from "../lib/virtualVisits";
 
 type LocationRow = { id: string; name: string };
@@ -407,7 +414,7 @@ export default function ProviderHome() {
         title: "Appointment conversation",
       });
 
-      navigate(`/provider/chat?conversationId=${conversationId}`);
+      navigate(providerMessagesPath(conversationId));
     } catch (error: unknown) {
       setErr(getErrorMessage(error, "Could not open conversation."));
     }
@@ -417,8 +424,8 @@ export default function ProviderHome() {
     try {
       const patientId = await resolvePatientRecordId(patientCandidateId);
       const nextPath = visitId
-        ? `/provider/patients/${patientId}?visitId=${encodeURIComponent(visitId)}`
-        : `/provider/patients/${patientId}`;
+        ? `${providerPatientCenterPath(patientId)}?visitId=${encodeURIComponent(visitId)}`
+        : providerPatientCenterPath(patientId);
       navigate(nextPath);
     } catch (error: unknown) {
       setErr(getErrorMessage(error, "Could not open patient chart."));
@@ -440,7 +447,7 @@ export default function ProviderHome() {
       if (visitErr) throw visitErr;
 
       if (existingVisit?.id) {
-        navigate(`/provider/patients/${visitPatientId}?visitId=${existingVisit.id}`);
+        navigate(`${providerPatientCenterPath(visitPatientId)}?visitId=${existingVisit.id}`);
         return;
       }
 
@@ -455,7 +462,7 @@ export default function ProviderHome() {
       const nextVisitId = getVisitIdFromRpc(visitId as VisitRpcResult);
       if (!nextVisitId) throw new Error("Visit created but no visitId was returned.");
 
-      navigate(`/provider/patients/${visitPatientId}?visitId=${nextVisitId}`);
+      navigate(`${providerPatientCenterPath(visitPatientId)}?visitId=${nextVisitId}`);
       await refreshAll();
     } catch (e: unknown) {
       setErr(getErrorMessage(e, "Failed to start visit."));
@@ -521,7 +528,7 @@ export default function ProviderHome() {
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <button className="btn btn-secondary" type="button" onClick={() => navigate("/provider/command")}>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate(PROVIDER_ROUTES.command)}>
                 Command Center
               </button>
               <button className="btn btn-secondary" type="button" onClick={refreshAll}>
@@ -600,8 +607,8 @@ export default function ProviderHome() {
           workflowState={guide.workflowState}
           nextAction={guide.nextAction}
           actions={[
-            { label: "Open Command Center", to: "/provider/command", tone: "primary" },
-            { label: "Open Full Queue", to: "/provider/queue" },
+            { label: "Open Command Center", to: PROVIDER_ROUTES.command, tone: "primary" },
+            { label: "Open Full Queue", to: PROVIDER_ROUTES.queue },
           ]}
         />
 
@@ -627,7 +634,7 @@ export default function ProviderHome() {
                 Join, update readiness, and open the chart from one place.
               </div>
             </div>
-            <button className="btn btn-secondary" type="button" onClick={() => navigate("/provider/visit-builder")}>
+            <button className="btn btn-secondary" type="button" onClick={() => navigate(providerVisitBuilderPath())}>
               Visit Builder
             </button>
           </div>
@@ -675,13 +682,13 @@ export default function ProviderHome() {
                     <div style={{ display: "grid", gap: 10, justifyItems: "end" }}>
                       <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                         <JoinVirtualVisitButton appointment={appt} className="btn btn-primary" label="Join Visit" />
-                        <button className="btn btn-secondary" type="button" onClick={() => navigate(`/provider/visit-builder?appointmentId=${appt.id}`)}>
+                        <button className="btn btn-secondary" type="button" onClick={() => navigate(providerVisitBuilderAppointmentPath(appt.id))}>
                           Edit Setup
                         </button>
                         <button className="btn btn-secondary" type="button" onClick={() => void openPatient(appt.patient_id)}>
                           Open Patient
                         </button>
-                        <button className="btn btn-secondary" type="button" onClick={() => navigate("/provider/intakes")}>
+                        <button className="btn btn-secondary" type="button" onClick={() => navigate(PROVIDER_ROUTES.intakes)}>
                           Intakes
                         </button>
                       </div>
@@ -718,7 +725,7 @@ export default function ProviderHome() {
                   : "Select an active location to load queue data."}
               </div>
             </div>
-            <button className="btn btn-secondary" type="button" onClick={() => navigate("/provider/queue")}>
+            <button className="btn btn-secondary" type="button" onClick={() => navigate(PROVIDER_ROUTES.queue)}>
               Full Queue
             </button>
           </div>

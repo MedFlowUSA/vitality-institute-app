@@ -8,6 +8,7 @@ import SystemStatusBar from "../components/SystemStatusBar";
 import ProviderPrerequisiteCard from "../components/provider/ProviderPrerequisiteCard";
 import { getErrorMessage } from "../lib/patientRecords";
 import { getProviderQueueRecommendation } from "../lib/provider/providerWorkflow";
+import { PROVIDER_ROUTES, providerPatientCenterPath } from "../lib/providerRoutes";
 import { resolvePatientRecordId, startVisitFromAppointment } from "../lib/provider/visitLaunch";
 import type { ProviderVisitSummary } from "../lib/provider/types";
 
@@ -218,8 +219,8 @@ export default function ProviderQueue() {
 
   const openPatientCenter = (patientId: string, visitId?: string) => {
     const nextPath = visitId
-      ? `/provider/patients/${patientId}?visitId=${encodeURIComponent(visitId)}`
-      : `/provider/patients/${patientId}`;
+      ? `${providerPatientCenterPath(patientId)}?visitId=${encodeURIComponent(visitId)}`
+      : providerPatientCenterPath(patientId);
     nav(nextPath);
   };
 
@@ -274,8 +275,8 @@ export default function ProviderQueue() {
         <VitalityHero
           title="Provider Queue"
           subtitle="Live operational dashboard filtered by your active location"
-          secondaryCta={{ label: "Back", to: "/provider" }}
-          primaryCta={{ label: "AI Plan Builder", to: "/provider/ai" }}
+          secondaryCta={{ label: "Back", to: PROVIDER_ROUTES.home }}
+          primaryCta={{ label: "AI Plan Builder", to: PROVIDER_ROUTES.ai }}
           rightActions={
             <button className="btn btn-secondary" onClick={signOut} type="button">
               Sign out
@@ -336,11 +337,11 @@ export default function ProviderQueue() {
                   {loading ? "Refreshing..." : "Refresh Queue"}
                 </button>
 
-                <button className="btn btn-secondary" type="button" onClick={() => nav("/provider/patients")}>
+                <button className="btn btn-secondary" type="button" onClick={() => nav(PROVIDER_ROUTES.patients)}>
                   Patients List
                 </button>
 
-                <button className="btn btn-secondary" type="button" onClick={() => nav("/provider/command")}>
+                <button className="btn btn-secondary" type="button" onClick={() => nav(PROVIDER_ROUTES.command)}>
                   Command Center
                 </button>
               </div>
@@ -370,9 +371,9 @@ export default function ProviderQueue() {
                   title="No Active Visits Yet"
                   message="There are no visits for this location yet. Start a visit from today’s appointments or open the patient list to launch the next encounter."
                   actionLabel="Open Patients List"
-                  onAction={() => nav("/provider/patients")}
+                  onAction={() => nav(PROVIDER_ROUTES.patients)}
                   secondaryLabel="Open Command Center"
-                  onSecondaryAction={() => nav("/provider/command")}
+                  onSecondaryAction={() => nav(PROVIDER_ROUTES.command)}
                 />
               ) : (
                 queueItems.map((item) => {

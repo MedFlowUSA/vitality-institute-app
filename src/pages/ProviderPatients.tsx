@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import VitalityHero from "../components/VitalityHero";
 import { getErrorMessage, isProviderAccountLinkingError } from "../lib/patientRecords";
+import { PROVIDER_ROUTES, providerMessagesPath, providerPatientCenterPath, providerVisitBuilderPath } from "../lib/providerRoutes";
 import { supabase } from "../lib/supabase";
 
 type LocationRow = { id: string; name: string };
@@ -176,7 +177,7 @@ export default function ProviderPatients() {
           title="Patients"
           subtitle="Search patients, open the patient center, and manage visits, files, and notes."
           secondaryCta={{ label: "Back", to: "/provider" }}
-          primaryCta={{ label: "AI Plan Builder", to: "/provider/ai" }}
+          primaryCta={{ label: "AI Plan Builder", to: PROVIDER_ROUTES.ai }}
           rightActions={
             <button className="btn btn-ghost" onClick={signOut} type="button">
               Sign out
@@ -205,16 +206,16 @@ export default function ProviderPatients() {
                 minWidth: 260,
               }}
             >
-              <button className="btn btn-primary" type="button" onClick={() => nav("/provider/intakes")} style={{ width: "100%" }}>
+              <button className="btn btn-primary" type="button" onClick={() => nav(PROVIDER_ROUTES.intakes)} style={{ width: "100%" }}>
                 Intakes
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/labs")} style={{ width: "100%" }}>
+              <button className="btn btn-ghost" type="button" onClick={() => nav(PROVIDER_ROUTES.labs)} style={{ width: "100%" }}>
                 Labs
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/chat")} style={{ width: "100%" }}>
+              <button className="btn btn-ghost" type="button" onClick={() => nav(providerMessagesPath())} style={{ width: "100%" }}>
                 Messages
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/queue")} style={{ width: "100%" }}>
+              <button className="btn btn-ghost" type="button" onClick={() => nav(PROVIDER_ROUTES.queue)} style={{ width: "100%" }}>
                 Queue
               </button>
             </div>
@@ -364,19 +365,19 @@ export default function ProviderPatients() {
                           minWidth: 220,
                         }}
                       >
-                        <button className="btn btn-primary" type="button" onClick={() => nav(`/provider/patients/${patient.id}`)} style={{ width: "100%" }}>
+                        <button className="btn btn-primary" type="button" onClick={() => nav(providerPatientCenterPath(patient.id))} style={{ width: "100%" }}>
                           Open Patient
                         </button>
-                        <button className="btn btn-secondary" type="button" onClick={() => nav(`/provider/visit-builder/${patient.id}`)} style={{ width: "100%" }}>
+                        <button className="btn btn-secondary" type="button" onClick={() => nav(providerVisitBuilderPath(patient.id))} style={{ width: "100%" }}>
                           New Visit
                         </button>
-                        <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/intakes")} style={{ width: "100%" }}>
+                        <button className="btn btn-ghost" type="button" onClick={() => nav(PROVIDER_ROUTES.intakes)} style={{ width: "100%" }}>
                           Intake
                         </button>
-                        <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/labs")} style={{ width: "100%" }}>
+                        <button className="btn btn-ghost" type="button" onClick={() => nav(PROVIDER_ROUTES.labs)} style={{ width: "100%" }}>
                           Labs
                         </button>
-                        <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/chat")} style={{ width: "100%" }}>
+                        <button className="btn btn-ghost" type="button" onClick={() => nav(providerMessagesPath())} style={{ width: "100%" }}>
                           Messages
                         </button>
                       </div>

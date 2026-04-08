@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import InlineNotice from "../components/InlineNotice";
 import DictationTextarea from "../components/DictationTextarea";
 import { supabase } from "../lib/supabase";
 import logo from "../assets/vitality-logo.png";
@@ -370,8 +371,8 @@ export default function ProviderAI() {
 
         <div className="card card-pad">
           {loading && <div className="muted">Loading...</div>}
-          {saveMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{saveMessage}</div>}
-          {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
+          {saveMessage && <InlineNotice message={saveMessage} tone="success" style={{ marginBottom: 12 }} />}
+          {err && <InlineNotice message={err} tone="error" style={{ marginBottom: 12 }} />}
 
           {!loading && (
             <>

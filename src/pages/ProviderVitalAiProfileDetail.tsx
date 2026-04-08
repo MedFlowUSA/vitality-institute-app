@@ -5,6 +5,7 @@ import RouteHeader from "../components/RouteHeader";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import ProfileSummaryCard from "../components/vital-ai/ProfileSummaryCard";
 import { useAuth } from "../auth/AuthProvider";
+import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import { supabase } from "../lib/supabase";
 import { buildProviderVitalAiProfileGuide } from "../lib/provider/providerGuide";
 import VitalAI from "../lib/vital-ai/vitalAiService";
@@ -109,13 +110,13 @@ export default function ProviderVitalAiProfileDetail() {
         <RouteHeader
           title="Vital AI Provider Review"
           subtitle="Review one intake profile and decide the next step."
-          backTo="/provider/vital-ai"
-          homeTo="/provider"
+          backTo={PROVIDER_ROUTES.vitalAi}
+          homeTo={PROVIDER_ROUTES.home}
         />
 
         <div className="space" />
 
-        <VitalityHero title="Vital AI Profile Detail" subtitle="Provider review of the submitted intake summary and visit readiness." secondaryCta={{ label: "Back", to: "/provider/vital-ai" }} showKpis={false} />
+        <VitalityHero title="Vital AI Profile Detail" subtitle="Provider review of the submitted intake summary and visit readiness." secondaryCta={{ label: "Back", to: PROVIDER_ROUTES.vitalAi }} showKpis={false} />
 
         <div className="space" />
 
@@ -125,7 +126,7 @@ export default function ProviderVitalAiProfileDetail() {
           workflowState={guide.workflowState}
           nextAction={guide.nextAction}
           actions={[
-            { label: "Back to Queue", to: "/provider/vital-ai", tone: "primary" },
+            { label: "Back to Queue", to: PROVIDER_ROUTES.vitalAi, tone: "primary" },
           ]}
         />
 

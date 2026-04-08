@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import InlineNotice from "../components/InlineNotice";
 import { supabase } from "../lib/supabase";
 
 type ServiceRow = {
@@ -139,9 +140,9 @@ export default function ServicesPanel({
         </form>
       </div>
 
-      {saveMessage ? <div className="surface-light-helper" style={{ marginBottom: 12 }}>{saveMessage}</div> : null}
+      {saveMessage ? <InlineNotice message={saveMessage} tone="success" style={{ marginBottom: 12 }} /> : null}
       {loading ? <div className="muted">Loading services...</div> : null}
-      {err ? <div style={{ color: "crimson" }}>{err}</div> : null}
+      {err ? <InlineNotice message={err} tone="error" style={{ marginBottom: 12 }} /> : null}
 
       {!loading && !err ? (
         <div>

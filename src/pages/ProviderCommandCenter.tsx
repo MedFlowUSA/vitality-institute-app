@@ -3,10 +3,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
+import InlineNotice from "../components/InlineNotice";
 import VitalityHero from "../components/VitalityHero";
 import SystemStatusBar from "../components/SystemStatusBar";
 import { auditWrite } from "../lib/audit";
 import { ensureAppointmentConversation } from "../lib/messaging/conversationService";
+import {
+  PROVIDER_ROUTES,
+  providerMessagesPath,
+  providerPatientCenterPath,
+  providerVisitBuilderAppointmentPath,
+  providerVisitChartPath,
+} from "../lib/providerRoutes";
 import { analyzeWoundProgression } from "../lib/woundProgression";
 import { analyzeWoundRisk } from "../lib/woundRiskAlerts";
 
@@ -396,7 +404,7 @@ export default function ProviderCommandCenter() {
         actorRole: role,
         title: "Appointment conversation",
       });
-      nav(`/provider/chat?conversationId=${conversationId}`);
+      nav(providerMessagesPath(conversationId));
     } catch (e: any) {
       setErr(e?.message ?? "Failed to open conversation.");
     }
@@ -405,14 +413,14 @@ export default function ProviderCommandCenter() {
   const openPatient = async (patientCandidateId: string) => {
     try {
       const patientId = await resolvePatientRecordId(patientCandidateId);
-      nav(`/provider/patients/${patientId}`);
+      nav(providerPatientCenterPath(patientId));
     } catch (e: any) {
       setErr(e?.message ?? "Failed to open patient.");
     }
   };
 
   const goToVisit = (visitId: string) => {
-    nav(`/provider/visits/${visitId}`);
+    nav(providerVisitChartPath(visitId));
   };
 
   const approveAndOpenVisit = async (appt: ApptRow) => {
@@ -520,15 +528,15 @@ export default function ProviderCommandCenter() {
         <VitalityHero
           title="Command Center"
           subtitle="One screen for today's schedule + pending wound intakes"
-          primaryCta={{ label: "Queue", to: "/provider/queue" }}
-          secondaryCta={{ label: "Back to Dashboard", onClick: () => nav("/provider") }}
+          primaryCta={{ label: "Queue", to: PROVIDER_ROUTES.queue }}
+          secondaryCta={{ label: "Back to Dashboard", onClick: () => nav(PROVIDER_ROUTES.home) }}
           showKpis={false}
           rightActions={
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/referrals")}>
+              <button className="btn btn-ghost" type="button" onClick={() => nav(PROVIDER_ROUTES.referrals)}>
                 Referrals
               </button>
-              <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/patients")}>
+              <button className="btn btn-ghost" type="button" onClick={() => nav(PROVIDER_ROUTES.patients)}>
                 Patient Center
               </button>
             </div>
@@ -591,8 +599,8 @@ export default function ProviderCommandCenter() {
         <div className="space" />
 
         {loading ? <div className="muted">Loading...</div> : null}
-        {actionMessage ? <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div> : null}
-        {err ? <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div> : null}
+        {actionMessage ? <InlineNotice message={actionMessage} tone="success" style={{ marginBottom: 12 }} /> : null}
+        {err ? <InlineNotice message={err} tone="error" style={{ marginBottom: 12 }} /> : null}
 
         {attentionItems.length > 0 ? (
           <>
@@ -632,7 +640,7 @@ export default function ProviderCommandCenter() {
                         <button
                           className="btn btn-primary"
                           type="button"
-                          onClick={() => nav(`/provider/visits/${item.visit_id}`)}
+                          onClick={() => nav(providerVisitChartPath(item.visit_id))}
                         >
                           Open Visit
                         </button>
@@ -696,7 +704,7 @@ export default function ProviderCommandCenter() {
                           <button
                             className="btn btn-primary"
                             type="button"
-                            onClick={() => nav(`/provider/visit-builder?appointmentId=${a.id}`)}
+                            onClick={() => nav(providerVisitBuilderAppointmentPath(a.id))}
                           >
                             Start Visit
                           </button>
@@ -755,7 +763,7 @@ export default function ProviderCommandCenter() {
                     </div>
                     <div className="space" />
                     <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                      <button className="btn btn-primary" type="button" onClick={() => nav(`/provider/intakes?activeId=${i.id}`)}>
+                      <button className="btn btn-primary" type="button" onClick={() => nav(`${PROVIDER_ROUTES.intakes}?activeId=${i.id}`)}>
                         Open Intake
                       </button>
                       {i.patient_id ? (

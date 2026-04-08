@@ -6,6 +6,7 @@ import { supabase } from "./lib/supabase";
 
 import AppStatusFooter from "./components/AppStatusFooter";
 import { buildOnboardingRoute } from "./lib/routeFlow";
+import { PROVIDER_ROUTES, providerPatientCenterLegacyPath, providerPatientCenterPath, providerVisitChartPath } from "./lib/providerRoutes";
 
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 
@@ -343,15 +344,15 @@ function LegacyProviderVisitRedirect() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
 
-  if (!id) return <Navigate to="/provider/queue" replace />;
+  if (!id) return <Navigate to={PROVIDER_ROUTES.queue} replace />;
 
-  return <Navigate to={`/provider/visits/${id}${location.search}${location.hash}`} replace />;
+  return <Navigate to={`${providerVisitChartPath(id)}${location.search}${location.hash}`} replace />;
 }
 
 function LegacyProviderPatientCenterRedirect() {
   const { patientId } = useParams<{ patientId?: string }>();
   const location = useLocation();
-  const base = patientId ? `/provider/patients/${patientId}` : "/provider/patients";
+  const base = providerPatientCenterPath(patientId);
 
   return <Navigate to={`${base}${location.search}${location.hash}`} replace />;
 }
@@ -413,27 +414,27 @@ export default function App() {
 
             {/* provider */}
             <Route
-              path="/provider"
+              path={PROVIDER_ROUTES.home}
               element={withRole(PROVIDER_ROLES, <ProviderHome />)}
             />
             <Route
-              path="/provider/dashboard"
-              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to="/provider" />)}
+              path={PROVIDER_ROUTES.dashboardLegacy}
+              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to={PROVIDER_ROUTES.home} />)}
             />
             <Route
-              path="/provider/command"
+              path={PROVIDER_ROUTES.command}
               element={withRole(PROVIDER_ROLES, <ProviderCommandCenter />)}
             />
             <Route
-              path="/provider/command-center"
-              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to="/provider/command" />)}
+              path={PROVIDER_ROUTES.commandLegacy}
+              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to={PROVIDER_ROUTES.command} />)}
             />
             <Route
-              path="/provider/virtual-visits"
-              element={withRole(PROVIDER_ROLES, <Navigate to="/provider#virtual-visits" replace />)}
+              path={PROVIDER_ROUTES.virtualVisitsLegacy}
+              element={withRole(PROVIDER_ROLES, <Navigate to={PROVIDER_ROUTES.virtualVisitsHash} replace />)}
             />
               <Route
-                path="/provider/queue"
+                path={PROVIDER_ROUTES.queue}
                 element={withRole(PROVIDER_ROLES, <ProviderQueue />)}
               />
             <Route
@@ -449,11 +450,11 @@ export default function App() {
               element={withRole(PROVIDER_ROLES, <ProviderVisitBuilder />)}
             />
             <Route
-              path="/provider/patients"
+              path={PROVIDER_ROUTES.patients}
               element={withRole(PROVIDER_ROLES, <ProviderPatients />)}
             />
             <Route
-              path="/provider/patient-center"
+              path={providerPatientCenterLegacyPath()}
               element={withRole(PROVIDER_ROLES, <LegacyProviderPatientCenterRedirect />)}
             />
             <Route
@@ -461,7 +462,7 @@ export default function App() {
               element={withRole(PROVIDER_ROLES, <ProviderPatientCenter />)}
             />
             <Route
-              path="/provider/patient-center/:patientId"
+              path={`${providerPatientCenterLegacyPath(":patientId")}`}
               element={withRole(PROVIDER_ROLES, <LegacyProviderPatientCenterRedirect />)}
             />
             <Route
@@ -473,35 +474,35 @@ export default function App() {
               element={withRole(PROVIDER_ROLES, <WoundTimeline />)}
             />
             <Route
-              path="/provider/intake"
-              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to="/provider/intakes" />)}
+              path={PROVIDER_ROUTES.intakeLegacy}
+              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to={PROVIDER_ROUTES.intakes} />)}
             />
             <Route
-              path="/provider/intake-queue"
-              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to="/provider/intakes" />)}
+              path={PROVIDER_ROUTES.intakeQueueLegacy}
+              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to={PROVIDER_ROUTES.intakes} />)}
             />
             <Route
-              path="/provider/intakes"
+              path={PROVIDER_ROUTES.intakes}
               element={withRole(PROVIDER_ROLES, <ProviderIntake />)}
             />
               <Route
-              path="/provider/chat"
+              path={PROVIDER_ROUTES.messages}
               element={withRole(PROVIDER_ROLES, <ProviderConversationCenter />)}
               />
             <Route
-              path="/provider/messages"
-              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to="/provider/chat" />)}
+              path={PROVIDER_ROUTES.messagesLegacy}
+              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to={PROVIDER_ROUTES.messages} />)}
             />
             <Route
-              path="/provider/labs"
+              path={PROVIDER_ROUTES.labs}
               element={withRole(PROVIDER_ROLES, <ProviderLabs />)}
             />
             <Route
-              path="/provider/ai"
+              path={PROVIDER_ROUTES.ai}
               element={withRole(PROVIDER_ROLES, <ProviderAI />)}
             />
             <Route
-              path="/provider/vital-ai"
+              path={PROVIDER_ROUTES.vitalAi}
               element={withRole(PROVIDER_ROLES, <ProviderVitalAiQueue />)}
             />
             <Route
@@ -509,7 +510,7 @@ export default function App() {
               element={withRole(PROVIDER_ROLES, <ProviderVitalAiProfileDetail />)}
             />
             <Route
-              path="/provider/referrals"
+              path={PROVIDER_ROUTES.referrals}
               element={withRole(PROVIDER_ROLES, <ProviderReferrals />)}
             />
             <Route

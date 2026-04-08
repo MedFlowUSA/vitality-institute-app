@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { getSignedUrl } from "../lib/patientFiles";
 import { useParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
+import { PROVIDER_ROUTES, providerPatientCenterPath } from "../lib/providerRoutes";
 
 type FileRow = {
   id: string;
@@ -69,7 +70,7 @@ export default function WoundTimeline() {
         <VitalityHero
           title="Wound Timeline"
           subtitle="Loading photos..."
-          secondaryCta={{ label: "Back", to: patientId ? `/provider/patients/${patientId}` : "/provider/patients" }}
+          secondaryCta={{ label: "Back", to: patientId ? providerPatientCenterPath(patientId) : PROVIDER_ROUTES.patients }}
         />
       </div>
     );
@@ -81,7 +82,7 @@ export default function WoundTimeline() {
         <VitalityHero
           title="Wound Timeline Error"
           subtitle={err}
-          secondaryCta={{ label: "Back", to: patientId ? `/provider/patients/${patientId}` : "/provider/patients" }}
+          secondaryCta={{ label: "Back", to: patientId ? providerPatientCenterPath(patientId) : PROVIDER_ROUTES.patients }}
         />
       </div>
     );
@@ -92,7 +93,7 @@ export default function WoundTimeline() {
       <VitalityHero
         title="Wound Healing Timeline"
         subtitle="Visual progression of wound healing"
-        secondaryCta={{ label: "Back", to: patientId ? `/provider/patients/${patientId}` : "/provider/patients" }}
+        secondaryCta={{ label: "Back", to: patientId ? providerPatientCenterPath(patientId) : PROVIDER_ROUTES.patients }}
       />
 
       <div className="max-w-5xl mx-auto mt-6 grid md:grid-cols-3 gap-6">

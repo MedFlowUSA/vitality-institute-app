@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import InlineNotice from "../InlineNotice";
 import { supabase } from "../../lib/supabase";
 import { getSignedUrl } from "../../lib/patientFiles";
+import { providerIvrPrintPath } from "../../lib/providerRoutes";
 
 type Props = {
   patientId: string;
@@ -411,7 +413,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
 
   const exportPdf = () => {
     if (!visitId) return;
-    window.open(`/provider/ivr/print/${visitId}`, "_blank", "noopener,noreferrer");
+    window.open(providerIvrPrintPath(visitId), "_blank", "noopener,noreferrer");
   };
 
   const openPhoto = async (p: FileRow) => {
@@ -469,8 +471,8 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
 
       <div className="space" />
 
-      {actionMessage ? <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div> : null}
-      {err ? <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div> : null}
+      {actionMessage ? <InlineNotice message={actionMessage} tone="success" style={{ marginBottom: 12 }} /> : null}
+      {err ? <InlineNotice message={err} tone="error" style={{ marginBottom: 12 }} /> : null}
 
       {loading ? (
         <div className="card card-pad" style={{ background: "rgba(255,255,255,0.04)" }}><div className="muted">Loading IVR packet...</div></div>

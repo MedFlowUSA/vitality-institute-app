@@ -8,6 +8,7 @@ import { getSignedUrl } from "../lib/patientFiles";
 import SoapNotePanel from "../components/SoapNotePanel";
 import { analyzeWoundProgression } from "../lib/woundProgression";
 import { getErrorMessage } from "../lib/patientRecords";
+import { PROVIDER_ROUTES, providerVisitChartPath } from "../lib/providerRoutes";
 import type { ProviderVisitSummary, SoapNoteRecord, TreatmentPlanRecord, WoundAssessmentRecord } from "../lib/provider/types";
 
 const LazyVisitPacketSection = lazy(() => import("../components/provider/VisitPacketSection"));
@@ -368,10 +369,10 @@ export default function ProviderVisitChart() {
         <VitalityHero
           title={patientName}
           subtitle={visit ? `Visit - ${new Date(visit.visit_date).toLocaleString()} - ${visit.status ?? "new"}` : "Visit"}
-          secondaryCta={{ label: "Back to Queue", to: "/provider/queue" }}
+          secondaryCta={{ label: "Back to Queue", to: PROVIDER_ROUTES.queue }}
           showKpis={false}
           rightActions={
-            <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/queue")}>
+            <button className="btn btn-ghost" type="button" onClick={() => nav(PROVIDER_ROUTES.queue)}>
               Back
             </button>
           }
@@ -529,7 +530,7 @@ export default function ProviderVisitChart() {
                               <button
                                 type="button"
                                 className="btn btn-ghost"
-                                onClick={() => nav(`/provider/visits/${group.visit.id}`)}
+                                onClick={() => nav(providerVisitChartPath(group.visit.id))}
                               >
                                 Open Visit
                               </button>

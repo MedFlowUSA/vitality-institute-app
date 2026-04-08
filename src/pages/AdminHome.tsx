@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import InlineNotice from "../components/InlineNotice";
 import { supabase } from "../lib/supabase";
+import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import logo from "../assets/vitality-logo.png";
 import SystemStatusBar from "../components/SystemStatusBar";
 import LocationPicker from "../components/LocationPicker";
@@ -337,7 +339,7 @@ export default function AdminHome() {
               <button
                 className="btn btn-primary"
                 type="button"
-                onClick={() => navigate("/provider/ai")}
+                onClick={() => navigate(PROVIDER_ROUTES.ai)}
               >
                 AI Plan Builder
               </button>
@@ -487,8 +489,8 @@ export default function AdminHome() {
           <div className="space" />
 
           {loading && <div className="muted">Loading...</div>}
-          {err && <div style={{ color: "crimson" }}>{err}</div>}
-          {locationSaveMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{locationSaveMessage}</div>}
+          {err && <InlineNotice message={err} tone="error" style={{ marginBottom: 12 }} />}
+          {locationSaveMessage && <InlineNotice message={locationSaveMessage} tone="success" style={{ marginBottom: 12 }} />}
 
           {!loading && !err && (
             <>

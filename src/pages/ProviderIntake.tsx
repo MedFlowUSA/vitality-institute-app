@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import InlineNotice from "../components/InlineNotice";
 import DictationTextarea from "../components/DictationTextarea";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
@@ -11,6 +12,7 @@ import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
 import { buildProviderIntakeGuide } from "../lib/provider/providerGuide";
 import { getSignedUrl } from "../lib/patientFiles";
+import { PROVIDER_ROUTES, providerPatientCenterPath } from "../lib/providerRoutes";
 
 type LocationRow = { id: string; name: string };
 type LocationAssignmentRow = { location_id: string };
@@ -375,8 +377,8 @@ export default function ProviderIntake() {
         <VitalityHero
           title="Vitality Institute"
           subtitle="Review wound care intakes and move them through approval."
-          secondaryCta={{ label: "Back", to: "/provider" }}
-          primaryCta={{ label: "Queue", to: "/provider/queue" }}
+          secondaryCta={{ label: "Back", to: PROVIDER_ROUTES.home }}
+          primaryCta={{ label: "Queue", to: PROVIDER_ROUTES.queue }}
           rightActions={null}
           showKpis={false}
         />
@@ -393,8 +395,8 @@ export default function ProviderIntake() {
           workflowState={guide.workflowState}
           nextAction={guide.nextAction}
           actions={[
-            { label: "Open Queue", to: "/provider/queue", tone: "primary" },
-            active ? { label: "Open Patient Center", to: `/provider/patients/${active.patient_id}` } : { label: "Vital AI Requests", to: "/provider/vital-ai" },
+            { label: "Open Queue", to: PROVIDER_ROUTES.queue, tone: "primary" },
+            active ? { label: "Open Patient Center", to: providerPatientCenterPath(active.patient_id) } : { label: "Vital AI Requests", to: PROVIDER_ROUTES.vitalAi },
           ]}
         />
 
@@ -402,8 +404,8 @@ export default function ProviderIntake() {
 
         <div className="card card-pad">
           {loading && <div className="muted">Loading...</div>}
-          {actionMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div>}
-          {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
+          {actionMessage && <InlineNotice message={actionMessage} tone="success" style={{ marginBottom: 12 }} />}
+          {err && <InlineNotice message={err} tone="error" style={{ marginBottom: 12 }} />}
 
           {!loading && (
             <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>

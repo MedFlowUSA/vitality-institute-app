@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import VitalityHero from "../components/VitalityHero";
 import SystemStatusBar from "../components/SystemStatusBar";
+import { PROVIDER_ROUTES, providerPatientCenterPath } from "../lib/providerRoutes";
 
 type ReferralRow = {
   id: string;
@@ -295,7 +296,7 @@ export default function ProviderReferralDetail() {
         <VitalityHero
           title="Referral"
           subtitle="Triage - Pre-auth checklist - Scheduling handoff"
-          secondaryCta={{ label: "Back to Referrals", onClick: () => nav("/provider/referrals") }}
+          secondaryCta={{ label: "Back to Referrals", onClick: () => nav(PROVIDER_ROUTES.referrals) }}
           primaryCta={{ label: "Open Tasks", onClick: () => document.getElementById("tasks")?.scrollIntoView({ behavior: "smooth" }) }}
           showKpis={false}
         />
@@ -397,7 +398,7 @@ export default function ProviderReferralDetail() {
                       <button
                         className="btn btn-ghost"
                         type="button"
-                        onClick={() => nav(`/provider/patients/${referral.patient_id}`)}
+                        onClick={() => nav(providerPatientCenterPath(referral.patient_id))}
                       >
                         Open Patient
                       </button>

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
+import { PROVIDER_ROUTES } from "../../lib/providerRoutes";
 
 type ProviderWorkspaceNavProps = {
   title?: string;
@@ -13,15 +14,15 @@ type WorkspaceItem = {
 };
 
 const WORKSPACE_ITEMS: WorkspaceItem[] = [
-  { label: "Command Center", to: "/provider/command" },
-  { label: "Queue", to: "/provider/queue" },
-  { label: "Intakes", to: "/provider/intakes" },
-  { label: "Vital AI Requests", to: "/provider/vital-ai" },
-  { label: "Referrals", to: "/provider/referrals" },
-  { label: "Labs", to: "/provider/labs" },
-  { label: "Messages", to: "/provider/chat" },
-  { label: "Patient Center", to: "/provider/patients" },
-  { label: "Virtual Visits", to: "/provider#virtual-visits" },
+  { label: "Command Center", to: PROVIDER_ROUTES.command },
+  { label: "Queue", to: PROVIDER_ROUTES.queue },
+  { label: "Intakes", to: PROVIDER_ROUTES.intakes },
+  { label: "Vital AI Requests", to: PROVIDER_ROUTES.vitalAi },
+  { label: "Referrals", to: PROVIDER_ROUTES.referrals },
+  { label: "Labs", to: PROVIDER_ROUTES.labs },
+  { label: "Messages", to: PROVIDER_ROUTES.messages },
+  { label: "Patient Center", to: PROVIDER_ROUTES.patients },
+  { label: "Virtual Visits", to: PROVIDER_ROUTES.virtualVisitsHash },
 ];
 
 function isActivePath(currentPath: string, target: string) {

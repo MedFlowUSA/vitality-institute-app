@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import VitalityHero from "../components/VitalityHero";
 import SystemStatusBar from "../components/SystemStatusBar";
+import { PROVIDER_ROUTES, providerPatientCenterPath } from "../lib/providerRoutes";
 
 type ReferralRow = {
   id: string;
@@ -158,7 +159,7 @@ export default function ProviderReferrals() {
       await setReferralStatus(r.id, "reviewing");
 
       // Open patient center (or command center) depending on your flow
-      nav(`/provider/patients/${r.patient_id}`);
+      nav(providerPatientCenterPath(r.patient_id));
     } catch (e: any) {
       setErr(e?.message ?? "Failed to convert referral to appointment.");
     }
@@ -170,8 +171,8 @@ export default function ProviderReferrals() {
         <VitalityHero
           title="Referrals"
           subtitle="Hospital-grade referral inbox - urgency + denial-risk triage"
-          secondaryCta={{ label: "Back", to: "/provider" }}
-          primaryCta={{ label: "Command Center", to: "/provider/command" }}
+          secondaryCta={{ label: "Back", to: PROVIDER_ROUTES.home }}
+          primaryCta={{ label: "Command Center", to: PROVIDER_ROUTES.command }}
           showKpis={false}
         />
 
@@ -257,7 +258,7 @@ export default function ProviderReferrals() {
                     </div>
 
                     <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                      <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/patients/${r.patient_id}`)}>
+                      <button className="btn btn-ghost" type="button" onClick={() => nav(providerPatientCenterPath(r.patient_id))}>
                         Open Patient
                       </button>
 

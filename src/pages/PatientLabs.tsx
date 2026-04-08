@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { renderElementPdfBlob } from "../lib/pdf";
 import { getPatientRecordIdForProfile } from "../lib/patientRecords";
 import { uploadPatientFile } from "../lib/patientFiles";
 import { supabase } from "../lib/supabase";
@@ -38,29 +39,6 @@ function formatDisplayDateTime(value: string | null | undefined) {
   if (!value) return "-";
   const next = new Date(value);
   return Number.isNaN(next.getTime()) ? value : next.toLocaleString();
-}
-
-async function renderPdfBlob(element: HTMLElement, filename: string) {
-  const { default: html2pdf } = await import("html2pdf.js");
-
-  return (await html2pdf()
-    .set({
-      margin: 0.35,
-      filename,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      },
-      jsPDF: {
-        unit: "in",
-        format: "letter",
-        orientation: "portrait",
-      },
-    })
-    .from(element)
-    .outputPdf("blob")) as Blob;
 }
 
 export default function PatientLabs() {
@@ -189,7 +167,9 @@ export default function PatientLabs() {
 
     try {
       const panelLabel = panelName(panelId).replace(/[^\w.-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "lab-panel";
-      const pdfBlob = await renderPdfBlob(wrapper, `touch-of-vitality-lab-form-${panelLabel}.pdf`);
+      const pdfBlob = await renderElementPdfBlob(wrapper, {
+        filename: `touch-of-vitality-lab-form-${panelLabel}.pdf`,
+      });
       const pdfFile = new File(
         [pdfBlob],
         `touch-of-vitality-lab-form-${panelLabel}-${resultId}.pdf`,

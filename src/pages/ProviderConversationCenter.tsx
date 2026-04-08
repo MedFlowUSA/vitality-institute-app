@@ -16,6 +16,7 @@ import {
 } from "../lib/messaging/conversationService";
 import { supabase } from "../lib/supabase";
 import ProviderPrerequisiteCard from "../components/provider/ProviderPrerequisiteCard";
+import { PROVIDER_ROUTES, providerPatientCenterPath } from "../lib/providerRoutes";
 
 type LocationRow = { id: string; name: string };
 
@@ -218,7 +219,7 @@ export default function ProviderConversationCenter() {
       subtitle="Conversation-based patient and care-team communication"
       actions={
         <>
-          <button className="btn btn-ghost" type="button" onClick={() => navigate("/provider")}>
+          <button className="btn btn-ghost" type="button" onClick={() => navigate(PROVIDER_ROUTES.home)}>
             Back
           </button>
           <button className="btn btn-ghost" type="button" onClick={signOut}>
@@ -310,7 +311,7 @@ export default function ProviderConversationCenter() {
                         <button
                           className="btn btn-ghost"
                           type="button"
-                          onClick={() => navigate(`/provider/patients/${activeConversation.patient_id}`)}
+                          onClick={() => navigate(providerPatientCenterPath(activeConversation.patient_id))}
                         >
                           Patient Center
                         </button>

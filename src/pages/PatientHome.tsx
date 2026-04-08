@@ -15,6 +15,7 @@ import {
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
+import InlineNotice from "../components/InlineNotice";
 import { countUnreadConversationsForPatient, ensureAppointmentConversation } from "../lib/messaging/conversationService";
 import { getErrorMessage, getPatientRecordIdForProfile, isDatabaseErrorWithCode } from "../lib/patientRecords";
 import { getVirtualVisitState } from "../lib/virtualVisits";
@@ -2489,16 +2490,14 @@ export default function PatientHome() {
           ) : null}
 
           {loading && <div className="muted">Loading...</div>}
-          {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
+          {err ? <InlineNotice message={err} tone="error" style={{ marginBottom: 12 }} /> : null}
           {portalNotice ? (
-            <div className="card card-pad" style={{ ...alertCardStyle(portalNotice.tone), marginBottom: 12 }}>
-              <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ lineHeight: 1.7 }}>{portalNotice.message}</div>
-                <button className="btn btn-secondary" type="button" onClick={() => setPortalNotice(null)}>
-                  Dismiss
-                </button>
-              </div>
-            </div>
+            <InlineNotice
+              message={portalNotice.message}
+              tone={portalNotice.tone}
+              onDismiss={() => setPortalNotice(null)}
+              style={{ marginBottom: 12 }}
+            />
           ) : null}
 
           {!loading && (

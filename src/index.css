@@ -119,6 +119,48 @@ a:hover { text-decoration: underline; }
   color: var(--v-helper-dark);
 }
 
+.inline-notice {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(184, 164, 255, 0.22);
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f1633;
+  box-shadow: 0 10px 28px rgba(17, 24, 39, 0.06);
+}
+
+.inline-notice-copy {
+  flex: 1 1 auto;
+  line-height: 1.7;
+}
+
+.inline-notice-dismiss {
+  flex: 0 0 auto;
+}
+
+.inline-notice-success {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.inline-notice-warning {
+  border-color: rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.11);
+}
+
+.inline-notice-error {
+  border-color: rgba(220, 38, 38, 0.28);
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.inline-notice-info {
+  border-color: rgba(99, 102, 241, 0.22);
+  background: rgba(99, 102, 241, 0.08);
+}
+
 .card-light {
   background: var(--v-card-light);
   border: 1px solid var(--v-border-light);

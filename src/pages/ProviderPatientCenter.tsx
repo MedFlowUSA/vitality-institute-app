@@ -1,5 +1,5 @@
 ﻿// src/pages/ProviderPatientCenter.tsx
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
@@ -21,13 +21,7 @@ import { auditWrite } from "../lib/audit";
 import { getErrorMessage } from "../lib/patientRecords";
 
 import SoapNotePanel from "../components/SoapNotePanel";
-import TreatmentPlanSection from "../components/provider/TreatmentPlanSection";
 import VisitTimelinePanel from "../components/VisitTimelinePanel";
-import WoundPhotosPanel from "../components/provider/WoundPhotosPanel";
-import WoundAssessmentPanel from "../components/provider/WoundAssessmentPanel";
-import WoundHealingCurvePanel from "../components/provider/WoundHealingCurvePanel";
-import IVRPacketPanel from "../components/provider/IVRPacketPanel";
-import ChargeCapturePanel from "../components/provider/ChargeCapturePanel";
 import ProviderPrerequisiteCard from "../components/provider/ProviderPrerequisiteCard";
 import { calculateHealingTrend, getWoundHistory, type WoundObservation } from "../lib/vital-ai/woundTracking";
 import {
@@ -37,8 +31,21 @@ import {
 } from "../lib/provider/encounterState";
 import { buildProviderPatientCenterGuide } from "../lib/provider/providerGuide";
 import { getProviderPatientCenterRecommendation } from "../lib/provider/providerWorkflow";
+import {
+  PROVIDER_ROUTES,
+  providerMessagesPath,
+  providerVisitBuilderPath,
+  providerWoundTimelinePath,
+} from "../lib/providerRoutes";
 import { startVisitFromAppointment } from "../lib/provider/visitLaunch";
 import type { ProviderLabStatus, ProviderPatientSummary, ProviderVisitSummary } from "../lib/provider/types";
+
+const LazyTreatmentPlanSection = lazy(() => import("../components/provider/TreatmentPlanSection"));
+const LazyWoundPhotosPanel = lazy(() => import("../components/provider/WoundPhotosPanel"));
+const LazyWoundAssessmentPanel = lazy(() => import("../components/provider/WoundAssessmentPanel"));
+const LazyWoundHealingCurvePanel = lazy(() => import("../components/provider/WoundHealingCurvePanel"));
+const LazyIVRPacketPanel = lazy(() => import("../components/provider/IVRPacketPanel"));
+const LazyChargeCapturePanel = lazy(() => import("../components/provider/ChargeCapturePanel"));
 
 type VisitRow = ProviderVisitSummary & {
   appointment_id: string | null;
@@ -194,6 +201,14 @@ const FOLLOW_UP_MODE_LABELS: Record<string, string> = {
 };
 
 type PatientTab = "overview" | "wound" | "soap" | "plan" | "labs" | "notes" | "files" | "photos" | "ivr" | "charges";
+
+function TabPanelLoader({ label }: { label: string }) {
+  return (
+    <div className="card card-pad" style={{ background: "rgba(255,255,255,0.04)" }}>
+      <div className="muted">Loading {label}...</div>
+    </div>
+  );
+}
 
 
 export default function ProviderPatientCenter() {
@@ -1012,7 +1027,7 @@ export default function ProviderPatientCenter() {
 
   const launchFollowUpScheduling = () => {
     if (!patientId) return;
-    nav(`/provider/visit-builder/${patientId}`);
+    nav(providerVisitBuilderPath(patientId));
   };
 
   const addNote = async () => {
@@ -1350,8 +1365,8 @@ export default function ProviderPatientCenter() {
         <RouteHeader
           title="Provider Patient Center"
           subtitle="Review the chart, visits, plan, labs, notes, and files."
-          backTo="/provider/patients"
-          homeTo="/provider"
+          backTo={PROVIDER_ROUTES.patients}
+          homeTo={PROVIDER_ROUTES.home}
           rightAction={
             <button className="btn btn-ghost" onClick={signOut} type="button">
               Sign out
@@ -1372,7 +1387,7 @@ export default function ProviderPatientCenter() {
             { label: "Go to Plan", onClick: () => setTab("plan") },
             canLaunchFollowUpScheduling
               ? { label: "Schedule Follow-Up", onClick: launchFollowUpScheduling }
-              : { label: "Back to Dashboard", to: "/provider" },
+              : { label: "Back to Dashboard", to: PROVIDER_ROUTES.home },
           ]}
         />
 
@@ -1381,8 +1396,8 @@ export default function ProviderPatientCenter() {
         <VitalityHero
           title="Patient Center"
           subtitle="Visits | SOAP | Plan | Labs | Notes | Files"
-          secondaryCta={{ label: "Back", to: "/provider" }}
-          primaryCta={{ label: "AI Plan Builder", to: "/provider/ai" }}
+          secondaryCta={{ label: "Back", to: PROVIDER_ROUTES.home }}
+          primaryCta={{ label: "AI Plan Builder", to: PROVIDER_ROUTES.ai }}
           rightActions={
             <button className="btn btn-ghost" onClick={signOut} type="button">
               Sign out
@@ -1488,7 +1503,7 @@ export default function ProviderPatientCenter() {
                 </div>
 
                 <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <button className="btn btn-ghost" type="button" onClick={() => nav("/provider/chat")}>
+                  <button className="btn btn-ghost" type="button" onClick={() => nav(providerMessagesPath())}>
                     Messages
                   </button>
                   <button className="btn btn-primary" type="button" onClick={createVisit}>
@@ -1524,7 +1539,7 @@ export default function ProviderPatientCenter() {
                       void createVisit();
                     }}
                     secondaryLabel="Messages"
-                    onSecondaryAction={() => nav("/provider/chat")}
+                    onSecondaryAction={() => nav(providerMessagesPath())}
                   />
                 </>
               ) : null}
@@ -1990,7 +2005,7 @@ export default function ProviderPatientCenter() {
                           <button className="btn btn-ghost" type="button" onClick={() => setTab("files")} disabled={!activeVisitId}>
                             Go Files
                           </button>
-                          <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/wound-timeline/${patientId}`)}>
+                          <button className="btn btn-ghost" type="button" onClick={() => nav(providerWoundTimelinePath(patientId))}>
                             Wound Timeline
                           </button>
                         </div>
@@ -2169,18 +2184,22 @@ export default function ProviderPatientCenter() {
                               )}
                             </div>
 
-                            <WoundHealingCurvePanel
-                              patientId={activeVisit.patient_id}
-                              locationId={activeVisit.location_id}
-                              visitId={activeVisit.id}
-                            />
+                            <Suspense fallback={<TabPanelLoader label="wound healing curve" />}>
+                              <LazyWoundHealingCurvePanel
+                                patientId={activeVisit.patient_id}
+                                locationId={activeVisit.location_id}
+                                visitId={activeVisit.id}
+                              />
+                            </Suspense>
                             <div className="space" />
-                            <WoundAssessmentPanel
-                              patientId={activeVisit.patient_id}
-                              locationId={activeVisit.location_id}
-                              visitId={activeVisit.id}
-                              onContinueToPlan={() => setTab("plan")}
-                            />
+                            <Suspense fallback={<TabPanelLoader label="wound assessment" />}>
+                              <LazyWoundAssessmentPanel
+                                patientId={activeVisit.patient_id}
+                                locationId={activeVisit.location_id}
+                                visitId={activeVisit.id}
+                                onContinueToPlan={() => setTab("plan")}
+                              />
+                            </Suspense>
                           </>
                         )}
                       </div>
@@ -2230,13 +2249,15 @@ export default function ProviderPatientCenter() {
   }}
 />
                         ) : (
-                          <TreatmentPlanSection
-                            visitId={activeVisit.id}
-                            patientId={activeVisit.patient_id}
-                            locationId={activeVisit.location_id}
-                            onOpenWoundAssessment={() => setTab("wound")}
-                            onContinueToPhotos={() => setTab("photos")}
-                          />
+                          <Suspense fallback={<TabPanelLoader label="treatment plan" />}>
+                            <LazyTreatmentPlanSection
+                              visitId={activeVisit.id}
+                              patientId={activeVisit.patient_id}
+                              locationId={activeVisit.location_id}
+                              onOpenWoundAssessment={() => setTab("wound")}
+                              onContinueToPhotos={() => setTab("photos")}
+                            />
+                          </Suspense>
                         )}
                       </div>
                     )}
@@ -2597,12 +2618,14 @@ export default function ProviderPatientCenter() {
   }}
 />
                         ) : (
-                          <WoundPhotosPanel
-                            patientId={activeVisit.patient_id}
-                            locationId={activeVisit.location_id}
-                            visitId={activeVisit.id}
-                            onReturnToOverview={() => setTab("overview")}
-                          />
+                          <Suspense fallback={<TabPanelLoader label="wound photos" />}>
+                            <LazyWoundPhotosPanel
+                              patientId={activeVisit.patient_id}
+                              locationId={activeVisit.location_id}
+                              visitId={activeVisit.id}
+                              onReturnToOverview={() => setTab("overview")}
+                            />
+                          </Suspense>
                         )}
                       </div>
                     )}
@@ -2624,11 +2647,13 @@ export default function ProviderPatientCenter() {
 />
                         ) : (
                           <>
-                            <IVRPacketPanel
-                              patientId={activeVisit.patient_id}
-                              locationId={activeVisit.location_id}
-                              visitId={activeVisit.id}
-                            />
+                            <Suspense fallback={<TabPanelLoader label="IVR packet" />}>
+                              <LazyIVRPacketPanel
+                                patientId={activeVisit.patient_id}
+                                locationId={activeVisit.location_id}
+                                visitId={activeVisit.id}
+                              />
+                            </Suspense>
                           </>
                         )}
                       </div>
@@ -2650,11 +2675,13 @@ export default function ProviderPatientCenter() {
   }}
 />
                         ) : (
-                          <ChargeCapturePanel
-                            patientId={activeVisit.patient_id}
-                            locationId={activeVisit.location_id}
-                            visitId={activeVisit.id}
-                          />
+                          <Suspense fallback={<TabPanelLoader label="charge capture" />}>
+                            <LazyChargeCapturePanel
+                              patientId={activeVisit.patient_id}
+                              locationId={activeVisit.location_id}
+                              visitId={activeVisit.id}
+                            />
+                          </Suspense>
                         )}
                       </div>
                     )}

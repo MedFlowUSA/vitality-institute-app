@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import InlineNotice from "../InlineNotice";
+import { renderElementPdfBlob } from "../../lib/pdf";
 import { supabase } from "../../lib/supabase";
 import { getSignedUrl, uploadPatientFile } from "../../lib/patientFiles";
 
@@ -132,29 +134,6 @@ function calcArea(length: number | null, width: number | null) {
 
 function isImageFile(f: FileRow) {
   return (f.content_type ?? "").startsWith("image/") || /\.(png|jpe?g|webp|gif)$/i.test(f.filename);
-}
-
-async function renderPdfBlob(element: HTMLElement, filename: string) {
-  const { default: html2pdf } = await import("html2pdf.js");
-
-  return (await html2pdf()
-    .set({
-      margin: 0.35,
-      filename,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff",
-      },
-      jsPDF: {
-        unit: "in",
-        format: "letter",
-        orientation: "portrait",
-      },
-    })
-    .from(element)
-    .outputPdf("blob")) as Blob;
 }
 
 export default function VisitPacketSection({ visitId, patientId, locationId }: Props) {
@@ -522,7 +501,9 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
       document.body.appendChild(wrapper);
 
       try {
-        const pdfBlob = await renderPdfBlob(wrapper, `patient-visit-copy-${visitId}.pdf`);
+        const pdfBlob = await renderElementPdfBlob(wrapper, {
+          filename: `patient-visit-copy-${visitId}.pdf`,
+        });
 
         const pdfFile = new File(
           [pdfBlob],
@@ -574,7 +555,9 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
       document.body.appendChild(wrapper);
 
       try {
-        const pdfBlob = await renderPdfBlob(wrapper, `clinical-visit-copy-${visitId}.pdf`);
+        const pdfBlob = await renderElementPdfBlob(wrapper, {
+          filename: `clinical-visit-copy-${visitId}.pdf`,
+        });
 
         const pdfFile = new File(
           [pdfBlob],
@@ -747,9 +730,9 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
 
       <div className="space" />
 
-      {actionMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div>}
+      {actionMessage && <InlineNotice message={actionMessage} tone="success" style={{ marginBottom: 12 }} />}
       {loading && <div className="muted">Loading packet...</div>}
-      {err && <div style={{ color: "crimson" }}>{err}</div>}
+      {err && <InlineNotice message={err} tone="error" style={{ marginBottom: 12 }} />}
 
       {!loading && !err && (
         <div ref={printRef}>

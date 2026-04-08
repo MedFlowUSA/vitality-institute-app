@@ -6,8 +6,15 @@ import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
 import ProfileSummaryCard from "../components/vital-ai/ProfileSummaryCard";
 import { useAuth } from "../auth/AuthProvider";
+import InlineNotice from "../components/InlineNotice";
 import { supabase } from "../lib/supabase";
 import { buildProviderVitalAiQueueGuide } from "../lib/provider/providerGuide";
+import {
+  PROVIDER_ROUTES,
+  providerPatientCenterPath,
+  providerVisitBuilderAppointmentPath,
+  providerVitalAiProfilePath,
+} from "../lib/providerRoutes";
 import { fromDateTimeLocalValue, getDefaultJoinWindowOpensAt } from "../lib/virtualVisits";
 import type { VitalAiLeadRow, VitalAiPathwayRow, VitalAiProfileRow } from "../lib/vitalAi/types";
 
@@ -240,7 +247,7 @@ export default function ProviderVitalAiQueue() {
     if (scheduleVisitType === "virtual" && !meetingUrl.trim()) return setErr("Meeting URL is required for a virtual visit.");
 
     if (selected.lead.appointment_id) {
-      navigate(`/provider/visit-builder?appointmentId=${selected.lead.appointment_id}`);
+      navigate(providerVisitBuilderAppointmentPath(selected.lead.appointment_id));
       return;
     }
 
@@ -371,7 +378,7 @@ export default function ProviderVitalAiQueue() {
           workflowState={guide.workflowState}
           nextAction={guide.nextAction}
           actions={[
-            { label: "Review Intake", to: selected ? `/provider/vital-ai/profile/${selected.profile.id}` : "/provider/vital-ai", tone: "primary" },
+            { label: "Review Intake", to: selected ? providerVitalAiProfilePath(selected.profile.id) : PROVIDER_ROUTES.vitalAi, tone: "primary" },
             {
               label: "Schedule Virtual Visit",
               onClick: () => setScheduleVisitType("virtual"),
@@ -390,9 +397,7 @@ export default function ProviderVitalAiQueue() {
             <div className="muted">Loading Vital AI requests...</div>
           </div>
         ) : err ? (
-          <div className="card card-pad" style={{ color: "crimson" }}>
-            {err}
-          </div>
+          <InlineNotice message={err} tone="error" style={{ marginBottom: 12 }} />
         ) : (
           <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
             <div className="card card-pad" style={{ flex: "1 1 380px", minWidth: 320 }}>
@@ -456,7 +461,7 @@ export default function ProviderVitalAiQueue() {
                       </div>
                     </div>
                     <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                      <button className="btn btn-primary" type="button" onClick={() => navigate(`/provider/vital-ai/profile/${selected.profile.id}`)}>
+                      <button className="btn btn-primary" type="button" onClick={() => navigate(providerVitalAiProfilePath(selected.profile.id))}>
                         Review Intake
                       </button>
                       <button className="btn btn-ghost" type="button" onClick={() => setScheduleVisitType("virtual")}>
@@ -506,13 +511,13 @@ export default function ProviderVitalAiQueue() {
                           {selectedAppointment.visit_type === "virtual" || selectedAppointment.telehealth_enabled ? "virtual" : "in-person"} appointment.
                         </div>
                         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                          <button className="btn btn-primary" type="button" onClick={() => navigate(`/provider/visit-builder?appointmentId=${selectedAppointment.id}`)}>
+                          <button className="btn btn-primary" type="button" onClick={() => navigate(providerVisitBuilderAppointmentPath(selectedAppointment.id))}>
                             Open Appointment Setup
                           </button>
                           <button
                             className="btn btn-ghost"
                             type="button"
-                            onClick={() => navigate(`/provider/patients/${selected.profile.patient_id}`)}
+                            onClick={() => navigate(providerPatientCenterPath(selected.profile.patient_id))}
                             disabled={!selected.profile.patient_id}
                           >
                             Open Patient
@@ -605,7 +610,7 @@ export default function ProviderVitalAiQueue() {
                           <button className="btn btn-primary" type="button" onClick={createAppointmentFromRequest} disabled={saving || !activeLocationId}>
                             {saving ? "Scheduling..." : scheduleVisitType === "virtual" ? "Create Virtual Appointment" : "Create In-Person Appointment"}
                           </button>
-                          <button className="btn btn-ghost" type="button" onClick={() => navigate(`/provider/vital-ai/profile/${selected.profile.id}`)}>
+                          <button className="btn btn-ghost" type="button" onClick={() => navigate(providerVitalAiProfilePath(selected.profile.id))}>
                             Review Intake First
                           </button>
                         </div>

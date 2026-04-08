@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
+import InlineNotice from "../components/InlineNotice";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import VirtualVisitFormFields from "../components/VirtualVisitFormFields";
 import { buildProviderVisitBuilderGuide } from "../lib/provider/providerGuide";
+import { PROVIDER_ROUTES, providerVisitChartPath } from "../lib/providerRoutes";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
 import {
@@ -320,7 +322,7 @@ export default function ProviderVisitBuilderVirtual() {
       if (error) throw error;
 
       setActionMessage("Wound assessment saved.");
-      nav(`/provider/visits/${visit.id}`);
+      nav(providerVisitChartPath(visit.id));
     } catch (e: any) {
       setErr(e?.message ?? "Failed to save wound assessment.");
     } finally {
@@ -334,8 +336,8 @@ export default function ProviderVisitBuilderVirtual() {
         <RouteHeader
           title="Visit Builder"
           subtitle="Set up the visit, then continue into the chart."
-          backTo="/provider/queue"
-          homeTo="/provider"
+          backTo={PROVIDER_ROUTES.queue}
+          homeTo={PROVIDER_ROUTES.home}
           rightAction={
             <button className="btn btn-ghost" onClick={signOut} type="button">
               Sign out
@@ -348,7 +350,7 @@ export default function ProviderVisitBuilderVirtual() {
         <VitalityHero
           title="Visit Builder"
           subtitle="Create the visit, add assessment details, and continue to chart."
-          secondaryCta={{ label: "Back", to: "/provider/queue" }}
+          secondaryCta={{ label: "Back", to: PROVIDER_ROUTES.queue }}
           rightActions={null}
           showKpis={false}
         />
@@ -365,14 +367,14 @@ export default function ProviderVisitBuilderVirtual() {
               label: visit ? "Open Visit Chart" : "Create Visit",
               onClick: () => {
                 if (visit) {
-                  nav(`/provider/visits/${visit.id}`);
+                  nav(providerVisitChartPath(visit.id));
                   return;
                 }
                 void createVisit();
               },
               tone: "primary",
             },
-            { label: "Open Queue", to: "/provider/queue" },
+            { label: "Open Queue", to: PROVIDER_ROUTES.queue },
           ]}
         />
 
@@ -380,8 +382,8 @@ export default function ProviderVisitBuilderVirtual() {
 
         <div className="card card-pad">
           {loading && <div className="muted">Loading...</div>}
-          {actionMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div>}
-          {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
+          {actionMessage && <InlineNotice message={actionMessage} tone="success" style={{ marginBottom: 12 }} />}
+          {err && <InlineNotice message={err} tone="error" style={{ marginBottom: 12 }} />}
 
           {!loading ? (
             <>
@@ -561,7 +563,7 @@ export default function ProviderVisitBuilderVirtual() {
                   <button
                     className="btn btn-ghost"
                     type="button"
-                    onClick={() => nav(`/provider/visits/${visit.id}`)}
+                    onClick={() => nav(providerVisitChartPath(visit.id))}
                     style={{ marginLeft: 8 }}
                   >
                     Skip to Visit Chart
@@ -572,7 +574,7 @@ export default function ProviderVisitBuilderVirtual() {
               {visit ? (
                 <>
                   <div className="space" />
-                  <button className="btn btn-ghost" type="button" onClick={() => nav(`/provider/visits/${visit.id}`)}>
+                  <button className="btn btn-ghost" type="button" onClick={() => nav(providerVisitChartPath(visit.id))}>
                     Open Visit Chart
                   </button>
                 </>
