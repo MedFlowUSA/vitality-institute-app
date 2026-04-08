@@ -348,6 +348,14 @@ function LegacyProviderVisitRedirect() {
   return <Navigate to={`/provider/visits/${id}${location.search}${location.hash}`} replace />;
 }
 
+function LegacyProviderPatientCenterRedirect() {
+  const { patientId } = useParams<{ patientId?: string }>();
+  const location = useLocation();
+  const base = patientId ? `/provider/patients/${patientId}` : "/provider/patients";
+
+  return <Navigate to={`${base}${location.search}${location.hash}`} replace />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -409,8 +417,20 @@ export default function App() {
               element={withRole(PROVIDER_ROLES, <ProviderHome />)}
             />
             <Route
+              path="/provider/dashboard"
+              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to="/provider" />)}
+            />
+            <Route
               path="/provider/command"
               element={withRole(PROVIDER_ROLES, <ProviderCommandCenter />)}
+            />
+            <Route
+              path="/provider/command-center"
+              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to="/provider/command" />)}
+            />
+            <Route
+              path="/provider/virtual-visits"
+              element={withRole(PROVIDER_ROLES, <Navigate to="/provider#virtual-visits" replace />)}
             />
               <Route
                 path="/provider/queue"
@@ -433,8 +453,16 @@ export default function App() {
               element={withRole(PROVIDER_ROLES, <ProviderPatients />)}
             />
             <Route
+              path="/provider/patient-center"
+              element={withRole(PROVIDER_ROLES, <LegacyProviderPatientCenterRedirect />)}
+            />
+            <Route
               path="/provider/patients/:patientId"
               element={withRole(PROVIDER_ROLES, <ProviderPatientCenter />)}
+            />
+            <Route
+              path="/provider/patient-center/:patientId"
+              element={withRole(PROVIDER_ROLES, <LegacyProviderPatientCenterRedirect />)}
             />
             <Route
               path="/provider/visits/:id"
@@ -449,6 +477,10 @@ export default function App() {
               element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to="/provider/intakes" />)}
             />
             <Route
+              path="/provider/intake-queue"
+              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to="/provider/intakes" />)}
+            />
+            <Route
               path="/provider/intakes"
               element={withRole(PROVIDER_ROLES, <ProviderIntake />)}
             />
@@ -456,6 +488,10 @@ export default function App() {
               path="/provider/chat"
               element={withRole(PROVIDER_ROLES, <ProviderConversationCenter />)}
               />
+            <Route
+              path="/provider/messages"
+              element={withRole(PROVIDER_ROLES, <LegacyPathRedirect to="/provider/chat" />)}
+            />
             <Route
               path="/provider/labs"
               element={withRole(PROVIDER_ROLES, <ProviderLabs />)}
