@@ -64,6 +64,7 @@ export default function ProviderVisitBuilderVirtual() {
   const [savingWound, setSavingWound] = useState(false);
   const [savingAppointmentConfig, setSavingAppointmentConfig] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const [patient, setPatient] = useState<PatientRow | null>(null);
   const [appointment, setAppointment] = useState<AppointmentRow | null>(null);
@@ -292,6 +293,7 @@ export default function ProviderVisitBuilderVirtual() {
 
   const addWoundAssessment = async () => {
     setErr(null);
+    setActionMessage(null);
 
     if (!visit?.id) return setErr("Create the visit first.");
     if (!resolvedPatientId) return setErr("Missing patient.");
@@ -317,7 +319,7 @@ export default function ProviderVisitBuilderVirtual() {
 
       if (error) throw error;
 
-      alert("Wound assessment saved.");
+      setActionMessage("Wound assessment saved.");
       nav(`/provider/visits/${visit.id}`);
     } catch (e: any) {
       setErr(e?.message ?? "Failed to save wound assessment.");
@@ -378,6 +380,7 @@ export default function ProviderVisitBuilderVirtual() {
 
         <div className="card card-pad">
           {loading && <div className="muted">Loading...</div>}
+          {actionMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading ? (

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import VitalityHero from "../components/VitalityHero";
+import { marketingPriceLabel, normalizePublicPriceLabel, pricingUnitLabel as sharedPricingUnitLabel } from "../lib/services/catalog";
 
 type ServiceRow = {
   id: string;
@@ -20,11 +21,13 @@ type ServiceRow = {
   is_active?: boolean | null;
 };
 
-function fmtMoney(cents: number | null | undefined) {
-  if (cents === null || cents === undefined) return null;
-  const n = Number(cents);
-  if (Number.isNaN(n)) return null;
-  return `$${(n / 100).toFixed(2)}`;
+function isBotoxService(service: Pick<ServiceRow, "name" | "category" | "service_group">) {
+  const haystack = [service.name, service.category, service.service_group]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes("botox") || haystack.includes("neuromodulator");
 }
 
 function categoryLabel(v: string | null) {
@@ -104,15 +107,11 @@ function categoryAccent(cat: string | null) {
 }
 
 function priceLabel(service: ServiceRow) {
-  return fmtMoney(service.price_marketing_cents) ?? fmtMoney(service.price_regular_cents);
+  return normalizePublicPriceLabel(marketingPriceLabel(service));
 }
 
 function pricingUnitLabel(unit: string | null) {
-  if (!unit) return "Starting price";
-  if (unit === "per_session") return "Per session";
-  if (unit === "per_unit") return "Per unit";
-  if (unit === "flat") return "Flat rate";
-  return unit.replaceAll("_", " ");
+  return sharedPricingUnitLabel(unit);
 }
 
 function estimatedTiming(service: ServiceRow) {
@@ -176,6 +175,7 @@ export default function PatientServices() {
 
   const visibleServices = useMemo(() => {
     return services.filter((s) => {
+      if (isBotoxService(s)) return false;
       if (!showAllLocations && activeLocationId) {
         if (s.location_id && s.location_id !== activeLocationId) return false;
       }
@@ -271,6 +271,70 @@ export default function PatientServices() {
     );
   };
 
+  const sectionEyebrowStyle = {
+    fontSize: 12,
+    fontWeight: 800,
+    color: "#CFC3F5",
+    textTransform: "uppercase" as const,
+    letterSpacing: ".08em",
+  };
+
+  const categoryJumpStyle = {
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(200,182,255,0.18)",
+    color: "#F8FAFC",
+  };
+
+  const detailLabelStyle = {
+    marginBottom: 8,
+    fontWeight: 800,
+    textTransform: "uppercase" as const,
+    letterSpacing: ".08em",
+  };
+
+  const drawerPanelStyle = {
+    background: "linear-gradient(180deg, rgba(39,27,78,0.97), rgba(25,18,52,0.98))",
+    borderLeft: "1px solid rgba(214,197,255,0.22)",
+    boxShadow: "-20px 0 50px rgba(17,12,31,0.32)",
+  };
+
+  const serviceCardBodyStyle = {
+    whiteSpace: "pre-wrap" as const,
+    lineHeight: 1.6,
+  };
+
+  const serviceCardLabelStyle = {
+    fontSize: 12,
+    color: "#E9DFFF",
+    fontWeight: 700,
+    textTransform: "uppercase" as const,
+    letterSpacing: ".08em",
+  };
+
+  const serviceCardTextStyle = {
+    marginTop: 8,
+    lineHeight: 1.65,
+    color: "rgba(248,250,252,0.92)",
+  };
+
+  const serviceDrawerTitleStyle = {
+    margin: 0,
+    color: "#F8FAFC",
+  };
+
+  const serviceDrawerSubtitleStyle = {
+    marginTop: 4,
+    fontSize: 13,
+    color: "rgba(226,232,240,0.82)",
+  };
+
+  const pricingHeroStyle = {
+    fontSize: 28,
+    fontWeight: 900,
+    marginTop: 8,
+    color: "#140F24",
+  };
+
   return (
     <div className="app-bg">
       <div className="shell">
@@ -299,12 +363,12 @@ export default function PatientServices() {
             }}
             >
               <div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "#CFC3F5", textTransform: "uppercase", letterSpacing: ".08em" }}>
+                <div style={sectionEyebrowStyle}>
                   Vitality Treatment Guide
                 </div>
                 <div className="h2" style={{ marginTop: 8 }}>Services & Pricing</div>
-                <div className="muted" style={{ marginTop: 4 }}>
-                  Explore consultations, injectables, IV therapy, wound care, and wellness services. Open any card to review details or continue to booking.
+                <div className="muted patient-section-intro">
+                  Explore consultations, IV therapy, wound care, hormone care, and wellness services. Open any card to review details or continue to booking.
                 </div>
               </div>
 
@@ -324,7 +388,7 @@ export default function PatientServices() {
 
           {!loading && !err && (
             <>
-              <div className="muted" style={{ marginBottom: 12, fontSize: 12 }}>
+              <div className="muted patient-mini-note" style={{ marginBottom: 12 }}>
                 Showing <strong>{visibleServices.length}</strong> of <strong>{services.length}</strong> available services
                 {activeLocationId && !showAllLocations ? " for your selected location" : " across Vitality Institute"}
               </div>
@@ -336,11 +400,7 @@ export default function PatientServices() {
                       key={group.key}
                       type="button"
                       className="btn btn-secondary"
-                      style={{
-                        background: "rgba(255,255,255,0.08)",
-                        border: "1px solid rgba(200,182,255,0.18)",
-                        color: "#F8FAFC",
-                      }}
+                      style={categoryJumpStyle}
                       onClick={() => scrollToCategory(group.key)}
                     >
                       {categoryEmoji(group.key)} {group.label} ({group.rows.length})
@@ -361,9 +421,8 @@ export default function PatientServices() {
 
                     <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
                       {group.rows.map((service) => {
-                        const marketing = fmtMoney(service.price_marketing_cents);
-                        const regular = fmtMoney(service.price_regular_cents);
-                        const hasPricing = !!marketing || !!regular;
+                        const displayPrice = priceLabel(service);
+                        const hasPricing = !!displayPrice;
 
                         return (
                           <div
@@ -432,7 +491,7 @@ export default function PatientServices() {
                             {service.description ? (
                               <>
                                 <div className="space" />
-                                <div className="muted" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+                                <div className="muted" style={serviceCardBodyStyle}>
                                   {service.description}
                                 </div>
                               </>
@@ -440,10 +499,10 @@ export default function PatientServices() {
 
                             <div className="space" />
 
-                            <div style={{ fontSize: 12, color: "#E9DFFF", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                            <div style={serviceCardLabelStyle}>
                               Ideal For
                             </div>
-                            <div style={{ marginTop: 8, lineHeight: 1.65, color: "rgba(248,250,252,0.92)" }}>
+                            <div style={serviceCardTextStyle}>
                               {idealFor(service)}
                             </div>
 
@@ -458,7 +517,7 @@ export default function PatientServices() {
                                     lineHeight: 1.1,
                                   }}
                                 >
-                                  {marketing ?? regular}
+                                  {displayPrice}
                                 </div>
 
                                 <div
@@ -535,12 +594,10 @@ export default function PatientServices() {
                 right: 0,
                 width: "min(520px, 92vw)",
                 height: "100vh",
-                background: "linear-gradient(180deg, rgba(18,14,32,0.98), rgba(14,11,25,0.98))",
-                borderLeft: "1px solid rgba(255,255,255,0.10)",
-                boxShadow: "-20px 0 50px rgba(0,0,0,0.35)",
                 zIndex: 81,
                 overflowY: "auto",
                 padding: 24,
+                ...drawerPanelStyle,
               }}
             >
               <div
@@ -564,10 +621,10 @@ export default function PatientServices() {
                     </div>
 
                     <div>
-                      <div className="h2" style={{ margin: 0, color: "#F8FAFC" }}>
+                      <div className="h2" style={serviceDrawerTitleStyle}>
                         {selectedService.name}
                       </div>
-                      <div style={{ marginTop: 4, fontSize: 13, color: "rgba(226,232,240,0.82)" }}>
+                      <div style={serviceDrawerSubtitleStyle}>
                         {categoryLabel(serviceDisplayKey(selectedService))}
                       </div>
                     </div>
@@ -604,8 +661,8 @@ export default function PatientServices() {
                   border: "1px solid rgba(184,164,255,0.22)",
                 }}
               >
-                <div className="muted" style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Pricing</div>
-                <div style={{ fontSize: 28, fontWeight: 900, marginTop: 8, color: "#140F24" }}>
+                <div className="muted" style={sectionEyebrowStyle}>Pricing</div>
+                <div style={pricingHeroStyle}>
                   {priceLabel(selectedService)
                     ? `Starting at ${priceLabel(selectedService)}`
                     : "Consultation required for pricing"}
@@ -618,7 +675,7 @@ export default function PatientServices() {
               <div className="space" />
 
               <div className="card card-pad card-light surface-light">
-                <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Overview</div>
+                <div className="muted" style={detailLabelStyle}>Overview</div>
                 <div className="surface-light-body" style={{ lineHeight: 1.7 }}>
                   {shortBlurb(selectedService)}
                 </div>
@@ -627,7 +684,7 @@ export default function PatientServices() {
               <div className="space" />
 
               <div className="card card-pad card-light surface-light">
-                <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Ideal For</div>
+                <div className="muted" style={detailLabelStyle}>Ideal For</div>
                 <div className="surface-light-body" style={{ lineHeight: 1.7 }}>
                   {idealFor(selectedService)}
                 </div>
@@ -636,7 +693,7 @@ export default function PatientServices() {
               <div className="space" />
 
               <div className="card card-pad card-light surface-light">
-                <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Service Details</div>
+                <div className="muted" style={detailLabelStyle}>Service Details</div>
                 <div className="surface-light-body" style={{ lineHeight: 1.8, whiteSpace: "pre-wrap" }}>
                   {selectedService.description?.trim() ||
                     "Additional details will be reviewed during your consultation and scheduling process."}
@@ -646,7 +703,7 @@ export default function PatientServices() {
               <div className="space" />
 
               <div className="card card-pad card-light surface-light">
-                <div className="muted" style={{ marginBottom: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>What To Expect</div>
+                <div className="muted" style={detailLabelStyle}>What To Expect</div>
                 <div className="surface-light-body" style={{ lineHeight: 1.7 }}>
                   Your care team will review your goals, health history, and treatment needs to determine the most appropriate next step. Certain treatments may require consultation, provider approval, or a custom care plan before treatment is finalized.
                 </div>

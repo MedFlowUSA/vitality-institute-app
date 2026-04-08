@@ -163,6 +163,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
 
   const [packetText, setPacketText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const load = async () => {
     if (!patientId || !locationId || !visitId) return;
@@ -305,7 +306,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
         site: [w.laterality, w.body_site].filter(Boolean).join(" "),
         type: w.wound_type,
         stage: w.stage,
-        lwd: [w.length_cm, w.width_cm, w.depth_cm].map((x) => (x == null ? "-" : x)).join(" × "),
+        lwd: [w.length_cm, w.width_cm, w.depth_cm].map((x) => (x == null ? "-" : x)).join(" x "),
         area,
         exudate: w.exudate,
         infection: w.infection_signs,
@@ -323,16 +324,16 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
 
     lines.push("PATIENT");
     lines.push(`Patient ID: ${patientId}`);
-    lines.push(`DOB: ${fmtDob(demo?.dob)}${age != null ? ` (Age ${age})` : ""} • Sex: ${demo?.sex ?? "-"}`);
-    lines.push(`Phone: ${demo?.phone ?? "-"} • Email: ${demo?.email ?? "-"}`);
+    lines.push(`DOB: ${fmtDob(demo?.dob)}${age != null ? ` (Age ${age})` : ""} | Sex: ${demo?.sex ?? "-"}`);
+    lines.push(`Phone: ${demo?.phone ?? "-"} | Email: ${demo?.email ?? "-"}`);
     lines.push(`Address: ${addr(demo)}`);
     lines.push("");
 
     lines.push("INSURANCE");
     lines.push(
-      `Payer: ${ins?.payer_name ?? "-"}${ins?.plan_name ? ` • ${ins.plan_name}` : ""}`
+      `Payer: ${ins?.payer_name ?? "-"}${ins?.plan_name ? ` | ${ins.plan_name}` : ""}`
     );
-    lines.push(`Member ID: ${ins?.member_id ?? "-"} • Group: ${ins?.group_id ?? "-"}`);
+    lines.push(`Member ID: ${ins?.member_id ?? "-"} | Group: ${ins?.group_id ?? "-"}`);
     lines.push("");
 
     lines.push("VISIT");
@@ -351,7 +352,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
         lines.push(`  Site: ${w.site || "-"}`);
         if (w.type) lines.push(`  Type: ${w.type}`);
         if (w.stage) lines.push(`  Stage: ${w.stage}`);
-        lines.push(`  L×W×D (cm): ${w.lwd}`);
+        lines.push(`  L x W x D (cm): ${w.lwd}`);
         if (w.area != null) lines.push(`  Area (cm2): ${w.area}`);
         if (w.exudate) lines.push(`  Exudate: ${w.exudate}`);
         if (w.infection) lines.push(`  Infection signs: ${w.infection}`);
@@ -367,7 +368,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
       lines.push(`Objective: ${soap.objective || "-"}`);
       lines.push(`Assessment: ${soap.assessment || "-"}`);
       lines.push(`Plan: ${soap.plan || "-"}`);
-      if (soap.is_signed || soap.is_locked) lines.push(`Signed/Locked: Yes${soap.signed_at ? ` • ${fmtDate(soap.signed_at)}` : ""}`);
+      if (soap.is_signed || soap.is_locked) lines.push(`Signed/Locked: Yes${soap.signed_at ? ` | ${fmtDate(soap.signed_at)}` : ""}`);
       else lines.push("Signed/Locked: No (draft)");
     }
     lines.push("");
@@ -377,7 +378,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
       lines.push("No treatment items found (Plan module may still be in progress).");
     } else {
       for (const it of planItems) {
-        lines.push(`- ${it.name}${it.qty ? ` • Qty: ${it.qty}` : ""}${it.notes ? ` • Notes: ${it.notes}` : ""}`);
+        lines.push(`- ${it.name}${it.qty ? ` | Qty: ${it.qty}` : ""}${it.notes ? ` | Notes: ${it.notes}` : ""}`);
       }
     }
     lines.push("");
@@ -387,7 +388,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
       lines.push("No wound photos found in patient_files for this visit (or patient).");
     } else {
       lines.push(`Included wound photos (last ${photos.length}):`);
-      for (const p of photos) lines.push(`- ${p.filename} • ${fmtDate(p.created_at)}`);
+      for (const p of photos) lines.push(`- ${p.filename} | ${fmtDate(p.created_at)}`);
     }
     lines.push("");
 
@@ -405,7 +406,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
   const copyPacket = async () => {
     if (!packetText.trim()) return;
     await navigator.clipboard.writeText(packetText);
-    alert("Copied packet draft to clipboard.");
+    setActionMessage("Packet draft copied to clipboard.");
   };
 
   const exportPdf = () => {
@@ -468,6 +469,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
 
       <div className="space" />
 
+      {actionMessage ? <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div> : null}
       {err ? <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div> : null}
 
       {loading ? (
@@ -476,7 +478,7 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <PacketCard title="What will be included">
             <div className="muted" style={{ fontSize: 12 }}>
-              Visit: <strong>{visitId}</strong> • Date: <strong>{visit?.visit_date ? fmtDate(visit.visit_date) : "-"}</strong>
+              Visit: <strong>{visitId}</strong> | Date: <strong>{visit?.visit_date ? fmtDate(visit.visit_date) : "-"}</strong>
             </div>
             <div className="space" />
             <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -492,8 +494,8 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
               <div style={{ display: "grid", gap: 10 }}>
                 {summaryStats.slice(0, 6).map((w, idx) => (
                   <div key={`${w.label}-${idx}`} className="muted" style={{ fontSize: 12 }}>
-                    <strong>{w.label}</strong> • {w.site || "-"} • L×W×D: {w.lwd}
-                    {w.area != null ? ` • Area: ${w.area} cm2` : ""}
+                    <strong>{w.label}</strong> | {w.site || "-"} | L x W x D: {w.lwd}
+                    {w.area != null ? ` | Area: ${w.area} cm2` : ""}
                   </div>
                 ))}
               </div>

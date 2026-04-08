@@ -198,13 +198,13 @@ export default function PatientWoundIntake() {
     if (!patient || !location) return;
 
     if (!consentAccepted) {
-      alert("Please complete consent + typed signature.");
+      setPageError("Please complete consent and add your typed signature before submitting.");
       return;
     }
 
     // Minimal validation for soft launch
     if (!woundLocation.trim() || !woundDuration.trim() || !sex) {
-      alert("Please enter wound location, duration, and gender.");
+      setPageError("Please enter wound location, wound duration, and gender before submitting.");
       return;
     }
 

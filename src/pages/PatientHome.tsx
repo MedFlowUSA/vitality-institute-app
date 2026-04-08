@@ -1,9 +1,9 @@
 ﻿// src/pages/PatientHome.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { getCanonicalPatientIntakeServiceType, getCanonicalServiceTypeKey } from "../lib/canonicalOfferRegistry";
-import { formatCatalogLocationName, getGuidedIntakePathwayForService } from "../lib/services/catalog";
+import { formatCatalogLocationName, getGuidedIntakePathwayForService, normalizePublicPriceLabel } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
 import {
   formatPatientFileSize,
@@ -154,6 +154,11 @@ type NextStepItem = {
   ctaLabel: string;
   ctaAction: () => void;
   tone: "info" | "warning" | "success";
+};
+
+type PatientPortalNotice = {
+  tone: "info" | "warning" | "success";
+  message: string;
 };
 
 type AppointmentFileRow = {
@@ -345,14 +350,7 @@ function fmtMoneyFromCentsString(v: string) {
   if (!v) return null;
   const n = Number(v);
   if (Number.isNaN(n)) return null;
-  return `$${(n / 100).toFixed(2)}`;
-}
-
-function fmtMoney(cents: number | null | undefined) {
-  if (cents === null || cents === undefined) return null;
-  const n = Number(cents);
-  if (Number.isNaN(n)) return null;
-  return `$${(n / 100).toFixed(2)}`;
+  return normalizePublicPriceLabel(`$${(n / 100).toFixed(2)}`);
 }
 
 function prettyCategory(v: string | null) {
@@ -487,6 +485,7 @@ function nextStepCardStyle(tone: "info" | "warning" | "success") {
 
 export default function PatientHome() {
   const { user, resumeKey } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const prefillServiceId = searchParams.get("serviceId") ?? "";
@@ -550,6 +549,7 @@ export default function PatientHome() {
     serviceName: string;
     slotIso: string;
   } | null>(null);
+  const [portalNotice, setPortalNotice] = useState<PatientPortalNotice | null>(null);
 
   const selectedLocation = useMemo(
     () => locations.find((l) => l.id === locationId) ?? null,
@@ -567,6 +567,17 @@ export default function PatientHome() {
     setAppointmentDrawerPreviews(nextUrls);
     return () => nextUrls.forEach((url) => URL.revokeObjectURL(url));
   }, [appointmentDrawerFiles]);
+
+  useEffect(() => {
+    const state = location.state as { patientNotice?: string; patientNoticeTone?: "info" | "warning" | "success" } | null;
+    if (!state?.patientNotice) return;
+
+    setPortalNotice({
+      tone: state.patientNoticeTone ?? "success",
+      message: state.patientNotice,
+    });
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
+  }, [location.pathname, location.search, location.state, navigate]);
 
   const selectWoundPhotos = (files: File[]) => {
     const validationError = validatePatientFileSelection(files, {
@@ -1694,7 +1705,7 @@ export default function PatientHome() {
       });
       navigate(`/patient/chat?conversationId=${conversationId}`);
     } catch (error: unknown) {
-      alert(getErrorMessage(error, "Failed to open conversation."));
+      setErr(getErrorMessage(error, "Failed to open conversation."));
     }
   };
 
@@ -1746,7 +1757,10 @@ export default function PatientHome() {
         }
         setAppointmentFileUrls(out);
       }
-      alert("Files uploaded to appointment successfully.");
+      setPortalNotice({
+        tone: "success",
+        message: "Files uploaded to your appointment successfully.",
+      });
     } catch (e: unknown) {
       setErr(getErrorMessage(e, "Failed to upload files to appointment."));
     } finally {
@@ -1824,6 +1838,68 @@ export default function PatientHome() {
     lineHeight: 1.65,
   };
 
+  const darkSectionEyebrowStyle = {
+    ...sectionEyebrowStyle,
+    color: "#D8CCFF",
+  };
+
+  const lightCardTitleStyle = {
+    color: "#1F1633",
+  };
+
+  const lightCardBodyStyle = {
+    color: "#4B5563",
+    lineHeight: 1.6,
+  };
+
+  const lightCardMetaStyle = {
+    color: "#5B4E86",
+    fontSize: 12,
+    fontWeight: 800,
+    textTransform: "uppercase" as const,
+    letterSpacing: ".08em",
+  };
+
+  const lightCardStrongTextStyle = {
+    fontWeight: 800,
+    color: "#140F24",
+  };
+
+  const glanceLabelStyle = {
+    color: "#6D5F97",
+    fontSize: 12,
+    fontWeight: 800,
+    textTransform: "uppercase" as const,
+    letterSpacing: ".08em",
+  };
+
+  const glanceValueStyle = {
+    fontWeight: 800,
+    marginTop: 10,
+    lineHeight: 1.6,
+    color: "#1F2937",
+  };
+
+  const glanceLinkStyle = {
+    color: "#7C3AED",
+    fontSize: 13,
+    fontWeight: 800,
+  };
+
+  const darkMutedBodyStyle = {
+    color: "rgba(226,232,240,0.8)",
+  };
+
+  const lightPanelHeadingStyle = {
+    ...lightCardTitleStyle,
+    marginTop: 8,
+  };
+
+  const lightPanelMutedStyle = {
+    marginTop: 4,
+    color: "#4B5563",
+  };
+
   const primaryActionCardStyle = {
     ...lightSurfaceCardStyle,
     padding: 18,
@@ -1867,7 +1943,7 @@ export default function PatientHome() {
               <div style={{ marginTop: 8, fontSize: 26, fontWeight: 900, color: "#FAF7FF", lineHeight: 1.08 }}>
                 Your guided intake assistant.
               </div>
-              <div style={{ marginTop: 8, maxWidth: 700, color: "rgba(233,226,255,.78)", lineHeight: 1.7 }}>
+              <div className="patient-helper-text" style={{ maxWidth: 700, color: "rgba(233,226,255,.78)", lineHeight: 1.7 }}>
                 Start or resume your intake so our care team can prepare for your visit with the right information ahead of time.
               </div>
             </div>
@@ -1924,17 +2000,17 @@ export default function PatientHome() {
             >
               <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
                 <div style={{ flex: "1 1 360px" }}>
-                  <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em", color: "#6D5F97", fontWeight: 800 }}>
+                  <div style={glanceLabelStyle}>
                     Upcoming Virtual Visit
                   </div>
-                  <div className="h2" style={{ marginTop: 8, color: "#1F1633" }}>
+                  <div className="h2" style={lightPanelHeadingStyle}>
                     {new Date(nextAppointment.start_time).toLocaleString()}
                   </div>
-                  <div style={{ marginTop: 6, lineHeight: 1.7, color: "#4B5563" }}>
+                  <div style={{ ...lightCardBodyStyle, marginTop: 6, lineHeight: 1.7 }}>
                     {svcName(nextAppointment.service_id)} • {locName(nextAppointment.location_id)}
                   </div>
                   {nextAppointment.virtual_instructions ? (
-                    <div style={{ marginTop: 8, lineHeight: 1.7, color: "#475569" }}>
+                    <div style={{ ...lightCardBodyStyle, marginTop: 8, lineHeight: 1.7 }}>
                       {nextAppointment.virtual_instructions}
                     </div>
                   ) : null}
@@ -1962,9 +2038,9 @@ export default function PatientHome() {
                   ...alertCardStyle(alert.tone),
                 }}
               >
-                <div style={{ fontWeight: 800, color: "#140f24" }}>{alert.title}</div>
+                <div style={lightCardStrongTextStyle}>{alert.title}</div>
 
-                <div className="muted" style={{ marginTop: 8, lineHeight: 1.6, color: "#475569" }}>
+                <div className="muted" style={{ ...lightCardBodyStyle, marginTop: 8 }}>
                   {alert.message}
                 </div>
 
@@ -1990,11 +2066,11 @@ export default function PatientHome() {
           >
             <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               <div style={{ flex: 1, minWidth: 260 }}>
-                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>
+                <div className="muted patient-mini-note" style={{ marginBottom: 6 }}>
                   Recommended Next Step
                 </div>
-                <div className="h2" style={{ color: "#140f24" }}>{recommendedNextStep.title}</div>
-                <div className="muted" style={{ marginTop: 8, lineHeight: 1.7, color: "#475569" }}>
+                <div className="h2" style={lightCardStrongTextStyle}>{recommendedNextStep.title}</div>
+                <div className="muted" style={{ ...lightCardBodyStyle, marginTop: 8, lineHeight: 1.7 }}>
                   {recommendedNextStep.message}
                 </div>
               </div>
@@ -2024,7 +2100,7 @@ export default function PatientHome() {
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
               <div style={sectionEyebrowStyle}>Dashboard Overview</div>
-              <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Today at a Glance</div>
+              <div className="h2" style={lightPanelHeadingStyle}>Today at a Glance</div>
               <div style={sectionBodyStyle}>
                 Open the areas that matter most right now without hunting through the portal.
               </div>
@@ -2057,14 +2133,14 @@ export default function PatientHome() {
               }}
             >
               <div>
-                <div style={{ color: "#6D5F97", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                <div style={glanceLabelStyle}>
                   Next Appointment
                 </div>
-                <div style={{ fontWeight: 800, marginTop: 10, lineHeight: 1.6, color: "#1F2937" }}>
+                <div style={glanceValueStyle}>
                   {todayAtAGlance.nextAppointmentText}
                 </div>
               </div>
-              <div style={{ color: "#7C3AED", fontSize: 13, fontWeight: 800 }}>
+              <div style={glanceLinkStyle}>
                 {nextAppointment ? "Open appointment details" : "Book an appointment"}
               </div>
             </button>
@@ -2076,14 +2152,14 @@ export default function PatientHome() {
               onClick={() => navigate("/intake")}
             >
               <div>
-                <div style={{ color: "#6D5F97", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                <div style={glanceLabelStyle}>
                   Intake Status
                 </div>
-                <div style={{ fontWeight: 800, marginTop: 10, lineHeight: 1.6, color: "#1F2937" }}>
+                <div style={glanceValueStyle}>
                   {todayAtAGlance.intakeText}
                 </div>
               </div>
-              <div style={{ color: "#7C3AED", fontSize: 13, fontWeight: 800 }}>
+              <div style={glanceLinkStyle}>
                 {latestVitalAiSession?.status === "draft" ? "Continue Intake Form" : "Open Vital AI intake"}
               </div>
             </button>
@@ -2095,14 +2171,14 @@ export default function PatientHome() {
               onClick={() => navigate("/patient/treatments")}
             >
               <div>
-                <div style={{ color: "#6D5F97", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                <div style={glanceLabelStyle}>
                   Care Plan
                 </div>
-                <div style={{ fontWeight: 800, marginTop: 10, lineHeight: 1.6, color: "#1F2937" }}>
+                <div style={glanceValueStyle}>
                   {todayAtAGlance.carePlanText}
                 </div>
               </div>
-              <div style={{ color: "#7C3AED", fontSize: 13, fontWeight: 800 }}>
+              <div style={glanceLinkStyle}>
                 Review treatment instructions
               </div>
             </button>
@@ -2114,14 +2190,14 @@ export default function PatientHome() {
               onClick={() => navigate("/patient/chat")}
             >
               <div>
-                <div style={{ color: "#6D5F97", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                <div style={glanceLabelStyle}>
                   Messages
                 </div>
-                <div style={{ fontWeight: 800, marginTop: 10, lineHeight: 1.6, color: "#1F2937" }}>
+                <div style={glanceValueStyle}>
                   {todayAtAGlance.messagesText}
                 </div>
               </div>
-              <div style={{ color: "#7C3AED", fontSize: 13, fontWeight: 800 }}>
+              <div style={glanceLinkStyle}>
                 Open secure messages
               </div>
             </button>
@@ -2131,9 +2207,9 @@ export default function PatientHome() {
         <div id="my-appointments" className="card card-pad">
           <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
-              <div style={{ ...sectionEyebrowStyle, color: "#D8CCFF" }}>Quick Access</div>
+              <div style={darkSectionEyebrowStyle}>Quick Access</div>
               <div className="h1">Choose Your Next Step</div>
-              <div className="muted" style={{ marginTop: 6, color: "rgba(226,232,240,0.8)" }}>
+              <div className="muted" style={{ ...darkMutedBodyStyle, marginTop: 6 }}>
                 Use the main actions below to keep your care moving without extra clicks.
               </div>
             </div>
@@ -2153,7 +2229,7 @@ export default function PatientHome() {
               <div style={{ ...sectionEyebrowStyle, color: "rgba(232,224,255,0.86)" }}>Primary Action</div>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC" }}>Book Visit</div>
-                <div style={{ marginTop: 8, color: "rgba(226,232,240,0.82)", lineHeight: 1.6 }}>
+                <div className="patient-helper-text" style={{ color: "rgba(226,232,240,0.82)", lineHeight: 1.6 }}>
                   Reserve your next visit or follow-up without leaving the dashboard.
                 </div>
               </div>
@@ -2170,7 +2246,7 @@ export default function PatientHome() {
                 <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>
                   {latestVitalAiSession?.status === "draft" ? "Continue Intake" : "Start with Vital AI"}
                 </div>
-                <div style={{ marginTop: 8, color: "#4B5563", lineHeight: 1.6 }}>
+                <div className="patient-helper-text" style={{ color: "#4B5563", lineHeight: 1.6 }}>
                   {latestVitalAiSession?.status === "draft"
                     ? "Pick up where you left off so the care team has the details they need."
                     : "Complete a guided intake before your next visit."}
@@ -2187,7 +2263,7 @@ export default function PatientHome() {
               <div style={sectionEyebrowStyle}>Messages</div>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>Message Clinic</div>
-                <div style={{ marginTop: 8, color: "#4B5563", lineHeight: 1.6 }}>
+                <div className="patient-helper-text" style={{ color: "#4B5563", lineHeight: 1.6 }}>
                   Review updates, reply to your care team, and keep care coordination moving.
                 </div>
               </div>
@@ -2212,7 +2288,7 @@ export default function PatientHome() {
                 <span className="muted" style={{ color: "rgba(226,232,240,0.72)" }}>Not submitted</span>
               )}
               {latestWoundIntake?.created_at ? (
-                <span className="muted" style={{ fontSize: 12, color: "rgba(226,232,240,0.72)" }}>
+                <span className="muted patient-mini-note" style={{ color: "rgba(226,232,240,0.72)" }}>
                   Updated {new Date(latestWoundIntake.created_at).toLocaleDateString()}
                 </span>
               ) : null}
@@ -2237,9 +2313,9 @@ export default function PatientHome() {
         <div className="card card-pad">
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             <div>
-              <div style={{ ...sectionEyebrowStyle, color: "#D8CCFF" }}>Explore Treatments</div>
+              <div style={darkSectionEyebrowStyle}>Explore Treatments</div>
               <div className="h2" style={{ marginTop: 8 }}>Browse Care Options</div>
-              <div className="muted" style={{ marginTop: 4, color: "rgba(226,232,240,0.78)" }}>
+              <div className="muted" style={{ ...darkMutedBodyStyle, marginTop: 4 }}>
                 Review a few highlighted services, then open the full catalog when you want more detail.
               </div>
             </div>
@@ -2260,9 +2336,13 @@ export default function PatientHome() {
           ) : (
             <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
               {featuredServices.map((service) => {
-                const price =
-                  fmtMoney(service.price_marketing_cents) ??
-                  fmtMoney(service.price_regular_cents);
+                const price = normalizePublicPriceLabel(
+                  service.price_marketing_cents != null
+                    ? `$${(Number(service.price_marketing_cents) / 100).toFixed(2)}`
+                    : service.price_regular_cents != null
+                    ? `$${(Number(service.price_regular_cents) / 100).toFixed(2)}`
+                    : null
+                );
 
                 return (
                     <div
@@ -2286,16 +2366,16 @@ export default function PatientHome() {
                       }
                     }}
                     >
-                      <div style={{ fontSize: 12, color: "#5B4E86", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                      <div style={lightCardMetaStyle}>
                         {prettyCategory(service.category)}
                       </div>
 
-                      <div className="h2" style={{ marginTop: 8, color: "#1F1633" }}>
+                      <div className="h2" style={lightPanelHeadingStyle}>
                         {service.name}
                       </div>
 
                       {service.description ? (
-                        <div className="muted" style={{ marginTop: 8, lineHeight: 1.6, color: "#4B5563" }}>
+                        <div className="muted" style={{ ...lightCardBodyStyle, marginTop: 8 }}>
                           {compactDescription(service.description)}
                         </div>
                       ) : null}
@@ -2307,7 +2387,7 @@ export default function PatientHome() {
                           {price}
                         </div>
                       ) : (
-                        <div className="muted" style={{ color: "#4B5563" }}>Consultation based pricing</div>
+                        <div className="muted" style={lightCardBodyStyle}>Consultation based pricing</div>
                       )}
 
                     <div className="space" />
@@ -2351,8 +2431,8 @@ export default function PatientHome() {
 
         <div id="book-appointment" className="card card-pad surface-light" style={lightSurfaceCardStyle}>
           <div style={sectionEyebrowStyle}>Book Visit</div>
-          <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Request Your Next Visit</div>
-          <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
+          <div className="h2" style={lightPanelHeadingStyle}>Request Your Next Visit</div>
+          <div className="muted" style={lightPanelMutedStyle}>
             Choose your location, service, date, and an available time slot.
           </div>
 
@@ -2365,14 +2445,14 @@ export default function PatientHome() {
                 marginBottom: 16,
               }}
             >
-              <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+              <div className="muted patient-mini-note" style={{ marginBottom: 8 }}>
                 Selected Service
               </div>
 
               <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                 <div style={{ flex: 1, minWidth: 240 }}>
                   <div className="h2">{selectedServiceSummary.name}</div>
-                  <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                  <div className="muted patient-helper-text" style={{ lineHeight: 1.6 }}>
                     Complete the appointment request below to reserve your consultation or treatment slot.
                   </div>
                 </div>
@@ -2380,14 +2460,14 @@ export default function PatientHome() {
                 <div style={{ minWidth: 180 }}>
                   {selectedServiceSummary.price ? (
                     <>
-                      <div className="muted" style={{ fontSize: 12 }}>Starting Price</div>
+                      <div className="muted patient-mini-note">Starting Price</div>
                       <div style={{ fontSize: 24, fontWeight: 900, marginTop: 4 }}>
                         {selectedServiceSummary.price}
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="muted" style={{ fontSize: 12 }}>Pricing</div>
+                      <div className="muted patient-mini-note">Pricing</div>
                       <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>
                         Consultation Based
                       </div>
@@ -2410,6 +2490,16 @@ export default function PatientHome() {
 
           {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
+          {portalNotice ? (
+            <div className="card card-pad" style={{ ...alertCardStyle(portalNotice.tone), marginBottom: 12 }}>
+              <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ lineHeight: 1.7 }}>{portalNotice.message}</div>
+                <button className="btn btn-secondary" type="button" onClick={() => setPortalNotice(null)}>
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           {!loading && (
             <>
@@ -2443,7 +2533,7 @@ export default function PatientHome() {
                   ))}
                 </select>
                 {selectedLocation ? (
-                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  <div className="muted patient-mini-note" style={{ marginTop: 6 }}>
                     {[selectedLocation.address_line1, [selectedLocation.city, selectedLocation.state, selectedLocation.zip].filter(Boolean).join(" ")]
                       .filter(Boolean)
                       .join(", ")}
@@ -2483,7 +2573,7 @@ export default function PatientHome() {
                 {hours && hours.is_closed && <div className="muted">This location is closed on that day.</div>}
 
                 {hours && !hours.is_closed && (
-                  <div className="muted" style={{ fontSize: 12 }}>
+                  <div className="muted patient-mini-note">
                     Slots every {hours.slot_minutes} min - Hours {hours.open_time.slice(0, 5)}-{hours.close_time.slice(0, 5)}
                   </div>
                 )}
@@ -2527,7 +2617,7 @@ export default function PatientHome() {
                   )}
 
                   {selectedSlotIso && (
-                    <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+                    <div className="muted patient-helper-text">
                       Selected time: {toLocalTimeLabel(selectedSlotIso)}
                     </div>
                   )}
@@ -2546,7 +2636,7 @@ export default function PatientHome() {
 
               <div className="card card-pad card-light surface-light">
                 <div className="h2">Optional: Upload Wound Photos</div>
-                <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+                <div className="muted patient-section-intro" style={{ fontSize: 13 }}>
                   These will be attached to your appointment request so the clinical team can review before your visit.
                 </div>
 
@@ -2564,7 +2654,7 @@ export default function PatientHome() {
                   }}
                 />
 
-                <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+                <div className="muted patient-helper-text">
                   Up to 6 images, {formatPatientFileSize(MAX_IMAGE_UPLOAD_BYTES)} max per photo.
                 </div>
 
@@ -2624,20 +2714,20 @@ export default function PatientHome() {
                     </div>
 
                     {selectedLocation && (
-                      <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-                        Location: {selectedLocation.name}
-                        {selectedLocation.city ? ` (${selectedLocation.city}, ${selectedLocation.state ?? ""})` : ""}
-                      </div>
+                    <div className="muted patient-helper-text">
+                      Location: {selectedLocation.name}
+                      {selectedLocation.city ? ` (${selectedLocation.city}, ${selectedLocation.state ?? ""})` : ""}
+                    </div>
                     )}
 
                     {serviceId ? (
-                      <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                      <div className="muted patient-mini-note" style={{ marginTop: 6 }}>
                         Service: {svcName(serviceId)}
                       </div>
                     ) : null}
 
                     {selectedSlotIso ? (
-                      <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
+                      <div className="muted patient-mini-note" style={{ marginTop: 6 }}>
                         Time: {toLocalTimeLabel(selectedSlotIso)}
                       </div>
                     ) : null}
@@ -2661,8 +2751,8 @@ export default function PatientHome() {
 
         <div className="card card-pad surface-light" style={lightSurfaceCardStyle}>
           <div style={sectionEyebrowStyle}>Appointments</div>
-          <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>My Appointments</div>
-          <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
+          <div className="h2" style={lightPanelHeadingStyle}>My Appointments</div>
+          <div className="muted" style={lightPanelMutedStyle}>
             Review your appointment history, track status updates, and message the clinic for follow-up.
           </div>
 
@@ -2691,13 +2781,13 @@ export default function PatientHome() {
                     <div style={{ flex: 1 }}>
                       <div className="h2">{new Date(a.start_time).toLocaleString()}</div>
                       <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
-                        <div className="muted" style={{ fontSize: 13, color: "#4B5563" }}>
-                          Location: {locName(a.location_id)} {" - "} Service: {svcName(a.service_id)}
-                        </div>
+                      <div className="muted patient-section-intro" style={{ fontSize: 13, ...lightCardBodyStyle }}>
+                        Location: {locName(a.location_id)} {" - "} Service: {svcName(a.service_id)}
+                      </div>
                         <VirtualVisitBadge appointment={a} />
                       </div>
                     <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
-                      <div className="muted" style={{ fontSize: 12, color: "#5B4E86" }}>
+                      <div className="muted" style={lightCardMetaStyle}>
                         Status:
                       </div>
                       <span style={appointmentStatusBadge(a.status)}>
@@ -2705,11 +2795,11 @@ export default function PatientHome() {
                       </span>
                     </div>
                     {a.notes && (
-                      <div className="muted" style={{ fontSize: 13, marginTop: 8, color: "#4B5563" }}>
+                      <div className="muted" style={{ fontSize: 13, marginTop: 8, ...lightCardBodyStyle }}>
                         Notes: {a.notes}
                       </div>
                     )}
-                    <div className="muted" style={{ fontSize: 12, marginTop: 8, color: "#6B7280" }}>
+                    <div className="muted patient-helper-text">
                       Appointment ID: {a.id}
                     </div>
                   </div>
@@ -2764,8 +2854,8 @@ export default function PatientHome() {
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
               <div style={sectionEyebrowStyle}>Care Instructions</div>
-              <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Your Current Care Instructions</div>
-              <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
+              <div className="h2" style={lightPanelHeadingStyle}>Your Current Care Instructions</div>
+              <div className="muted" style={lightPanelMutedStyle}>
                 Your latest provider-approved guidance and next steps.
               </div>
             </div>
@@ -2872,11 +2962,11 @@ export default function PatientHome() {
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
               <div style={sectionEyebrowStyle}>Labs</div>
-              <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Recent Labs</div>
-              <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
+              <div className="h2" style={lightPanelHeadingStyle}>Recent Labs</div>
+              <div className="muted" style={lightPanelMutedStyle}>
                 A quick look at your most recent lab activity and results.
               </div>
-              <div className="muted" style={{ marginTop: 6, color: "#4B5563" }}>
+              <div className="muted" style={{ marginTop: 6, ...lightCardBodyStyle }}>
                 Upload or enter results from Labcorp, Quest, or another local lab in your Labs section.
               </div>
             </div>
@@ -2909,7 +2999,7 @@ export default function PatientHome() {
 
               <div className="card card-pad card-light surface-light" style={{ flex: "2 1 420px" }}>
                 <div className="muted">Latest Result</div>
-                <div style={{ fontWeight: 800, marginTop: 8, color: "#140F24" }}>
+                <div style={{ ...lightCardStrongTextStyle, marginTop: 8 }}>
                   {recentLabs[0]?.lab_name ?? "Lab Result"}
                 </div>
                 <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
@@ -2929,8 +3019,8 @@ export default function PatientHome() {
           <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
               <div style={sectionEyebrowStyle}>Timeline</div>
-              <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Your Timeline</div>
-              <div className="muted" style={{ marginTop: 4, color: "#4B5563" }}>
+              <div className="h2" style={lightPanelHeadingStyle}>Your Timeline</div>
+              <div className="muted" style={lightPanelMutedStyle}>
                 A quick look at your most recent care activity across appointments, treatments, and labs.
               </div>
             </div>
@@ -2977,7 +3067,7 @@ export default function PatientHome() {
 
                   <div className="card card-pad card-light surface-light" style={{ flex: 1 }}>
                     <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                      <div style={{ fontWeight: 800, color: "#140F24" }}>{item.title}</div>
+                      <div style={lightCardStrongTextStyle}>{item.title}</div>
                       <div className="muted" style={{ fontSize: 12 }}>
                         {new Date(item.date).toLocaleString()}
                       </div>
@@ -2999,8 +3089,8 @@ export default function PatientHome() {
           <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
             <div>
               <div style={sectionEyebrowStyle}>Documents</div>
-              <div className="h2" style={{ color: "#1F1633", marginTop: 8 }}>Documents</div>
-              <div className="muted" style={{ color: "#4B5563" }}>
+              <div className="h2" style={lightPanelHeadingStyle}>Documents</div>
+              <div className="muted" style={lightCardBodyStyle}>
                 Files shared with you by your provider.
               </div>
             </div>
@@ -3019,7 +3109,7 @@ export default function PatientHome() {
                 >
                     <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                       <div>
-                        <div style={{ fontWeight: 700, color: "#140F24" }}>
+                        <div style={{ ...lightCardStrongTextStyle, fontWeight: 700 }}>
                           {documentDisplayTitle(file)}
                         </div>
 
@@ -3107,7 +3197,7 @@ export default function PatientHome() {
 
               <div className="card card-pad card-light surface-light">
                 <div className="muted">Service</div>
-                <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>
+                <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>
                   {svcName(selectedAppointment.service_id)}
                 </div>
               </div>
@@ -3116,7 +3206,7 @@ export default function PatientHome() {
 
               <div className="card card-pad card-light surface-light">
                 <div className="muted">Location</div>
-                <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>
+                <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>
                   {locName(selectedAppointment.location_id)}
                 </div>
               </div>
@@ -3125,7 +3215,7 @@ export default function PatientHome() {
 
               <div className="card card-pad card-light surface-light">
                 <div className="muted">Date & Time</div>
-                <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>
+                <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>
                   {new Date(selectedAppointment.start_time).toLocaleString()}
                 </div>
               </div>
@@ -3135,7 +3225,7 @@ export default function PatientHome() {
               <div className="card card-pad card-light surface-light">
                 <div className="muted">Visit Type</div>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
-                  <div style={{ fontWeight: 800, color: "#140F24" }}>
+                  <div style={lightCardStrongTextStyle}>
                     {getVirtualVisitState(selectedAppointment).isVirtual ? "Virtual" : "In Person"}
                   </div>
                   <VirtualVisitBadge appointment={selectedAppointment} />
@@ -3204,14 +3294,14 @@ export default function PatientHome() {
                       </span>
                     </div>
 
-                    <div className="muted" style={{ marginTop: 10, fontSize: 13 }}>
-                      Last updated: {new Date(appointmentIntakeStatus.created_at).toLocaleString()}
-                    </div>
+                      <div className="muted patient-helper-text" style={{ fontSize: 13 }}>
+                        Last updated: {new Date(appointmentIntakeStatus.created_at).toLocaleString()}
+                      </div>
 
                     {appointmentIntakeStatus.locked_at ? (
-                      <div className="muted" style={{ marginTop: 6, fontSize: 13 }}>
-                        Locked: {new Date(appointmentIntakeStatus.locked_at).toLocaleString()}
-                      </div>
+                        <div className="muted patient-section-intro" style={{ fontSize: 13 }}>
+                          Locked: {new Date(appointmentIntakeStatus.locked_at).toLocaleString()}
+                        </div>
                     ) : null}
                   </>
                 ) : (
@@ -3274,7 +3364,7 @@ export default function PatientHome() {
 
               <div className="card card-pad card-light surface-light">
                 <div className="h2">Upload Additional Files</div>
-                <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
+                <div className="muted patient-section-intro" style={{ lineHeight: 1.6 }}>
                   Add wound photos or supporting images to this appointment so the clinic can review them before or after follow-up.
                 </div>
 
@@ -3292,7 +3382,7 @@ export default function PatientHome() {
                   }}
                 />
 
-                <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+                <div className="muted patient-helper-text">
                   Up to 6 images, {formatPatientFileSize(MAX_IMAGE_UPLOAD_BYTES)} max per file.
                 </div>
 
@@ -3357,9 +3447,9 @@ export default function PatientHome() {
 
               <div className="card card-pad card-light surface-light">
                 <div className="h2">Attached Files</div>
-                <div className="muted" style={{ marginTop: 6, lineHeight: 1.6 }}>
-                  Review images and files already attached to this appointment.
-                </div>
+                  <div className="muted patient-section-intro" style={{ lineHeight: 1.6 }}>
+                    Review images and files already attached to this appointment.
+                  </div>
 
                 <div className="space" />
 
@@ -3393,7 +3483,7 @@ export default function PatientHome() {
                             />
                           ) : null}
 
-                          <div style={{ fontWeight: 800, color: "#140F24" }}>{file.filename}</div>
+                          <div style={lightCardStrongTextStyle}>{file.filename}</div>
 
                           <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
                             {file.category ?? "file"} • {new Date(file.created_at).toLocaleString()}
@@ -3468,7 +3558,7 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="muted" style={{ fontSize: 12 }}>
+              <div className="muted patient-mini-note">
                 Appointment ID: {selectedAppointment.id}
               </div>
             </div>
@@ -3509,7 +3599,7 @@ export default function PatientHome() {
                   <div className="h2" style={{ marginTop: 10 }}>
                     Appointment Request Submitted
                   </div>
-                  <div className="muted" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                  <div className="muted patient-helper-text" style={{ lineHeight: 1.6 }}>
                     Your request has been sent to the clinic. The care team can now review your appointment details and follow up if needed.
                   </div>
                 </div>
@@ -3528,24 +3618,24 @@ export default function PatientHome() {
               <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
                 <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Service</div>
-                  <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>{bookingSuccess.serviceName}</div>
+                  <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>{bookingSuccess.serviceName}</div>
                 </div>
 
                 <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Location</div>
-                  <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>{bookingSuccess.locationName}</div>
+                  <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>{bookingSuccess.locationName}</div>
                 </div>
 
                 <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Requested Time</div>
-                  <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>
+                  <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>
                     {new Date(bookingSuccess.slotIso).toLocaleString()}
                   </div>
                 </div>
 
                 <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
                   <div className="muted">Appointment ID</div>
-                  <div style={{ fontWeight: 800, marginTop: 6, color: "#140F24" }}>{bookingSuccess.appointmentId}</div>
+                  <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>{bookingSuccess.appointmentId}</div>
                 </div>
               </div>
 

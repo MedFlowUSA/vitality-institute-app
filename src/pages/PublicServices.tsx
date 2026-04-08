@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { PUBLIC_OFFERINGS, PUBLIC_SERVICE_GROUPS, getPublicOfferingPrimaryCta, getPublicOfferingVitalAiPath } from "../lib/publicMarketingCatalog";
+import { loadCatalogServices, matchCatalogServiceFromInterest, resolvedPublicPriceLabel, type CatalogService } from "../lib/services/catalog";
 
 function normalizeCategory(value: string | null) {
   if (!value || value === "all") return "all";
@@ -37,9 +38,27 @@ function appendReturnTo(path: string, returnTo: string) {
 
 export default function PublicServices() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
   const activeCategory = useMemo(() => normalizeCategory(searchParams.get("category")), [searchParams]);
   const searchTerm = searchParams.get("q") ?? "";
   const [openGroups, setOpenGroups] = useState<string[]>(() => parseOpenGroups(searchParams.get("open")));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const result = await loadCatalogServices();
+        if (!cancelled) setCatalogServices(result.services);
+      } catch {
+        if (!cancelled) setCatalogServices([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setOpenGroups(parseOpenGroups(searchParams.get("open")));
@@ -121,9 +140,22 @@ export default function PublicServices() {
     return encoded ? `/services?${encoded}` : "/services";
   }, [searchParams]);
 
+  const resolvedPriceBySlug = useMemo(() => {
+    const entries = PUBLIC_OFFERINGS.map((offering) => {
+      const match = matchCatalogServiceFromInterest({
+        interest: offering.slug,
+        offeringTitle: offering.title,
+        services: catalogServices,
+      });
+      return [offering.slug, resolvedPublicPriceLabel(match?.service, offering.price) ?? offering.price] as const;
+    });
+
+    return new Map(entries);
+  }, [catalogServices]);
+
   return (
     <PublicSiteLayout title="Services" subtitle="Browse provider-led consultations, programs, and advanced therapies.">
-      <div className="card card-pad card-light surface-light">
+      <div className="card card-pad card-light surface-light public-panel">
         <div className="row" style={{ gap: 16, flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div style={{ flex: "1 1 440px" }}>
             <div className="h2">Explore Services</div>
@@ -145,7 +177,7 @@ export default function PublicServices() {
 
       <div className="space" />
 
-      <div className="card card-pad card-light surface-light" style={{ marginBottom: 16 }}>
+      <div className="card card-pad card-light surface-light public-panel-soft" style={{ marginBottom: 16 }}>
         <div className="row" style={{ justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ flex: "1 1 460px" }}>
             <div className="h2">Wound care should start with clinical routing</div>
@@ -164,11 +196,11 @@ export default function PublicServices() {
         </div>
       </div>
 
-      <div className="card card-pad">
+      <div className="card card-pad card-light surface-light public-panel">
         <div className="row" style={{ justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
           <div>
             <div className="h2">Browse by Category</div>
-            <div className="muted" style={{ marginTop: 4 }}>
+            <div className="surface-light-helper" style={{ marginTop: 4 }}>
               Search, filter, and keep your place while you explore.
             </div>
           </div>
@@ -222,7 +254,7 @@ export default function PublicServices() {
 
       {compareGroups.length ? (
         <>
-          <div className="card card-pad card-light surface-light">
+          <div className="card card-pad card-light surface-light public-panel">
             <div className="h2">Compare plan tiers at a glance</div>
             <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
               If you are comparing similar plans, start here before opening each detail page.
@@ -230,14 +262,16 @@ export default function PublicServices() {
             <div className="space" />
             <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
               {compareGroups.map((group) => (
-                <div key={group.category} className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
+                <div key={group.category} className="card card-pad card-light surface-light public-panel-nested" style={{ flex: "1 1 320px" }}>
                   <div className="h2">{group.category}</div>
                   <div className="space" />
                   <div style={{ display: "grid", gap: 10 }}>
                     {group.services.map((service) => (
                       <div key={service.slug} style={{ borderTop: "1px solid rgba(184,164,255,0.16)", paddingTop: 10 }}>
-                        <div style={{ fontWeight: 800, color: "#1F1633" }}>{service.title}</div>
-                        <div className="surface-light-helper" style={{ marginTop: 4 }}>{service.price}</div>
+                        <div className="row" style={{ justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+                          <div className="public-link-strong" style={{ fontWeight: 800, flex: "1 1 220px" }}>{service.title}</div>
+                          <div className="v-chip">{resolvedPriceBySlug.get(service.slug) ?? service.price}</div>
+                        </div>
                         {service.duration ? (
                           <div className="surface-light-helper" style={{ marginTop: 4 }}>Typical visit timing: {service.duration}</div>
                         ) : null}
@@ -263,7 +297,7 @@ export default function PublicServices() {
       ) : null}
 
       {!grouped.length ? (
-        <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
+        <div className="card card-pad card-light surface-light public-panel" style={{ marginBottom: 14 }}>
           <div className="h2">No services match that search yet</div>
           <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
             Try a broader phrase, switch categories, or start with Vital AI if you want help narrowing the right care path.
@@ -282,7 +316,7 @@ export default function PublicServices() {
       {grouped.map((group) => (
         <details
           key={group.key}
-          className="card card-pad"
+          className="card card-pad card-light surface-light public-panel"
           style={{ marginBottom: 14 }}
           open={activeCategory === "all" ? visibleOpenGroups.includes(group.label) : true}
         >
@@ -300,7 +334,7 @@ export default function PublicServices() {
             <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               <div>
                 <div className="h2">{group.label}</div>
-                <div className="muted" style={{ marginTop: 4 }}>
+                <div className="surface-light-helper" style={{ marginTop: 4 }}>
                   {group.rows.length} offering{group.rows.length === 1 ? "" : "s"}
                 </div>
               </div>
@@ -319,22 +353,19 @@ export default function PublicServices() {
               return (
               <div
                 key={service.slug}
-                className="card card-pad service-card"
-                style={{
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.96), rgba(245,241,255,0.94))",
-                }}
+                className="card card-pad card-light surface-light public-panel-nested service-card"
               >
                 <div className="row" style={{ justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
                   <div style={{ flex: "1 1 320px" }}>
-                    <div style={{ fontSize: 12, color: "var(--v-helper-dark)", fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
+                    <div className="public-mini-title">
                       {service.category}
                     </div>
                     <div className="h2" style={{ marginTop: 8 }}>{service.title}</div>
-                    <div style={{ marginTop: 8, lineHeight: 1.65, color: "#334155" }}>
+                    <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.65 }}>
                       {service.summary}
                     </div>
                   </div>
-                  <div className="v-chip">{service.price}</div>
+                  <div className="v-chip">{resolvedPriceBySlug.get(service.slug) ?? service.price}</div>
                 </div>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 14 }}>
                   <Link to={buildDetailQuery(searchParams, service.slug)} className="btn btn-secondary">
@@ -354,7 +385,7 @@ export default function PublicServices() {
         </details>
       ))}
 
-      <div className="card card-pad card-light surface-light">
+      <div className="card card-pad card-light surface-light public-panel">
         <div className="row" style={{ justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ flex: "1 1 420px" }}>
             <div className="h2">Not sure which service fits best?</div>

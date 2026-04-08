@@ -16,6 +16,7 @@ const PublicServiceDetail = lazy(() => import("./pages/PublicServiceDetail"));
 const PublicContact = lazy(() => import("./pages/PublicContact"));
 const PublicBook = lazy(() => import("./pages/PublicBook"));
 const PublicVitalAiLite = lazy(() => import("./pages/PublicVitalAiLite"));
+const PublicAppGuide = lazy(() => import("./pages/PublicAppGuide"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 
@@ -358,6 +359,7 @@ export default function App() {
             <Route path="/services/:slug" element={<PublicServiceDetail />} />
             <Route path="/contact" element={<PublicContact />} />
             <Route path="/book" element={<PublicBook />} />
+            <Route path="/how-to-use-the-app" element={<PublicAppGuide />} />
             <Route path="/vital-ai" element={<PublicVitalAiLite />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />

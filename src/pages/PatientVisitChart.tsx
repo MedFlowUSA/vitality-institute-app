@@ -247,7 +247,7 @@ export default function PatientVisitChart() {
       <div className="shell">
         <VitalityHero
           title="Vitality Institute"
-          subtitle="Visit Chart • Timeline • Wounds • Treatment Plans • Notes • Files • Labs"
+          subtitle="Visit Chart | Timeline | Wounds | Treatment Plans | Notes | Files | Labs"
           secondaryCta={{ label: "Back", to: "/patient/home" }}
           rightActions={
             <button className="btn btn-ghost" onClick={signOut} type="button">
@@ -307,7 +307,7 @@ export default function PatientVisitChart() {
                           {new Date(dt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       </span>
-                      <span style={badge(v.status)}>{(v.status || "—").toUpperCase()}</span>
+                      <span style={badge(v.status)}>{(v.status || "-").toUpperCase()}</span>
                     </button>
                   );
                 })
@@ -327,8 +327,8 @@ export default function PatientVisitChart() {
                   <div className="muted" style={{ marginTop: 4 }}>
                     {selectedVisit ? (
                       <>
-                        {visitLabel} {" • "}{" "}
-                        <span style={badge(selectedVisit.status)}>{(selectedVisit.status || "—").toUpperCase()}</span>
+                        {visitLabel} {" | "}{" "}
+                        <span style={badge(selectedVisit.status)}>{(selectedVisit.status || "-").toUpperCase()}</span>
                       </>
                     ) : (
                       "Select a visit"
@@ -373,7 +373,7 @@ export default function PatientVisitChart() {
                             <div style={{ fontWeight: 900 }}>
                               {w.wound_label || "Wound"}{" "}
                               <span className="muted" style={{ fontSize: 12 }}>
-                                • {new Date(w.created_at).toLocaleString()}
+                                | {new Date(w.created_at).toLocaleString()}
                               </span>
                             </div>
                             <span style={badge("completed")}>RECORDED</span>
@@ -382,13 +382,13 @@ export default function PatientVisitChart() {
                           <div className="space" />
 
                           <div className="muted" style={{ fontSize: 13 }}>
-                            <strong>Body Site:</strong> {w.body_site || "—"}
+                            <strong>Body Site:</strong> {w.body_site || "-"}
                           </div>
                           <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                            <strong>Laterality:</strong> {w.laterality || "—"}
+                            <strong>Laterality:</strong> {w.laterality || "-"}
                           </div>
                           <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                            <strong>Wound Type:</strong> {w.wound_type || "—"}
+                            <strong>Wound Type:</strong> {w.wound_type || "-"}
                           </div>
                         </div>
                       ))
@@ -420,7 +420,7 @@ export default function PatientVisitChart() {
                             </div>
 
                             <div className="row" style={{ gap: 8, alignItems: "center" }}>
-                              <span style={badge(p.status)}>{(p.status || "—").toUpperCase()}</span>
+                              <span style={badge(p.status)}>{(p.status || "-").toUpperCase()}</span>
                               {p.is_locked ? (
                                 <span style={badge("completed")}>LOCKED</span>
                               ) : (
@@ -451,9 +451,9 @@ export default function PatientVisitChart() {
                             <>
                               <div className="space" />
                               <div className="muted" style={{ fontSize: 12 }}>
-                                Signed by: <strong>{p.signed_by || "—"}</strong>
-                                {" • "}
-                                Signed at: <strong>{p.signed_at ? new Date(p.signed_at).toLocaleString() : "—"}</strong>
+                                Signed by: <strong>{p.signed_by || "-"}</strong>
+                                {" | "}
+                                Signed at: <strong>{p.signed_at ? new Date(p.signed_at).toLocaleString() : "-"}</strong>
                               </div>
                             </>
                           )}
@@ -500,7 +500,7 @@ export default function PatientVisitChart() {
                         >
                           <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                             <div className="muted">{new Date(n.created_at).toLocaleString()}</div>
-                            <span style={badge(n.status)}>{(n.status || "—").toUpperCase()}</span>
+                            <span style={badge(n.status)}>{(n.status || "-").toUpperCase()}</span>
                           </div>
                           <div className="space" />
                           {n.subjective && (
@@ -556,7 +556,7 @@ export default function PatientVisitChart() {
                           <div>
                             <div style={{ fontWeight: 800 }}>{f.filename}</div>
                             <div className="muted" style={{ fontSize: 12 }}>
-                              {f.category || "file"} {" • "} {new Date(f.created_at).toLocaleString()}
+                              {f.category || "file"} {" | "} {new Date(f.created_at).toLocaleString()}
                             </div>
                           </div>
                           <div className="muted" style={{ fontSize: 12 }}>
@@ -582,7 +582,7 @@ export default function PatientVisitChart() {
                         >
                           <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                             <div style={{ fontWeight: 800 }}>{l.lab_name || "Lab"}</div>
-                            <span style={badge(l.status)}>{(l.status || "—").toUpperCase()}</span>
+                            <span style={badge(l.status)}>{(l.status || "-").toUpperCase()}</span>
                           </div>
                           <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
                             {new Date(l.created_at).toLocaleString()}

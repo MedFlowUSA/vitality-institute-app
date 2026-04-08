@@ -169,7 +169,7 @@ const CANONICAL_OFFERS: CanonicalOfferDefinition[] = [
       label: "Start with Vital AI",
       behavior: "start_vital_ai",
     },
-    aliases: ["botox", "injectable", "injectables", "neuromodulator"],
+    aliases: ["injectable", "injectables", "neuromodulator"],
   },
   {
     id: "iv-therapy",

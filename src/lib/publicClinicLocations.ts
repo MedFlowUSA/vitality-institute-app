@@ -30,7 +30,9 @@ export const PUBLIC_CLINIC_LOCATIONS: PublicClinicLocation[] = [
   },
   {
     name: "Touch of Vitality - Los Angeles",
-    addressLine1: "900 Avila St, Suite 101",
+    phone: "(213) 912-6838",
+    addressLine1: "931 N Vignes St",
+    addressLine2: "Suite 102-8",
     cityStateZip: "Los Angeles, CA 90012",
     hoursLabel: "Opening soon",
     note: "A modern wellness studio in Los Angeles with hyperbaric oxygen therapy, detox technology, body sculpting, and non-invasive fat reduction services.",

@@ -6,6 +6,7 @@ import { getErrorMessage, getPatientRecordIdForProfile } from "../lib/patientRec
 import { supabase } from "../lib/supabase";
 import { getSignedUrl } from "../lib/patientFiles";
 import VitalityHero from "../components/VitalityHero";
+import { normalizePublicPriceLabel } from "../lib/services/catalog";
 
 type VisitRow = {
   id: string;
@@ -90,20 +91,13 @@ function getRows<T>(result: unknown): T[] {
 }
 
 function fmt(iso?: string | null) {
-  if (!iso) return "â€”";
+  if (!iso) return "-";
   return new Date(iso).toLocaleString();
 }
 
 function fmtDateOnly(iso?: string | null) {
-  if (!iso) return "â€”";
+  if (!iso) return "-";
   return new Date(iso).toLocaleDateString();
-}
-
-function fmtMoney(cents: number | null | undefined) {
-  if (cents === null || cents === undefined) return null;
-  const n = Number(cents);
-  if (Number.isNaN(n)) return null;
-  return `$${(n / 100).toFixed(2)}`;
 }
 
 function withTimeout<T>(p: PromiseLike<T>, ms = 12000): Promise<T> {
@@ -209,9 +203,15 @@ export default function PatientTreatments() {
     ? servicesById[activeAppointment.service_id] ?? null
     : null;
 
-  const activeServicePrice =
-    fmtMoney(activeService?.price_marketing_cents) ??
-    fmtMoney(activeService?.price_regular_cents);
+  const activeServicePrice = activeService
+    ? normalizePublicPriceLabel(
+        activeService.price_marketing_cents != null
+          ? `$${(Number(activeService.price_marketing_cents) / 100).toFixed(2)}`
+          : activeService.price_regular_cents != null
+          ? `$${(Number(activeService.price_regular_cents) / 100).toFixed(2)}`
+          : null
+      )
+    : null;
 
   const activeTreatmentPlan = activeVisit ? treatmentPlanByVisit[activeVisit.id] ?? null : null;
 
@@ -413,12 +413,42 @@ export default function PatientTreatments() {
     loadAll();
   }, [loadAll]);
 
+  const statCardStyle = {
+    flex: "1 1 180px",
+  };
+
+  const detailStatCardStyle = {
+    flex: "1 1 220px",
+  };
+
+  const treatmentImageCardStyle = {
+    background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(230,221,255,0.05))",
+    border: "1px solid rgba(208,190,255,0.16)",
+  };
+
+  const treatmentImageStyle = {
+    border: "1px solid rgba(214,197,255,0.18)",
+  };
+
+  const imageFallbackStyle = {
+    height: 180,
+    display: "grid" as const,
+    placeItems: "center" as const,
+    background: "rgba(248,245,255,0.05)",
+    border: "1px solid rgba(214,197,255,0.12)",
+  };
+
+  const visualHistoryCardStyle = {
+    background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(232,224,255,0.04))",
+    border: "1px solid rgba(208,190,255,0.14)",
+  };
+
   return (
     <div className="app-bg">
       <div className="shell">
         <VitalityHero
           title="Vitality Institute"
-          subtitle="Patient Portal • Treatments • Care Timeline"
+          subtitle="Patient Portal - Treatments - Care Timeline"
           primaryCta={{ label: "Back to Home", to: "/patient/home" }}
           secondaryCta={{ label: "Labs", to: "/patient/labs" }}
           rightActions={
@@ -465,17 +495,17 @@ export default function PatientTreatments() {
           {!loading && !err && (
             <>
               <div className="row" style={{ gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                <div className="card card-pad patient-panel-soft" style={statCardStyle}>
                   <div className="muted">Total Visits</div>
                   <div style={{ fontSize: 28, fontWeight: 900 }}>{visits.length}</div>
                 </div>
 
-                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                <div className="card card-pad patient-panel-soft" style={statCardStyle}>
                   <div className="muted">Current Care</div>
                   <div style={{ fontSize: 28, fontWeight: 900 }}>{currentCareVisits.length}</div>
                 </div>
 
-                <div className="card card-pad" style={{ flex: "1 1 180px" }}>
+                <div className="card card-pad patient-panel-soft" style={statCardStyle}>
                   <div className="muted">Past Visits</div>
                   <div style={{ fontSize: 28, fontWeight: 900 }}>{pastVisits.length}</div>
                 </div>
@@ -484,7 +514,7 @@ export default function PatientTreatments() {
               <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
                 <div className="card card-pad" style={{ flex: "1 1 360px", minWidth: 320 }}>
                   <div className="h2">Current Care</div>
-                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  <div className="muted patient-mini-note" style={{ marginTop: 6 }}>
                     Active or in-progress visits and treatment activity.
                   </div>
 
@@ -512,7 +542,7 @@ export default function PatientTreatments() {
                           <span>
                             {fmtDateOnly(v.visit_date ?? v.created_at)}
                             <span className="muted" style={{ display: "block", fontSize: 12 }}>
-                              {locName(v.location_id)} • {visitStatusLabel(v.status)}
+                              {locName(v.location_id)} - {visitStatusLabel(v.status)}
                             </span>
                           </span>
                           <span style={visitStatusStyle(v.status)}>{visitStatusLabel(v.status)}</span>
@@ -524,7 +554,7 @@ export default function PatientTreatments() {
                   <div className="space" />
 
                   <div className="h2">Past Visits</div>
-                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  <div className="muted patient-mini-note" style={{ marginTop: 6 }}>
                     Your completed and previous care history.
                   </div>
 
@@ -553,7 +583,7 @@ export default function PatientTreatments() {
                           <span>
                             {fmtDateOnly(v.visit_date ?? v.created_at)}
                             <span className="muted" style={{ display: "block", fontSize: 12 }}>
-                              {locName(v.location_id)} • {visitStatusLabel(v.status)}
+                              {locName(v.location_id)} - {visitStatusLabel(v.status)}
                             </span>
                           </span>
                           <span className="muted" style={{ fontSize: 12 }}>
@@ -577,7 +607,7 @@ export default function PatientTreatments() {
                           </div>
                           <div className="muted" style={{ fontSize: 13 }}>
                             Visit Date: <strong>{fmt(activeVisit.visit_date ?? activeVisit.created_at)}</strong>
-                            {" • "}Location: <strong>{locName(activeVisit.location_id)}</strong>
+                            {" - "}Location: <strong>{locName(activeVisit.location_id)}</strong>
                           </div>
                         </div>
 
@@ -587,28 +617,28 @@ export default function PatientTreatments() {
                       <div className="space" />
 
                       <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-                        <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                        <div className="card card-pad patient-panel-soft" style={detailStatCardStyle}>
                           <div className="muted">Care Status</div>
                           <div style={{ fontWeight: 800, fontSize: 20, marginTop: 6 }}>
                             {visitStatusLabel(activeVisit.status)}
                           </div>
                         </div>
 
-                        <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                        <div className="card card-pad patient-panel-soft" style={detailStatCardStyle}>
                           <div className="muted">Latest Clinical Note</div>
                           <div style={{ fontWeight: 800, fontSize: 20, marginTop: 6 }}>
                             {soapByVisit[activeVisit.id]?.signed_at ? "Signed" : soapByVisit[activeVisit.id] ? "Drafted" : "Not Added"}
                           </div>
                         </div>
 
-                        <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                        <div className="card card-pad patient-panel-soft" style={detailStatCardStyle}>
                           <div className="muted">Provider Notes</div>
                           <div style={{ fontWeight: 800, fontSize: 20, marginTop: 6 }}>
                             {(notesByVisit[activeVisit.id] ?? []).length}
                           </div>
                         </div>
 
-                        <div className="card card-pad" style={{ flex: "1 1 220px" }}>
+                        <div className="card card-pad patient-panel-soft" style={detailStatCardStyle}>
                           <div className="muted">Standard Service Price</div>
                           <div style={{ fontWeight: 800, fontSize: 20, marginTop: 6 }}>
                             {activeServicePrice ?? "Consult for pricing"}
@@ -678,7 +708,7 @@ export default function PatientTreatments() {
                             <div className="muted">Next Steps</div>
                             <div style={{ marginTop: 6, lineHeight: 1.7 }}>
                               {activeTreatmentPlan.summary ??
-                                "Continue following your providerâ€™s instructions and attend recommended follow-up visits."}
+                                "Continue following your provider's instructions and attend recommended follow-up visits."}
                             </div>
                           </>
                         ) : (
@@ -717,7 +747,7 @@ export default function PatientTreatments() {
                                   <div
                                     key={file.id}
                                     className="card card-pad"
-                                    style={{ background: "rgba(255,255,255,.04)" }}
+                                    style={treatmentImageCardStyle}
                                   >
                                     <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
                                       <div style={{ flex: "0 0 220px" }}>
@@ -730,18 +760,13 @@ export default function PatientTreatments() {
                                               height: 180,
                                               objectFit: "cover",
                                               borderRadius: 14,
-                                              border: "1px solid rgba(255,255,255,.10)",
+                                              ...treatmentImageStyle,
                                             }}
                                           />
                                         ) : (
                                           <div
                                             className="card card-pad"
-                                            style={{
-                                              height: 180,
-                                              display: "grid",
-                                              placeItems: "center",
-                                              background: "rgba(255,255,255,.03)",
-                                            }}
+                                            style={imageFallbackStyle}
                                           >
                                             <div className="muted">Preview unavailable</div>
                                           </div>
@@ -831,18 +856,18 @@ export default function PatientTreatments() {
                           <>
                             <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
                               Created: {fmt(soapByVisit[activeVisit.id]!.created_at)}
-                              {" • "}Signed:{" "}
+                              {" - "}Signed:{" "}
                               {soapByVisit[activeVisit.id]!.signed_at
                                 ? fmt(soapByVisit[activeVisit.id]!.signed_at)
-                                : "â€”"}
-                              {" • "}Locked: {soapByVisit[activeVisit.id]!.locked ? "Yes" : "No"}
+                                : "-"}
+                              {" - "}Locked: {soapByVisit[activeVisit.id]!.locked ? "Yes" : "No"}
                             </div>
 
                             <div className="card card-pad" style={{ marginBottom: 10 }}>
                               <div className="h2">Subjective</div>
                               <div className="space" />
                               <div className="muted" style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-                                {soapByVisit[activeVisit.id]!.subjective ?? "â€”"}
+                                {soapByVisit[activeVisit.id]!.subjective ?? "-"}
                               </div>
                             </div>
 
@@ -850,7 +875,7 @@ export default function PatientTreatments() {
                               <div className="h2">Objective</div>
                               <div className="space" />
                               <div className="muted" style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-                                {soapByVisit[activeVisit.id]!.objective ?? "â€”"}
+                                {soapByVisit[activeVisit.id]!.objective ?? "-"}
                               </div>
                             </div>
 
@@ -858,7 +883,7 @@ export default function PatientTreatments() {
                               <div className="h2">Assessment</div>
                               <div className="space" />
                               <div className="muted" style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-                                {soapByVisit[activeVisit.id]!.assessment ?? "â€”"}
+                                {soapByVisit[activeVisit.id]!.assessment ?? "-"}
                               </div>
                             </div>
 
@@ -866,7 +891,7 @@ export default function PatientTreatments() {
                               <div className="h2">Plan</div>
                               <div className="space" />
                               <div className="muted" style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-                                {soapByVisit[activeVisit.id]!.plan ?? "â€”"}
+                                {soapByVisit[activeVisit.id]!.plan ?? "-"}
                               </div>
                             </div>
                           </>
@@ -911,13 +936,13 @@ export default function PatientTreatments() {
                               if (imageFiles.length === 0) return null;
 
                               return (
-                                <div key={visit.id} className="card card-pad" style={{ background: "rgba(255,255,255,.03)" }}>
+                                <div key={visit.id} className="card card-pad" style={visualHistoryCardStyle}>
                                   <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                                     <div style={{ fontWeight: 800 }}>
                                       {fmtDateOnly(visit.visit_date ?? visit.created_at)}
                                     </div>
                                     <div className="muted" style={{ fontSize: 12 }}>
-                                      {locName(visit.location_id)} • {visitStatusLabel(visit.status)}
+                                      {locName(visit.location_id)} - {visitStatusLabel(visit.status)}
                                     </div>
                                   </div>
 
@@ -944,7 +969,7 @@ export default function PatientTreatments() {
                                               height: 140,
                                               objectFit: "cover",
                                               borderRadius: 12,
-                                              border: "1px solid rgba(255,255,255,.10)",
+                                              ...treatmentImageStyle,
                                             }}
                                           />
                                         </a>

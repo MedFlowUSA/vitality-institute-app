@@ -65,12 +65,12 @@ export default function PatientTreatmentDetail() {
   const [files, setFiles] = useState<PatientFileRow[]>([]);
 
   const locName = useMemo(() => {
-    const m = new Map(locations.map((l) => [l.id, `${l.name}${l.city ? ` — ${l.city}` : ""}`]));
+    const m = new Map(locations.map((l) => [l.id, `${l.name}${l.city ? ` - ${l.city}` : ""}`]));
     return (id: string) => m.get(id) ?? id;
   }, [locations]);
 
   const fmt = (iso: string | null | undefined) => {
-    if (!iso) return "—";
+    if (!iso) return "-";
     return new Date(iso).toLocaleString();
   };
 
@@ -155,7 +155,7 @@ export default function PatientTreatmentDetail() {
       <div className="shell">
         <VitalityHero
           title="Treatment Details"
-          subtitle="Visit Summary • SOAP • Notes • Files"
+          subtitle="Visit Summary | SOAP | Notes | Files"
           primaryCta={{ label: "Back to Treatments", onClick: () => nav("/patient/treatments") }}
           secondaryCta={{ label: "Home", to: "/patient/home" }}
           rightActions={
@@ -213,7 +213,7 @@ export default function PatientTreatmentDetail() {
                   Location: {locName(visit.location_id)}
                 </div>
                 <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-                  Status: <strong>{visit.status ?? "—"}</strong>
+                  Status: <strong>{visit.status ?? "-"}</strong>
                 </div>
                 {visit.summary && (
                   <div className="muted" style={{ marginTop: 10, whiteSpace: "pre-wrap" }}>
@@ -227,10 +227,10 @@ export default function PatientTreatmentDetail() {
                 {soap ? (
                   <>
                     <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                      Created: {fmt(soap.created_at)} • Status: <strong>{soap.status ?? "—"}</strong>
-                      {" • "}
+                      Created: {fmt(soap.created_at)} | Status: <strong>{soap.status ?? "-"}</strong>
+                      {" | "}
                       Locked: <strong>{soap.locked ? "Yes" : "No"}</strong>
-                      {" • "}
+                      {" | "}
                       Signed: <strong>{soap.signed_at ? "Yes" : "No"}</strong>
                     </div>
 
@@ -238,7 +238,7 @@ export default function PatientTreatmentDetail() {
                     <div className="card card-pad">
                       <div className="h2">Subjective</div>
                       <div className="muted" style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>
-                        {soap.subjective ?? "—"}
+                        {soap.subjective ?? "-"}
                       </div>
                     </div>
 
@@ -246,7 +246,7 @@ export default function PatientTreatmentDetail() {
                     <div className="card card-pad">
                       <div className="h2">Objective</div>
                       <div className="muted" style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>
-                        {soap.objective ?? "—"}
+                        {soap.objective ?? "-"}
                       </div>
                     </div>
 
@@ -254,7 +254,7 @@ export default function PatientTreatmentDetail() {
                     <div className="card card-pad">
                       <div className="h2">Assessment</div>
                       <div className="muted" style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>
-                        {soap.assessment ?? "—"}
+                        {soap.assessment ?? "-"}
                       </div>
                     </div>
 
@@ -262,7 +262,7 @@ export default function PatientTreatmentDetail() {
                     <div className="card card-pad">
                       <div className="h2">Plan</div>
                       <div className="muted" style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>
-                        {soap.plan ?? "—"}
+                        {soap.plan ?? "-"}
                       </div>
                     </div>
                   </>
@@ -287,7 +287,7 @@ export default function PatientTreatmentDetail() {
                           {fmt(n.created_at)}
                         </div>
                         <div className="muted" style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>
-                          {n.note ?? "—"}
+                          {n.note ?? "-"}
                         </div>
                       </div>
                     ))}
@@ -306,10 +306,10 @@ export default function PatientTreatmentDetail() {
                     {files.map((f) => (
                       <div key={f.id} className="card card-pad" style={{ marginBottom: 10 }}>
                         <div className="muted" style={{ fontSize: 12 }}>
-                          {fmt(f.created_at)} • Status: <strong>{f.status ?? "—"}</strong>
+                          {fmt(f.created_at)} | Status: <strong>{f.status ?? "-"}</strong>
                         </div>
                         <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                          File ID: {f.file_id ?? "—"}
+                          File ID: {f.file_id ?? "-"}
                         </div>
                         {f.notes && (
                           <div className="muted" style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>

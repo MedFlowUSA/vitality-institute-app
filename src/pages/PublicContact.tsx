@@ -69,7 +69,7 @@ export default function PublicContact() {
   return (
     <PublicSiteLayout title="Contact the Clinic" subtitle="Reach the Vitality team for service questions, scheduling help, or next-step guidance.">
       <div className="row" style={{ gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
-        <div className="card card-pad card-light surface-light" style={{ flex: "1 1 340px" }}>
+        <div className="card card-pad card-light surface-light public-panel" style={{ flex: "1 1 340px" }}>
           <div className="h2">Clinic Contact</div>
           <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8 }}>
             Reach either clinic directly. Use the inquiry form if you want help choosing the right service or location first.
@@ -87,9 +87,9 @@ export default function PublicContact() {
           </div>
         </div>
 
-        <div className="card card-pad" style={{ flex: "1 1 420px" }}>
+        <div className="card card-pad card-light surface-light public-panel" style={{ flex: "1 1 420px" }}>
           <div className="h2">Need help deciding?</div>
-          <div className="muted" style={{ marginTop: 10, lineHeight: 1.7 }}>
+          <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
             If you are not sure which service fits best, start a booking request or contact the clinic. The team can help route you to the right consultation, wellness service, or follow-up step.
           </div>
 
@@ -99,7 +99,7 @@ export default function PublicContact() {
             <Link to={bookingLink} className="btn btn-primary">
               Start Booking
             </Link>
-            <Link to="/services" className="btn btn-ghost">
+            <Link to="/services" className="btn btn-secondary">
               Browse Services
             </Link>
           </div>
@@ -109,16 +109,16 @@ export default function PublicContact() {
       <div className="space" />
 
       <div className="row" style={{ gap: 16, flexWrap: "wrap", alignItems: "stretch" }}>
-        <div className="card card-pad" style={{ flex: "1 1 460px" }}>
+        <div className="card card-pad card-light surface-light public-panel" style={{ flex: "1 1 460px" }}>
           <div className="h2">Inquiry Form</div>
-          <div className="muted" style={{ marginTop: 6 }}>
+          <div className="surface-light-helper" style={{ marginTop: 6 }}>
             Send a real inquiry to the clinic and we will follow up using your preferred contact method.
           </div>
 
           <div className="space" />
 
           {submitted ? (
-            <div className="card card-pad card-light surface-light">
+            <div className="card card-pad card-light surface-light public-panel-nested">
               <div className="h2">Inquiry sent</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
                 Your message has been sent to the Vitality team. The team can follow up by {preferredContactMethod === "either" ? "phone or email" : preferredContactMethod}.
@@ -126,7 +126,7 @@ export default function PublicContact() {
             </div>
           ) : null}
 
-          {submitError ? <div style={{ color: "#fecaca", marginBottom: 12 }}>{submitError}</div> : null}
+          {submitError ? <div className="public-error-text" style={{ marginBottom: 12 }}>{submitError}</div> : null}
 
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
             <input className="input" style={{ flex: "1 1 220px" }} placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -166,18 +166,18 @@ export default function PublicContact() {
             <button className="btn btn-primary" type="button" onClick={submitInquiry} disabled={submitting}>
               {submitting ? "Sending..." : "Send Inquiry"}
             </button>
-            <a className="btn btn-ghost" href="tel:+19095004572">
+            <a className="btn btn-secondary" href="tel:+12139126838">
               Call the Clinic
             </a>
           </div>
         </div>
 
-        <div className="card card-pad card-light surface-light" style={{ flex: "1 1 320px" }}>
+        <div className="card card-pad card-light surface-light public-panel" style={{ flex: "1 1 320px" }}>
           <div className="h2">Locations at a Glance</div>
           <div style={{ display: "grid", gap: 14, marginTop: 10 }}>
             {PUBLIC_CLINIC_LOCATIONS.map((location) => (
-              <div key={location.name} className="card card-pad card-light surface-light">
-                <div className="surface-light-helper" style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase" }}>
+              <div key={location.name} className="card card-pad card-light surface-light public-panel-nested">
+                <div className="public-mini-title">
                   {location.name}
                 </div>
                 <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.8 }}>

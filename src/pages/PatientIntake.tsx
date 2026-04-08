@@ -250,8 +250,7 @@ export default function PatientIntake() {
 
     if (error) return setErr(error.message);
 
-    alert("Intake submitted.");
-    nav(`/patient/assessment?appointmentId=${appointmentId}`, { replace: true });
+    nav(`/patient/assessment?appointmentId=${appointmentId}`, { replace: true, state: { patientNotice: "Intake submitted successfully.", patientNoticeTone: "success" } });
   };
 
   const patientLabel = useMemo(() => {
@@ -310,7 +309,6 @@ export default function PatientIntake() {
                   <option value="glp1">GLP-1</option>
                   <option value="trt">TRT</option>
                   <option value="hrt">HRT</option>
-                  <option value="botox">Botox</option>
                 </select>
 
                 <select className="input" style={{ flex: "2 1 320px" }} value={appointmentId} onChange={(e) => setAppointmentId(e.target.value)}>
@@ -387,7 +385,7 @@ export default function PatientIntake() {
                                 {f.label} {f.required ? " *" : ""}
                               </div>
                               <select className="input" value={v ?? ""} onChange={(e) => setValue(f.key, e.target.value)}>
-                                <option value="">Select…</option>
+                                <option value="">Select...</option>
                                 {f.options.map((opt) => (
                                   <option key={opt} value={opt}>
                                     {opt}
@@ -443,5 +441,14 @@ export default function PatientIntake() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
 
 

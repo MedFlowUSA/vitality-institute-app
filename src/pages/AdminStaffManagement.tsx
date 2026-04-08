@@ -42,7 +42,7 @@ export default function AdminStaffManagement() {
   const [locationId, setLocationId] = useState("");
 
   const locationName = (id: string | null) =>
-    locations.find((l) => l.id === id)?.name ?? "—";
+    locations.find((l) => l.id === id)?.name ?? "-";
 
   const loadBase = async () => {
     setLoadingBase(true);
@@ -142,7 +142,7 @@ export default function AdminStaffManagement() {
 
           <div className="space" />
 
-          {loadingBase && <div className="muted">Loading…</div>}
+          {loadingBase && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
           {msg && <div style={{ color: "green", marginBottom: 12 }}>{msg}</div>}
 
@@ -241,7 +241,7 @@ export default function AdminStaffManagement() {
           <div className="space" />
 
           {loadingBase ? (
-            <div className="muted">Loading…</div>
+            <div className="muted">Loading...</div>
           ) : staff.length === 0 ? (
             <div className="muted">No staff profiles found.</div>
           ) : (
@@ -257,7 +257,7 @@ export default function AdminStaffManagement() {
                       {`${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.id}
                     </div>
                     <div className="muted" style={{ fontSize: 13 }}>
-                      Role: <strong>{s.role ?? "—"}</strong>
+                      Role: <strong>{s.role ?? "-"}</strong>
                     </div>
                     <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
                       Location: <strong>{locationName(s.active_location_id)}</strong>

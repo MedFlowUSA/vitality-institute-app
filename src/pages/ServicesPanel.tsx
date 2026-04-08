@@ -11,6 +11,11 @@ type ServiceRow = {
   is_active: boolean | null;
 };
 
+function isBotoxService(service: Pick<ServiceRow, "name" | "category">) {
+  const haystack = [service.name, service.category].filter(Boolean).join(" ").toLowerCase();
+  return haystack.includes("botox") || haystack.includes("neuromodulator");
+}
+
 export default function ServicesPanel({
   locationId,
   locationName,
@@ -21,6 +26,7 @@ export default function ServicesPanel({
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const loadServices = async () => {
     if (!locationId) return;
@@ -34,12 +40,12 @@ export default function ServicesPanel({
       .order("name");
 
     if (error) setErr(error.message);
-    setServices(data ?? []);
+    setServices(((data ?? []) as ServiceRow[]).filter((service) => !isBotoxService(service)));
     setLoading(false);
   };
 
   useEffect(() => {
-    loadServices();
+    void loadServices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationId]);
 
@@ -55,10 +61,9 @@ export default function ServicesPanel({
 
   return (
     <div className="card card-pad">
-      <div className="h2">Services — {locationName ?? "Location"}</div>
+      <div className="h2">Services - {locationName ?? "Location"}</div>
       <div className="space" />
 
-      {/* ADD SERVICE */}
       <div className="card card-pad" style={{ marginBottom: 16 }}>
         <div className="h2">Add Service</div>
         <div className="space" />
@@ -66,8 +71,10 @@ export default function ServicesPanel({
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            const form = e.currentTarget as HTMLFormElement;
+            setErr(null);
+            setSaveMessage(null);
 
+            const form = e.currentTarget as HTMLFormElement;
             const category = (form.elements.namedItem("category") as HTMLSelectElement).value;
             const name = (form.elements.namedItem("name") as HTMLInputElement).value;
             const duration = (form.elements.namedItem("duration") as HTMLInputElement).value;
@@ -84,10 +91,14 @@ export default function ServicesPanel({
               },
             ]);
 
-            if (error) return alert(error.message);
+            if (error) {
+              setErr(error.message);
+              return;
+            }
 
             form.reset();
             await loadServices();
+            setSaveMessage("Service added successfully.");
           }}
         >
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -97,7 +108,6 @@ export default function ServicesPanel({
               <option value="peptides">Peptides</option>
               <option value="trt">TRT</option>
               <option value="hrt">HRT</option>
-              <option value="botox">Botox</option>
             </select>
 
             <input
@@ -129,30 +139,30 @@ export default function ServicesPanel({
         </form>
       </div>
 
-      {/* LIST */}
-      {loading && <div className="muted">Loading services…</div>}
-      {err && <div style={{ color: "crimson" }}>{err}</div>}
+      {saveMessage ? <div className="surface-light-helper" style={{ marginBottom: 12 }}>{saveMessage}</div> : null}
+      {loading ? <div className="muted">Loading services...</div> : null}
+      {err ? <div style={{ color: "crimson" }}>{err}</div> : null}
 
-      {!loading && !err && (
+      {!loading && !err ? (
         <div>
-          {services.map((s) => (
-            <div key={s.id} className="card card-pad" style={{ marginBottom: 12 }}>
+          {services.map((service) => (
+            <div key={service.id} className="card card-pad" style={{ marginBottom: 12 }}>
               <div className="row" style={{ justifyContent: "space-between" }}>
                 <div>
-                  <div className="h2">{s.name}</div>
+                  <div className="h2">{service.name}</div>
                   <div className="muted" style={{ fontSize: 13 }}>
-                    Category: {s.category ?? "-"} • Duration: {s.duration_minutes ?? "-"} • Visit: {s.visit_type ?? "-"}
+                    Category: {service.category ?? "-"} | Duration: {service.duration_minutes ?? "-"} | Visit: {service.visit_type ?? "-"}
                   </div>
                 </div>
                 <div className="muted" style={{ fontSize: 12 }}>
-                  {s.is_active ? "Active" : "Inactive"}
+                  {service.is_active ? "Active" : "Inactive"}
                 </div>
               </div>
             </div>
           ))}
-          {services.length === 0 && <div className="muted">No services for this location yet.</div>}
+          {services.length === 0 ? <div className="muted">No services for this location yet.</div> : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

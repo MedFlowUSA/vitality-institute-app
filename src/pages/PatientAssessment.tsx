@@ -1,6 +1,6 @@
 // src/pages/PatientAssessment.tsx
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
@@ -11,6 +11,7 @@ type IntakeRow = { id: string; appointment_id: string; patient_id: string; locat
 
 export default function PatientAssessment() {
   const { user, signOut } = useAuth();
+  const location = useLocation();
   const nav = useNavigate();
   const [params] = useSearchParams();
 
@@ -19,6 +20,7 @@ export default function PatientAssessment() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const [patient, setPatient] = useState<PatientRow | null>(null);
   const [appt, setAppt] = useState<AppointmentRow | null>(null);
@@ -37,6 +39,13 @@ export default function PatientAssessment() {
   const [infectionSigns, setInfectionSigns] = useState(false);
   const [notes, setNotes] = useState("");
 
+  useEffect(() => {
+    const state = location.state as { patientNotice?: string } | null;
+    if (!state?.patientNotice) return;
+
+    setNotice(state.patientNotice);
+    nav(`${location.pathname}${location.search}`, { replace: true, state: {} });
+  }, [location.pathname, location.search, location.state, nav]);
   const canSave = useMemo(() => {
     return !!(patient?.id && appt?.id && appointmentId);
   }, [patient?.id, appt?.id, appointmentId]);
@@ -75,7 +84,7 @@ export default function PatientAssessment() {
         if (apptRow.patient_id !== patientRow.id) throw new Error("This appointment does not belong to the current patient.");
         setAppt(apptRow);
 
-        // 3) Latest intake for this appointment (optional but we’ll link it)
+        // 3) Latest intake for this appointment (optional but we'll link it)
         const { data: i, error: iErr } = await supabase
           .from("intake_submissions")
           .select("id,appointment_id,patient_id,location_id,status,answers,created_at")
@@ -118,7 +127,7 @@ export default function PatientAssessment() {
     setErr(null);
     if (!canSave || !patient || !appt) return;
 
-    // light validation (keep it minimal so we don’t block you)
+    // light validation (keep it minimal so we don't block you)
     if (!bodySite.trim()) return setErr("Body site is required (ex: sacrum, heel, left leg).");
     if (!woundType.trim()) return setErr("Wound type is required (ex: pressure_ulcer, venous_ulcer).");
 
@@ -149,7 +158,7 @@ export default function PatientAssessment() {
 
       // 2) Create wound assessment tied to the visit
       // IMPORTANT: This assumes these columns exist and are nullable.
-      // If your wound_assessments has additional NOT NULL columns, tell me and I’ll adjust.
+      // If your wound_assessments has additional NOT NULL columns, tell me and I'll adjust.
       const { error: waErr } = await supabase.from("wound_assessments").insert([
         {
           location_id: appt.location_id,
@@ -177,8 +186,7 @@ export default function PatientAssessment() {
       // 3) (Optional) update appointment status so you can pace the workflow
       await supabase.from("appointments").update({ status: "in_progress" }).eq("id", appt.id);
 
-      alert("Assessment saved.");
-      nav("/patient/home", { replace: true });
+      nav("/patient/home", { replace: true, state: { patientNotice: "Assessment saved successfully.", patientNoticeTone: "success" } });
     } catch (e: any) {
       setErr(e?.message ?? "Failed to save assessment.");
     } finally {
@@ -231,6 +239,24 @@ export default function PatientAssessment() {
 
           {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
+          {notice ? (
+            <div
+              className="card card-pad card-light surface-light"
+              style={{
+                marginBottom: 12,
+                border: "1px solid rgba(34,197,94,.28)",
+                background: "rgba(34,197,94,.12)",
+                color: "#1f1633",
+              }}
+            >
+              <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ lineHeight: 1.7 }}>{notice}</div>
+                <button className="btn btn-secondary" type="button" onClick={() => setNotice(null)}>
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           {!loading && (
             <>
@@ -335,7 +361,7 @@ export default function PatientAssessment() {
               </div>
 
               <button className="btn btn-primary" onClick={save} disabled={saving} type="button">
-                {saving ? "Saving…" : "Save Assessment"}
+                {saving ? "Saving..." : "Save Assessment"}
               </button>
             </>
           )}
@@ -344,4 +370,9 @@ export default function PatientAssessment() {
     </div>
   );
 }
+
+
+
+
+
 

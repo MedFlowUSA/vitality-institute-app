@@ -160,6 +160,7 @@ async function renderPdfBlob(element: HTMLElement, filename: string) {
 export default function VisitPacketSection({ visitId, patientId, locationId }: Props) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [packetMode, setPacketMode] = useState<"patient" | "clinical">("clinical");
   const [sendingToPortal, setSendingToPortal] = useState(false);
 
@@ -220,7 +221,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
     );
 
     if (area != null) {
-      parts.push(`The current measured area is approximately ${area} cm².`);
+      parts.push(`The current measured area is approximately ${area} cm^2.`);
     }
 
     if (treatmentPlan?.patient_instructions) {
@@ -353,7 +354,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
         <div style="border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:12px;">
           <div style="font-weight:700;">${f.filename}</div>
           <div style="font-size:12px;color:#666;margin-top:4px;">
-            ${(f.category ?? "image")} • ${fmtDateTime(f.created_at)}
+            ${(f.category ?? "image")} | ${fmtDateTime(f.created_at)}
           </div>
           <img
             src="${fileUrls[f.id]}"
@@ -455,12 +456,12 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
               <div class="mini" style="margin-bottom:12px;">
                 <div style="font-weight:800;">${w.wound_label}</div>
                 <div style="margin-top:6px;line-height:1.7;">
-                  ${[w.body_site, w.laterality, w.wound_type, w.stage].filter(Boolean).join(" • ") || "-"}
+                  ${[w.body_site, w.laterality, w.wound_type, w.stage].filter(Boolean).join(" | ") || "-"}
                 </div>
                 <div style="margin-top:6px;">
-                  Size: ${w.length_cm ?? "-"} × ${w.width_cm ?? "-"} × ${w.depth_cm ?? "-"} cm
+                  Size: ${w.length_cm ?? "-"} x ${w.width_cm ?? "-"} x ${w.depth_cm ?? "-"} cm
                 </div>
-                <div>Area: ${calcArea(w.length_cm, w.width_cm) ?? "-"} cm²</div>
+                <div>Area: ${calcArea(w.length_cm, w.width_cm) ?? "-"} cm^2</div>
                 <div>Pain: ${w.pain_score ?? "-"}</div>
               </div>
             `
@@ -506,6 +507,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
     }
 
     setErr(null);
+    setActionMessage(null);
     setSendingToPortal(true);
 
     try {
@@ -540,7 +542,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
         document.body.removeChild(wrapper);
       }
 
-      alert("Patient PDF copy sent to portal files.");
+      setActionMessage("Patient PDF copy sent to portal files.");
     } catch (error: unknown) {
       setErr(getErrorMessage(error, "Failed to send patient PDF to portal."));
     } finally {
@@ -555,6 +557,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
     }
 
     setErr(null);
+    setActionMessage(null);
     setSendingToPortal(true);
 
     try {
@@ -591,7 +594,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
         document.body.removeChild(wrapper);
       }
 
-      alert("Clinical PDF sent to internal files.");
+      setActionMessage("Clinical PDF sent to internal files.");
     } catch (error: unknown) {
       setErr(getErrorMessage(error, "Failed to send clinical PDF."));
     } finally {
@@ -744,6 +747,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
 
       <div className="space" />
 
+      {actionMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div>}
       {loading && <div className="muted">Loading packet...</div>}
       {err && <div style={{ color: "crimson" }}>{err}</div>}
 
@@ -794,12 +798,12 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
                   <div key={w.id} className="mini">
                     <div style={{ fontWeight: 800 }}>{w.wound_label}</div>
                     <div style={{ marginTop: 6, lineHeight: 1.7 }}>
-                      {[w.body_site, w.laterality, w.wound_type, w.stage].filter(Boolean).join(" • ") || "-"}
+                      {[w.body_site, w.laterality, w.wound_type, w.stage].filter(Boolean).join(" | ") || "-"}
                     </div>
                     <div style={{ marginTop: 6 }}>
                       Size: {w.length_cm ?? "-"} x {w.width_cm ?? "-"} x {w.depth_cm ?? "-"} cm
                     </div>
-                    <div>Area: {calcArea(w.length_cm, w.width_cm) ?? "-"} cm²</div>
+                    <div>Area: {calcArea(w.length_cm, w.width_cm) ?? "-"} cm^2</div>
                     <div>Exudate: {w.exudate ?? "-"}</div>
                     <div>Odor: {w.odor ?? "-"}</div>
                     <div>Infection Signs: {w.infection_signs ?? "-"}</div>
@@ -832,7 +836,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
                     <tr key={r.id}>
                       <td>{fmtDateTime(r.created_at)}</td>
                       <td>{r.wound_label}</td>
-                      <td>{[r.body_site, r.laterality].filter(Boolean).join(" • ") || "-"}</td>
+                      <td>{[r.body_site, r.laterality].filter(Boolean).join(" | ") || "-"}</td>
                       <td>{r.wound_type ?? "-"}</td>
                       <td>{r.length_cm ?? "-"} x {r.width_cm ?? "-"} x {r.depth_cm ?? "-"}</td>
                       <td>{r.area_cm2 ?? "-"}</td>
@@ -915,7 +919,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
                   <div key={f.id} className="mini">
                     <div style={{ fontWeight: 800 }}>{f.filename}</div>
                     <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>
-                      {f.category ?? "file"} • {fmtDateTime(f.created_at)}
+                      {f.category ?? "file"} | {fmtDateTime(f.created_at)}
                     </div>
                     {isImageFile(f) && fileUrls[f.id] ? (
                       <img

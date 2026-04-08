@@ -149,6 +149,7 @@ function calcArea(length: number | null, width: number | null) {
 export default function WoundPacketPreview({ visitId, patientId, locationId }: Props) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement | null>(null);
 
   const [visit, setVisit] = useState<VisitRow | null>(null);
@@ -285,7 +286,7 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
 
     if (woundArea != null) {
       parts.push(
-        `Current wound measurements are approximately ${wound.length_cm ?? "-"} cm by ${wound.width_cm ?? "-"} cm with a surface area of about ${woundArea} cm².`
+        `Current wound measurements are approximately ${wound.length_cm ?? "-"} cm by ${wound.width_cm ?? "-"} cm with a surface area of about ${woundArea} cm^2.`
       );
     }
 
@@ -339,7 +340,7 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
 
     if (woundArea != null) {
       parts.push(
-        `Current documented wound dimensions are ${wound.length_cm ?? "-"} cm x ${wound.width_cm ?? "-"} cm x ${wound.depth_cm ?? "-"} cm with an approximate surface area of ${woundArea} cm².`
+        `Current documented wound dimensions are ${wound.length_cm ?? "-"} cm x ${wound.width_cm ?? "-"} cm x ${wound.depth_cm ?? "-"} cm with an approximate surface area of ${woundArea} cm^2.`
       );
     }
 
@@ -696,19 +697,21 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
     if (!value) return;
     try {
       await navigator.clipboard.writeText(value);
-      alert("Copied to clipboard");
+      setActionMessage("Copied to clipboard.");
     } catch {
-      alert("Copy failed");
+      setErr("Copy failed.");
     }
   };
 
   const sendNarrativeToSoap = async () => {
     if (!soap?.id || !aiNarrative) {
-      alert("No SOAP note or narrative available.");
+      setErr("No SOAP note or narrative available.");
       return;
     }
 
     setSendingSoap(true);
+    setErr(null);
+    setActionMessage(null);
     try {
       const existing = soap.assessment?.trim() ?? "";
       const nextValue = existing
@@ -731,9 +734,9 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
           : prev
       );
 
-      alert("Narrative sent to SOAP assessment.");
+      setActionMessage("Narrative sent to SOAP assessment.");
     } catch (error: unknown) {
-      alert(getErrorMessage(error, "Failed to send narrative to SOAP."));
+      setErr(getErrorMessage(error, "Failed to send narrative to SOAP."));
     } finally {
       setSendingSoap(false);
     }
@@ -741,11 +744,13 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
 
   const sendJustificationToPlan = async () => {
     if (!plan?.id || !insuranceJustification) {
-      alert("No treatment plan or justification available.");
+      setErr("No treatment plan or justification available.");
       return;
     }
 
     setSendingPlan(true);
+    setErr(null);
+    setActionMessage(null);
     try {
       const existing = plan.internal_notes?.trim() ?? "";
       const nextValue = existing
@@ -768,9 +773,9 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
           : prev
       );
 
-      alert("Justification sent to treatment plan internal notes.");
+      setActionMessage("Justification sent to treatment plan internal notes.");
     } catch (error: unknown) {
-      alert(getErrorMessage(error, "Failed to send justification to treatment plan."));
+      setErr(getErrorMessage(error, "Failed to send justification to treatment plan."));
     } finally {
       setSendingPlan(false);
     }
@@ -793,6 +798,7 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
 
       <div className="space" />
       {loading && <div className="muted">Loading packet preview...</div>}
+      {actionMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div>}
       {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
       {!loading && !err && (
@@ -861,7 +867,7 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
                 </div>
                 <div className="card card-pad" style={{ flex: "1 1 160px" }}>
                   <div className="muted">Area</div>
-                  <div style={{ fontWeight: 700 }}>{woundArea == null ? "-" : `${woundArea} cm²`}</div>
+                  <div style={{ fontWeight: 700 }}>{woundArea == null ? "-" : `${woundArea} cm^2`}</div>
                 </div>
               </div>
 
@@ -966,14 +972,14 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
                   <div className="card card-pad" style={{ flex: "1 1 180px" }}>
                     <div className="muted">Initial Area</div>
                     <div style={{ fontWeight: 800, fontSize: 22 }}>
-                      {healingStats.firstArea == null ? "-" : `${healingStats.firstArea} cm²`}
+                      {healingStats.firstArea == null ? "-" : `${healingStats.firstArea} cm^2`}
                     </div>
                   </div>
 
                   <div className="card card-pad" style={{ flex: "1 1 180px" }}>
                     <div className="muted">Latest Area</div>
                     <div style={{ fontWeight: 800, fontSize: 22 }}>
-                      {healingStats.latestArea == null ? "-" : `${healingStats.latestArea} cm²`}
+                      {healingStats.latestArea == null ? "-" : `${healingStats.latestArea} cm^2`}
                     </div>
                   </div>
 
@@ -1027,7 +1033,7 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
                         <th style={{ padding: "10px 8px" }}>Visit</th>
                         <th style={{ padding: "10px 8px" }}>Body Site</th>
                         <th style={{ padding: "10px 8px" }}>Type</th>
-                        <th style={{ padding: "10px 8px" }}>L × W × D</th>
+                        <th style={{ padding: "10px 8px" }}>L x W x D</th>
                         <th style={{ padding: "10px 8px" }}>Area</th>
                       </tr>
                     </thead>
@@ -1044,10 +1050,10 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
                           </td>
                           <td style={{ padding: "10px 8px" }}>{row.wound_type ?? "-"}</td>
                           <td style={{ padding: "10px 8px" }}>
-                            {row.length_cm ?? "-"} × {row.width_cm ?? "-"} × {row.depth_cm ?? "-"}
+                            {row.length_cm ?? "-"} x {row.width_cm ?? "-"} x {row.depth_cm ?? "-"}
                           </td>
                           <td style={{ padding: "10px 8px", fontWeight: 700 }}>
-                            {row.area_cm2 == null ? "-" : `${row.area_cm2} cm²`}
+                            {row.area_cm2 == null ? "-" : `${row.area_cm2} cm^2`}
                           </td>
                         </tr>
                       ))}
@@ -1067,7 +1073,7 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
               {riskAlerts.map((a, i) => (
                 <div key={i} style={{ marginTop: 10 }}>
                   <div style={{ fontWeight: 600 }}>
-                    {a.level === "high" && "⚠ "}
+                    {a.level === "high" && "Alert: "}
                     {a.title}
                   </div>
 

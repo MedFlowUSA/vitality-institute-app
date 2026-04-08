@@ -27,16 +27,18 @@ const featuredServices = [
     cta: "View Service",
   },
   {
-    title: "Aesthetics & Wellness",
-    category: "Aesthetic Care",
-    summary: "Aesthetic and wellness-focused options designed around confident, provider-guided care.",
-    to: "/services/botox-consultation",
+    title: "Peptide Therapy",
+    category: "Recovery & Wellness",
+    summary: "Provider-guided peptide support for recovery, metabolic health, and performance goals.",
+    to: "/services/peptide-therapy-consultation",
     cta: "View Service",
   },
 ];
 
 export default function PublicLandingSimplified() {
-  const [selectedLocationName, setSelectedLocationName] = useState(PUBLIC_CLINIC_LOCATIONS[0]?.name ?? "");
+  const [selectedLocationName, setSelectedLocationName] = useState(
+    normalizePublicClinicLocationName("Touch of Vitality - Los Angeles"),
+  );
   const normalizedSelectedLocationName = normalizePublicClinicLocationName(selectedLocationName);
 
   const selectedLocation = useMemo(
@@ -55,14 +57,7 @@ export default function PublicLandingSimplified() {
         }}
       >
         <div
-          className="public-hero-eyebrow"
-          style={{
-            fontSize: 12,
-            fontWeight: 900,
-            color: "var(--v-helper-dark)",
-            letterSpacing: ".12em",
-            textTransform: "uppercase",
-          }}
+          className="public-hero-eyebrow public-eyebrow"
         >
           Patient-Centered Care in Redlands and Los Angeles
         </div>
@@ -102,15 +97,33 @@ export default function PublicLandingSimplified() {
 
       <div className="space" />
 
-      <div className="card card-pad card-light surface-light">
-        <div className="h2" style={{ color: "#1F1633" }}>Choose the clearest first step</div>
+      <div className="card card-pad card-light surface-light public-panel">
+        <div className="h2 public-section-title">Need a full app walkthrough?</div>
+        <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75, maxWidth: 760 }}>
+          Read the step-by-step patient guide to understand how booking, intake, account setup, dashboard use,
+          messages, labs, and treatment instructions work together across the full app.
+        </div>
+        <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 16 }}>
+          <Link to="/how-to-use-the-app" className="btn btn-secondary">
+            View Patient Guide
+          </Link>
+          <Link to="/book" className="btn btn-primary">
+            Start Booking
+          </Link>
+        </div>
+      </div>
+
+      <div className="space" />
+
+      <div className="card card-pad card-light surface-light public-panel">
+        <div className="h2 public-section-title">Choose the clearest first step</div>
         <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75, maxWidth: 760 }}>
           Book directly if you already know what you need. Start with Vital AI if you want guided routing before the clinic reviews next steps.
         </div>
 
         <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch", marginTop: 16 }}>
-          <div className="card card-pad card-light surface-light" style={{ flex: "1 1 280px", minWidth: 240 }}>
-            <div style={{ fontSize: 12, fontWeight: 900, color: "var(--v-helper-dark)", letterSpacing: ".12em", textTransform: "uppercase" }}>
+          <div className="card card-pad card-light surface-light public-panel-nested" style={{ flex: "1 1 280px", minWidth: 240 }}>
+            <div className="public-eyebrow">
               Primary
             </div>
             <div className="h2" style={{ marginTop: 10 }}>Book a Visit</div>
@@ -118,8 +131,8 @@ export default function PublicLandingSimplified() {
               Best if you already know the service, program, or consultation you want.
             </div>
           </div>
-          <div className="card card-pad card-light surface-light" style={{ flex: "1 1 280px", minWidth: 240 }}>
-            <div style={{ fontSize: 12, fontWeight: 900, color: "var(--v-helper-dark)", letterSpacing: ".12em", textTransform: "uppercase" }}>
+          <div className="card card-pad card-light surface-light public-panel-nested" style={{ flex: "1 1 280px", minWidth: 240 }}>
+            <div className="public-eyebrow">
               Guided
             </div>
             <div className="h2" style={{ marginTop: 10 }}>Start with Vital AI</div>
@@ -127,8 +140,8 @@ export default function PublicLandingSimplified() {
               Best if you want help choosing the right path before booking or need the clinic to review urgency first.
             </div>
           </div>
-          <div className="card card-pad card-light surface-light" style={{ flex: "1 1 280px", minWidth: 240 }}>
-            <div style={{ fontSize: 12, fontWeight: 900, color: "var(--v-helper-dark)", letterSpacing: ".12em", textTransform: "uppercase" }}>
+          <div className="card card-pad card-light surface-light public-panel-nested" style={{ flex: "1 1 280px", minWidth: 240 }}>
+            <div className="public-eyebrow">
               Support
             </div>
             <div className="h2" style={{ marginTop: 10 }}>Need a hand?</div>
@@ -142,20 +155,9 @@ export default function PublicLandingSimplified() {
       <div className="space" />
 
       <div
-        className="card card-pad card-light surface-light"
-        style={{
-          background: "linear-gradient(180deg, rgba(255,247,250,0.98), rgba(245,241,255,0.95))",
-        }}
+        className="card card-pad card-light surface-light public-panel-soft"
       >
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 900,
-            color: "var(--v-helper-dark)",
-            letterSpacing: ".12em",
-            textTransform: "uppercase",
-          }}
-        >
+        <div className="public-eyebrow">
           Wound Care Priority
         </div>
         <div className="h2" style={{ marginTop: 10 }}>
@@ -168,7 +170,7 @@ export default function PublicLandingSimplified() {
           <Link to="/vital-ai" className="btn btn-primary">
             Start Wound Review
           </Link>
-          <a href="tel:+19095004572" className="btn btn-secondary" style={{ textDecoration: "none" }}>
+          <a href="tel:+12139126838" className="btn btn-secondary" style={{ textDecoration: "none" }}>
             Call the Clinic
           </a>
         </div>
@@ -176,10 +178,10 @@ export default function PublicLandingSimplified() {
 
       <div className="space" />
 
-      <div className="card card-pad card-light surface-light">
+      <div className="card card-pad card-light surface-light public-panel">
         <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <div>
-            <div className="h2" style={{ color: "#1F1633" }}>Featured Services</div>
+            <div className="h2 public-section-title">Featured Services</div>
           </div>
           <Link to="/services" className="btn btn-secondary">
             View All Services
@@ -193,24 +195,14 @@ export default function PublicLandingSimplified() {
             <Link
               key={service.title}
               to={service.to}
-              className="card card-pad card-light surface-light service-card"
+              className="card card-pad card-light surface-light public-panel-nested service-card"
               style={{
                 flex: "1 1 220px",
                 minWidth: 220,
                 textDecoration: "none",
-                border: "1px solid rgba(184,164,255,0.18)",
-                boxShadow: "0 14px 28px rgba(16,24,40,0.06)",
               }}
             >
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--v-helper-dark)",
-                  fontWeight: 800,
-                  letterSpacing: ".08em",
-                  textTransform: "uppercase",
-                }}
-              >
+              <div className="public-mini-title">
                 {service.category}
               </div>
               <div className="h2" style={{ marginTop: 8 }}>
@@ -229,7 +221,7 @@ export default function PublicLandingSimplified() {
 
       <div className="space" />
 
-      <div className="card card-pad card-light surface-light">
+      <div className="card card-pad card-light surface-light public-panel">
         <div className="h2">Visit or Contact Us</div>
         <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8, maxWidth: 760 }}>
           Choose a location to see the quickest contact details without expanding the page.
@@ -237,39 +229,18 @@ export default function PublicLandingSimplified() {
 
         <div className="space" />
 
-        <div
-          className="card card-pad card-light surface-light"
-          style={{
-            border: "1px solid rgba(184,164,255,0.18)",
-            boxShadow: "0 14px 28px rgba(16,24,40,0.06)",
-          }}
-        >
           <div
-            style={{
-              fontSize: 12,
-              fontWeight: 900,
-              color: "var(--v-helper-dark)",
-              letterSpacing: ".12em",
-              textTransform: "uppercase",
-            }}
-          >
+          className="card card-pad card-light surface-light public-panel-nested"
+        >
+          <div className="public-eyebrow">
             Locations
           </div>
 
           <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "end", marginTop: 12 }}>
             <label style={{ flex: "1 1 280px", minWidth: 240 }}>
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 800,
-                  letterSpacing: ".08em",
-                  textTransform: "uppercase",
-                  color: "var(--v-helper-dark)",
-                  marginBottom: 8,
-                }}
-              >
-                Select clinic
-              </div>
+                <div className="public-mini-title" style={{ marginBottom: 8 }}>
+                  Select clinic
+                </div>
               <select
                 value={normalizedSelectedLocationName}
                 onChange={(event) => setSelectedLocationName(normalizePublicClinicLocationName(event.target.value))}
@@ -317,15 +288,7 @@ export default function PublicLandingSimplified() {
               </div>
 
               <div style={{ flex: "1 1 220px", minWidth: 200 }}>
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 800,
-                    letterSpacing: ".08em",
-                    textTransform: "uppercase",
-                    color: "var(--v-helper-dark)",
-                  }}
-                >
+                <div className="public-mini-title">
                   Hours
                 </div>
                 <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.8 }}>
@@ -335,21 +298,13 @@ export default function PublicLandingSimplified() {
 
               {selectedLocation.phone ? (
                 <div style={{ flex: "1 1 220px", minWidth: 200 }}>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 800,
-                      letterSpacing: ".08em",
-                      textTransform: "uppercase",
-                      color: "var(--v-helper-dark)",
-                    }}
-                  >
+                  <div className="public-mini-title">
                     Phone
                   </div>
                   <a
                     href={`tel:+1${selectedLocation.phone.replace(/\D/g, "")}`}
                     className="surface-light-body"
-                    style={{ display: "inline-block", marginTop: 8, color: "#140f24", textDecoration: "none" }}
+                    style={{ display: "inline-block", marginTop: 8, textDecoration: "none" }}
                   >
                     {selectedLocation.phone}
                   </a>

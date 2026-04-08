@@ -41,9 +41,9 @@ type VisitRow = {
 };
 
 function fmt(iso?: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
+  return Number.isNaN(d.getTime()) ? "-" : d.toLocaleString();
 }
 
 export default function ProviderIntakeQueue() {
@@ -57,6 +57,7 @@ export default function ProviderIntakeQueue() {
   const [selectedId, setSelectedId] = useState<string>("");
 
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const selected = useMemo(
     () => intakes.find((x) => x.id === selectedId) ?? null,
@@ -80,7 +81,7 @@ export default function ProviderIntakeQueue() {
 
       const patientIds = Array.from(new Set(rows.map((r) => r.patient_id))).filter(Boolean);
       if (patientIds.length) {
-        // If your patients table has different columns, tell me and I’ll adjust
+        // If your patients table has different columns, tell me and I'll adjust
         const { data: pats, error: pErr } = await supabase
           .from("patients")
           .select("id,first_name,last_name,email,phone")
@@ -127,6 +128,7 @@ export default function ProviderIntakeQueue() {
 
     setBusyId(intake.id);
     setErr(null);
+    setActionMessage(null);
 
     try {
       // 1) create visit linked to intake_id
@@ -138,7 +140,7 @@ export default function ProviderIntakeQueue() {
             location_id: intake.location_id,
             visit_date: new Date().toISOString(),
             status: "open",
-            summary: intake.service_type === "wound_care" ? "Wound care intake — new visit" : "Intake — new visit",
+            summary: intake.service_type === "wound_care" ? "Wound care intake - new visit" : "Intake - new visit",
             intake_id: intake.id,
           },
         ])
@@ -163,7 +165,7 @@ export default function ProviderIntakeQueue() {
       // refresh
       await load();
 
-      alert(`Visit created: ${(visit as VisitRow).id}`);
+      setActionMessage(`Visit created: ${(visit as VisitRow).id}`);
     } catch (e: any) {
       setErr(e?.message ?? "Failed to approve and create visit.");
     } finally {
@@ -175,6 +177,7 @@ export default function ProviderIntakeQueue() {
     if (!user?.id) return setErr("You must be signed in.");
     setBusyId(intake.id);
     setErr(null);
+    setActionMessage(null);
     try {
       const { error } = await supabase
         .from("patient_intakes")
@@ -213,7 +216,7 @@ export default function ProviderIntakeQueue() {
       <div className="shell">
         <VitalityHero
           title="Provider Intake Queue"
-          subtitle="Review wound intakes • approve to create a visit"
+          subtitle="Review wound intakes and approve to create a visit"
           secondaryCta={{ label: "Back", to: "/provider" }}
           rightActions={
             <button className="btn btn-ghost" type="button" onClick={load} disabled={loading}>
@@ -234,7 +237,7 @@ export default function ProviderIntakeQueue() {
           </div>
         ) : loading ? (
           <div className="card card-pad">
-            <div className="muted">Loading intake queue…</div>
+            <div className="muted">Loading intake queue...</div>
           </div>
         ) : err ? (
           <div className="card card-pad">
@@ -247,7 +250,9 @@ export default function ProviderIntakeQueue() {
             </button>
           </div>
         ) : (
-          <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+          <>
+            {actionMessage ? <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div> : null}
+            <div className="row" style={{ gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
             {/* LEFT: list */}
             <div className="card card-pad" style={{ flex: "1 1 360px", minWidth: 320 }}>
               <div className="h2">Intakes</div>
@@ -273,7 +278,7 @@ export default function ProviderIntakeQueue() {
                       <span>
                         <div style={{ fontWeight: 750 }}>{patientLabel(i.patient_id)}</div>
                         <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>
-                          {i.service_type} • {i.status} • {fmt(i.created_at)}
+                          {i.service_type} | {i.status} | {fmt(i.created_at)}
                         </div>
                       </span>
                       <span className="muted" style={{ fontSize: 12 }}>
@@ -298,7 +303,7 @@ export default function ProviderIntakeQueue() {
                         Patient: <strong>{patientLabel(selected.patient_id)}</strong>
                       </div>
                       <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-                        Service: {selected.service_type} • Status: {selected.status} • Submitted: {fmt(selected.created_at)}
+                        Service: {selected.service_type} | Status: {selected.status} | Submitted: {fmt(selected.created_at)}
                       </div>
                     </div>
 
@@ -310,7 +315,7 @@ export default function ProviderIntakeQueue() {
                         onClick={() => requestMoreInfo(selected)}
                         title="Marks intake as needs_info"
                       >
-                        {busyId === selected.id ? "Working…" : "Needs Info"}
+                        {busyId === selected.id ? "Working..." : "Needs Info"}
                       </button>
 
                       <button
@@ -320,7 +325,7 @@ export default function ProviderIntakeQueue() {
                         onClick={() => approveCreateVisit(selected)}
                         title="Creates a new visit and locks this intake"
                       >
-                        {busyId === selected.id ? "Approving…" : "Approve → Create Visit"}
+                        {busyId === selected.id ? "Approving..." : "Approve -> Create Visit"}
                       </button>
                     </div>
                   </div>
@@ -333,19 +338,19 @@ export default function ProviderIntakeQueue() {
 
                     <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
                       <div className="v-chip">
-                        Location: <strong>{selected.wound_data?.wound_location ?? "—"}</strong>
+                        Location: <strong>{selected.wound_data?.wound_location ?? "-"}</strong>
                       </div>
                       <div className="v-chip">
-                        Duration: <strong>{selected.wound_data?.wound_duration ?? "—"}</strong>
+                        Duration: <strong>{selected.wound_data?.wound_duration ?? "-"}</strong>
                       </div>
                       <div className="v-chip">
-                        Pain: <strong>{String(selected.wound_data?.pain_level ?? "—")}</strong>
+                        Pain: <strong>{String(selected.wound_data?.pain_level ?? "-")}</strong>
                       </div>
                       <div className="v-chip">
-                        Diabetes: <strong>{String(selected.wound_data?.has_diabetes ?? "—")}</strong>
+                        Diabetes: <strong>{String(selected.wound_data?.has_diabetes ?? "-")}</strong>
                       </div>
                       <div className="v-chip">
-                        Smokes: <strong>{String(selected.wound_data?.smokes ?? "—")}</strong>
+                        Smokes: <strong>{String(selected.wound_data?.smokes ?? "-")}</strong>
                       </div>
                     </div>
 
@@ -354,28 +359,28 @@ export default function ProviderIntakeQueue() {
                     <div className="muted" style={{ fontSize: 12 }}>
                       Cause
                     </div>
-                    <div style={{ marginTop: 6 }}>{selected.wound_data?.wound_cause || "—"}</div>
+                    <div style={{ marginTop: 6 }}>{selected.wound_data?.wound_cause || "-"}</div>
 
                     <div className="space" />
 
                     <div className="muted" style={{ fontSize: 12 }}>
                       Prior treatments
                     </div>
-                    <div style={{ marginTop: 6 }}>{selected.wound_data?.prior_treatments || "—"}</div>
+                    <div style={{ marginTop: 6 }}>{selected.wound_data?.prior_treatments || "-"}</div>
 
                     <div className="space" />
 
                     <div className="muted" style={{ fontSize: 12 }}>
                       Current dressing / care
                     </div>
-                    <div style={{ marginTop: 6 }}>{selected.wound_data?.current_dressing || "—"}</div>
+                    <div style={{ marginTop: 6 }}>{selected.wound_data?.current_dressing || "-"}</div>
 
                     <div className="space" />
 
                     <div className="muted" style={{ fontSize: 12 }}>
                       Medications
                     </div>
-                    <div style={{ marginTop: 6 }}>{selected.medications || "—"}</div>
+                    <div style={{ marginTop: 6 }}>{selected.medications || "-"}</div>
 
                     <div className="space" />
 
@@ -405,9 +410,9 @@ export default function ProviderIntakeQueue() {
                     </div>
                     <div style={{ marginTop: 6 }}>
                       Accepted: <strong>{selected.consent_accepted ? "Yes" : "No"}</strong>
-                      {" • "}
-                      Signed name: <strong>{selected.consent_signed_name ?? "—"}</strong>
-                      {" • "}
+                      {" | "}
+                      Signed name: <strong>{selected.consent_signed_name ?? "-"}</strong>
+                      {" | "}
                       Signed at: <strong>{fmt(selected.consent_signed_at)}</strong>
                     </div>
 
@@ -418,16 +423,19 @@ export default function ProviderIntakeQueue() {
                     </div>
                     <div style={{ marginTop: 6 }}>
                       Reviewed at: <strong>{fmt(selected.reviewed_at)}</strong>
-                      {" • "}
+                      {" | "}
                       Locked at: <strong>{fmt(selected.locked_at)}</strong>
                     </div>
                   </div>
                 </>
               )}
             </div>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>
   );
 }
+
+

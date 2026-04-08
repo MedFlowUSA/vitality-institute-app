@@ -11,6 +11,7 @@ import { buildFollowUpMessage, resolveBookingRequestLead } from "../lib/publicFo
 import { getPublicOfferingBySlug, PUBLIC_OFFERINGS, type PublicOffering } from "../lib/publicMarketingCatalog";
 import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath, sanitizeInternalPath } from "../lib/routeFlow";
+import { LAW_ENFORCEMENT_DISCOUNT_CODE, LAW_ENFORCEMENT_DISCOUNT_PERCENT } from "../lib/lawEnforcementDiscount";
 import {
   formatCatalogLocationDetails,
   formatCatalogLocationLabel,
@@ -20,6 +21,7 @@ import {
   loadCatalogLocations,
   loadCatalogServices,
   matchCatalogServiceFromInterest,
+  resolvedPublicPriceLabel,
   type CatalogLocation,
   type CatalogService,
 } from "../lib/services/catalog";
@@ -41,8 +43,6 @@ type PublicBookingOption = {
   intakePathway: string | null;
   requiresPreferredTime: boolean;
 };
-
-const LAW_ENFORCEMENT_DISCOUNT_CODE = "BLUE25";
 
 function buildBookingNotes(notes: string, discountCode: string) {
   const trimmedNotes = notes.trim();
@@ -267,6 +267,9 @@ export default function PublicBook() {
       services,
     });
   }, [selectedInterest?.title, selectedInterestSlug, services]);
+  const selectedInterestPriceLabel = useMemo(() => {
+    return resolvedPublicPriceLabel(matchedInterestService?.service, selectedInterest.price) ?? selectedInterest.price;
+  }, [matchedInterestService?.service, selectedInterest.price]);
 
   useEffect(() => {
     if (loading || hydratedSelectionRef.current) return;
@@ -542,14 +545,14 @@ export default function PublicBook() {
         {submitError ? (
           <>
             <div className="space" />
-            <div style={{ color: "#fecaca", minHeight: 22 }}>{submitError}</div>
+            <div className="public-error-text" style={{ minHeight: 22 }}>{submitError}</div>
           </>
         ) : null}
 
         {catalogError && !submitError ? (
           <>
             <div className="space" />
-            <div style={{ color: "#fecaca", minHeight: 22 }}>{catalogError}</div>
+            <div className="public-error-text" style={{ minHeight: 22 }}>{catalogError}</div>
           </>
         ) : null}
 
@@ -566,24 +569,27 @@ export default function PublicBook() {
                   eyebrow="Selected Interest"
                   title={selectedInterest.title}
                   body="This public pricing item may map to a consultation, monthly program, or package. We'll use it to guide the closest visit request and intake path."
-                  detail={`Current pricing reference: ${selectedInterest.price}. Final scheduling, provider review, and treatment fit are always confirmed by the clinic.`}
+                  detail={`Current pricing reference: ${selectedInterestPriceLabel}. Final scheduling, provider review, and treatment fit are always confirmed by the clinic.`}
                 />
               </div>
             ) : null}
 
-            <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
+            <div className="card card-pad card-light surface-light public-panel" style={{ marginBottom: 14 }}>
               <div className="h2">How this works</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
                 {user?.id
                   ? "Choose your service and preferred time now, then continue into a guided intake before your visit."
                   : "Choose your service and preferred time now. We will save your request first, then guide you through sign-in or account setup and intake while the clinic reviews availability."}
               </div>
+              <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
+                Need the full walkthrough? <Link to="/how-to-use-the-app">Read the full step-by-step patient guide</Link>.
+              </div>
             </div>
 
-            <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
+            <div className="card card-pad card-light surface-light public-panel" style={{ marginBottom: 14 }}>
               <div className="h2">Law Enforcement Discount</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                Police officers and other law enforcement professionals can use code <strong>{LAW_ENFORCEMENT_DISCOUNT_CODE}</strong> for 25% off eligible Touch of Vitality services.
+                Police officers and other law enforcement professionals may use code <strong>{LAW_ENFORCEMENT_DISCOUNT_CODE}</strong> for {LAW_ENFORCEMENT_DISCOUNT_PERCENT}% off eligible Touch of Vitality services.
               </div>
             </div>
 
@@ -692,7 +698,7 @@ export default function PublicBook() {
                   placeholder={LAW_ENFORCEMENT_DISCOUNT_CODE}
                 />
                 <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                  For Jane&apos;s Touch of Vitality police officers and other law enforcement clients, use {LAW_ENFORCEMENT_DISCOUNT_CODE} for 25% off. Verification may be requested at the visit.
+                  For Jane&apos;s Touch of Vitality law enforcement clients, use {LAW_ENFORCEMENT_DISCOUNT_CODE} for {LAW_ENFORCEMENT_DISCOUNT_PERCENT}% off. Verification may be requested at the time of service.
                 </div>
               </div>
               <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Notes (optional)</div>

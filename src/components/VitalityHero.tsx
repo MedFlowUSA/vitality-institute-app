@@ -31,7 +31,7 @@ function getDefaultHome(role: ReturnType<typeof useAuth>["role"]) {
 
 export default function VitalityHero({
   title = "Vitality Institute",
-  subtitle = "Patient & Provider Platform • Secure Intake • Scheduling • Messaging • Labs",
+  subtitle = "Patient & Provider Platform | Secure Intake | Scheduling | Messaging | Labs",
   primaryCta,
   secondaryCta,
   rightActions,
@@ -156,10 +156,10 @@ export default function VitalityHero({
 
           <div className="v-chips">
             <div className="v-chip">
-              Role: <strong>{role ?? "—"}</strong>
+              Role: <strong>{role ?? "-"}</strong>
             </div>
             <div className="v-chip">
-              Signed in: <strong>{user?.email ?? "—"}</strong>
+              Signed in: <strong>{user?.email ?? "-"}</strong>
             </div>
             <div className="v-chip">
               Status: <strong>Active</strong>

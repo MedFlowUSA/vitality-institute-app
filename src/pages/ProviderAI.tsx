@@ -74,6 +74,7 @@ export default function ProviderAI() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const locName = useMemo(() => {
     const m = new Map(locations.map((l) => [l.id, l.name]));
@@ -233,6 +234,7 @@ export default function ProviderAI() {
   const save = async () => {
     if (!user) return;
     setErr(null);
+    setSaveMessage(null);
     setSaving(true);
 
     // Determine location/patient based on intake or lab
@@ -272,7 +274,7 @@ export default function ProviderAI() {
       setAnalysis((data as any) ?? null);
     }
 
-    alert("AI draft saved ");
+    setSaveMessage("AI draft saved.");
     await loadExistingAnalysis();
   };
 
@@ -368,6 +370,7 @@ export default function ProviderAI() {
 
         <div className="card card-pad">
           {loading && <div className="muted">Loading...</div>}
+          {saveMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{saveMessage}</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading && (

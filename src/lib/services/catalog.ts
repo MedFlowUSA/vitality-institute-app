@@ -154,6 +154,16 @@ function normalizeServiceText(value: string | null | undefined) {
     .replace(/\s+/g, " ");
 }
 
+export function isBotoxServiceLike(service: Pick<CatalogService, "name" | "category" | "service_group">) {
+  const haystack = [
+    normalizeServiceText(service.name),
+    normalizeServiceText(service.category),
+    normalizeServiceText(service.service_group),
+  ].join(" ");
+
+  return haystack.includes("botox") || haystack.includes("neuromodulator");
+}
+
 function scoreAliasMatch(service: CatalogService, alias: string) {
   const normalizedAlias = normalizeServiceText(alias);
   if (!normalizedAlias) return 0;
@@ -250,6 +260,50 @@ export function pricingUnitLabel(unit: string | null) {
   return unit.replaceAll("_", " ");
 }
 
+export function marketingPriceLabel(service: CatalogService | null | undefined) {
+  if (!service) return null;
+
+  const basePrice = priceLabel(service);
+  if (!basePrice) return null;
+
+  const unit = service.pricing_unit?.toLowerCase() ?? "";
+  if (unit === "per_month") return `${basePrice}/month`;
+  if (unit === "per_session") return `${basePrice} per session`;
+  if (unit === "per_unit") return `${basePrice} per unit`;
+  if (unit === "flat") return basePrice;
+
+  return basePrice;
+}
+
+export function normalizePublicPriceLabel(label: string | null | undefined) {
+  if (!label) return null;
+
+  const trimmed = label.trim().replace(/\s+/g, " ");
+  const match = trimmed.match(/^\$(\d+)\.00(\b.*)?$/);
+  if (match) {
+    const [, dollars, suffix = ""] = match;
+    return `$${dollars}${suffix}`;
+  }
+
+  return trimmed;
+}
+
+export function resolvedPublicPriceLabel(service: CatalogService | null | undefined, fallback?: string | null) {
+  const normalizedFallback = normalizePublicPriceLabel(fallback ?? null);
+  const normalizedServiceLabel = normalizePublicPriceLabel(marketingPriceLabel(service));
+
+  if (!normalizedServiceLabel) return normalizedFallback;
+  if (!normalizedFallback) return normalizedServiceLabel;
+
+  const serviceHasSuffix = /\$\d+(?:\.\d+)?\s*(?:\/|per\s|starting|consultation|add-on)/i.test(normalizedServiceLabel);
+  if (serviceHasSuffix) return normalizedServiceLabel;
+
+  const fallbackSuffix = normalizedFallback.replace(/^\$\d+(?:\.\d+)?\s*/i, "").trim();
+  if (!fallbackSuffix) return normalizedServiceLabel;
+
+  return `${normalizedServiceLabel}${fallbackSuffix.startsWith("/") ? "" : " "}${fallbackSuffix}`;
+}
+
 export function estimatedTiming(service: CatalogService) {
   if (service.duration_minutes) return `${service.duration_minutes} min`;
   if (service.requires_consult) return "Consultation Based";
@@ -342,12 +396,18 @@ export function idealFor(service: CatalogService) {
 export async function loadCatalogServices() {
   const displayRes = await supabase.from("services_display").select(DISPLAY_SELECT).order("category").order("name");
   if (!displayRes.error && displayRes.data) {
-    return { services: (displayRes.data as CatalogService[]) ?? [], dataSource: "services_display" };
+    return {
+      services: ((displayRes.data as CatalogService[]) ?? []).filter((service) => !isBotoxServiceLike(service)),
+      dataSource: "services_display",
+    };
   }
 
   const rawRes = await supabase.from("services").select(RAW_SELECT).eq("is_active", true).order("category").order("name");
   if (rawRes.error) throw rawRes.error;
-  return { services: (rawRes.data as CatalogService[]) ?? [], dataSource: "services" };
+  return {
+    services: ((rawRes.data as CatalogService[]) ?? []).filter((service) => !isBotoxServiceLike(service)),
+    dataSource: "services",
+  };
 }
 
 export async function loadCatalogLocations() {

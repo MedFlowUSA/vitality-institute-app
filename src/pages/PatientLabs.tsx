@@ -1,4 +1,4 @@
-﻿// src/pages/PatientLabs.tsx
+// src/pages/PatientLabs.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
@@ -353,8 +353,7 @@ export default function PatientLabs() {
       setPdfBusy(true);
       await uploadInternalPdf(patientId, locationId, data.id);
 
-      alert("Labs submitted successfully. An internal PDF copy was also saved.");
-      nav("/patient/home", { replace: true });
+      nav("/patient/home", { replace: true, state: { patientNotice: "Labs submitted successfully. An internal PDF copy was also saved.", patientNoticeTone: "success" } });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to save the internal PDF copy.";
       setErr(message);
@@ -362,6 +361,19 @@ export default function PatientLabs() {
       setPdfBusy(false);
       setSaving(false);
     }
+  };
+
+  const formSurfaceStyle = {
+    background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(233,225,255,0.05))",
+    border: "1px solid rgba(214,197,255,0.16)",
+  };
+
+  const markerGroupStyle = {
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 16,
+    background: "rgba(248,245,255,0.05)",
+    border: "1px solid rgba(214,197,255,0.12)",
   };
 
   return (
@@ -431,26 +443,6 @@ export default function PatientLabs() {
   </div>
 </div>
 <div className="space" />
-        <div className="card card-pad">
-          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <div>
-              <div className="h1">Labs</div>
-              <div className="muted">Role: {role}</div>
-              <div className="muted">Signed in: {user?.email}</div>
-            </div>
-
-            <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <button className="btn btn-ghost" onClick={() => nav("/patient/home")}>
-                Back
-              </button>
-              <button className="btn btn-ghost" onClick={signOut}>
-                Sign out
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="space" />
 
         <div className="card card-pad">
           {loading && <div className="muted">Loading...</div>}
@@ -459,10 +451,10 @@ export default function PatientLabs() {
           {!loading && (
             <>
               <div className="h2">Submit Lab Snapshot</div>
-              <div className="muted" style={{ marginTop: 4 }}>
+              <div className="muted patient-section-intro">
                 Mostly dropdown selections to minimize freehand input.
               </div>
-              <div className="muted" style={{ marginTop: 8 }}>
+              <div className="muted patient-helper-text">
                 If your results came from Labcorp or Quest, use this form to capture the panel values. If they came from another local lab,
                 you can still submit them here.
               </div>
@@ -536,15 +528,15 @@ export default function PatientLabs() {
                 ) : null}
               </div>
 
-              <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+              <div className="muted patient-helper-text">
                 Common sources include Labcorp, Quest, and other local labs.
               </div>
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad" style={formSurfaceStyle}>
                 <div className="h2">{panelName(panelId)}</div>
-                <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                <div className="muted patient-section-intro patient-mini-note">
                   Complete each item below.
                 </div>
 
@@ -558,7 +550,7 @@ export default function PatientLabs() {
 
                     if (mk.input_type === "number") {
                       return (
-                        <div key={mk.id} style={{ marginBottom: 12 }}>
+                        <div key={mk.id} style={markerGroupStyle}>
                           <div className="muted" style={{ marginBottom: 6 }}>
                             {mk.label} {mk.unit ? `(${mk.unit})` : ""}
                           </div>
@@ -573,7 +565,7 @@ export default function PatientLabs() {
                     }
 
                     return (
-                      <div key={mk.id} style={{ marginBottom: 12 }}>
+                      <div key={mk.id} style={markerGroupStyle}>
                         <div className="muted" style={{ marginBottom: 6 }}>
                           {mk.label} {mk.unit ? `(${mk.unit})` : ""}
                         </div>
@@ -593,11 +585,11 @@ export default function PatientLabs() {
 
               <div className="space" />
 
-              <div className="card card-pad">
+              <div className="card card-pad" style={formSurfaceStyle}>
                 <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <div>
                     <div className="h2">Lab Form PDF Preview</div>
-                    <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
+                    <div className="muted patient-section-intro patient-mini-note">
                       After submission, this completed form will be converted into an internal PDF copy for Touch of Vitality.
                     </div>
                   </div>
@@ -698,5 +690,7 @@ export default function PatientLabs() {
     </div>
   );
 }
+
+
 
 

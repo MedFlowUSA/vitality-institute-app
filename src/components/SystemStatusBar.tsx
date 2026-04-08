@@ -20,6 +20,8 @@ export default function SystemStatusBar() {
 
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const activeLocationName = useMemo(() => {
     if (!activeLocationId) return null;
@@ -78,11 +80,14 @@ export default function SystemStatusBar() {
   const saveActiveLocation = async (nextId: string) => {
     if (!user?.id) return;
     setSaving(true);
+    setSaveMessage(null);
+    setSaveError(null);
     try {
       await setActiveLocationId(nextId || null);
+      setSaveMessage(nextId ? "Active location updated." : "Active location cleared.");
     } catch (error: unknown) {
       console.error("save active location error:", error);
-      alert(getErrorMessage(error, "Failed to save active location."));
+      setSaveError(getErrorMessage(error, "Failed to save active location."));
     } finally {
       setSaving(false);
     }
@@ -110,6 +115,8 @@ export default function SystemStatusBar() {
         <span className="v-pill v-pill-neutral">
           Location: <strong>{activeLocationName ?? "-"}</strong>
         </span>
+        {saveMessage ? <span className="v-pill v-pill-ok">{saveMessage}</span> : null}
+        {saveError ? <span className="v-pill v-pill-bad">{saveError}</span> : null}
       </div>
 
       <div className="v-status-right">
@@ -133,3 +140,6 @@ export default function SystemStatusBar() {
     </div>
   );
 }
+
+
+

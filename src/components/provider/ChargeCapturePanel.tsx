@@ -95,6 +95,7 @@ export default function ChargeCapturePanel({ patientId, locationId, visitId }: P
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const suggested = useMemo(() => suggestCodesFromWounds(wounds), [wounds]);
 
@@ -159,6 +160,7 @@ export default function ChargeCapturePanel({ patientId, locationId, visitId }: P
     if (!user?.id) return setErr("You must be signed in.");
     setBusy(true);
     setErr(null);
+    setSaveMessage(null);
 
     try {
       const payload = {
@@ -192,7 +194,7 @@ export default function ChargeCapturePanel({ patientId, locationId, visitId }: P
         if (error) throw error;
       }
 
-      alert("Charge capture saved.");
+      setSaveMessage("Charge capture saved.");
     } catch (e: any) {
       setErr(e?.message ?? "Failed to save.");
     } finally {
@@ -218,8 +220,9 @@ export default function ChargeCapturePanel({ patientId, locationId, visitId }: P
       </div>
 
       <div className="space" />
+      {saveMessage ? <div className="surface-light-helper" style={{ marginBottom: 10 }}>{saveMessage}</div> : null}
       {err ? <div style={{ color: "crimson", marginBottom: 10 }}>{err}</div> : null}
-      {loading ? <div className="muted">Loading…</div> : null}
+      {loading ? <div className="muted">Loading...</div> : null}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div className="card card-pad" style={{ background: "rgba(0,0,0,.18)" }}>
@@ -236,7 +239,7 @@ export default function ChargeCapturePanel({ patientId, locationId, visitId }: P
                 style={{ justifyContent: "space-between" }}
               >
                 <span style={{ textAlign: "left" }}>{c}</span>
-                <span>{selectedCpt.includes(c) ? "✓" : ""}</span>
+                <span>{selectedCpt.includes(c) ? "OK" : ""}</span>
               </button>
             ))}
           </div>
@@ -256,7 +259,7 @@ export default function ChargeCapturePanel({ patientId, locationId, visitId }: P
                 style={{ justifyContent: "space-between" }}
               >
                 <span style={{ textAlign: "left" }}>{c}</span>
-                <span>{selectedIcd.includes(c) ? "✓" : ""}</span>
+                <span>{selectedIcd.includes(c) ? "OK" : ""}</span>
               </button>
             ))}
           </div>
@@ -276,9 +279,12 @@ export default function ChargeCapturePanel({ patientId, locationId, visitId }: P
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           style={{ width: "100%", minHeight: 110 }}
-          placeholder="Example: Debridement performed, depth to subcutaneous, wound cleansed, compression applied, graft applied…"
+          placeholder="Example: Debridement performed, depth to subcutaneous, wound cleansed, compression applied, graft applied..."
         />
       </div>
     </div>
   );
 }
+
+
+

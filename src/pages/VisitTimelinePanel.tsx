@@ -33,9 +33,9 @@ type Props = {
 };
 
 function fmtDate(iso?: string | null) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
+  if (Number.isNaN(d.getTime())) return "-";
   return d.toLocaleString();
 }
 
@@ -136,7 +136,7 @@ export default function VisitTimelinePanel({
         </div>
 
         <button className="btn btn-ghost" type="button" onClick={load} disabled={loading}>
-          {loading ? "Refreshing…" : "Refresh"}
+          {loading ? "Refreshing..." : "Refresh"}
         </button>
       </div>
 
@@ -145,7 +145,7 @@ export default function VisitTimelinePanel({
       {err ? (
         <div style={{ color: "crimson" }}>{err}</div>
       ) : loading ? (
-        <div className="muted">Loading…</div>
+        <div className="muted">Loading...</div>
       ) : computed.length === 0 ? (
         <div className="muted">No visits found.</div>
       ) : (
@@ -173,18 +173,18 @@ export default function VisitTimelinePanel({
                   <div style={{ fontWeight: 800 }}>
                     {new Date(v.visit_date).toLocaleDateString()}{" "}
                     <span className="muted" style={{ fontWeight: 600 }}>
-                      • {v.visit_status ?? "—"}
+                      | {v.visit_status ?? "-"}
                     </span>
                   </div>
 
                   <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                    {v.summary ?? "—"}
+                    {v.summary ?? "-"}
                   </div>
 
                   <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
                     Visit created: {fmtDate(v.visit_date)}
-                    {v.soap_created_at ? ` • SOAP created: ${fmtDate(v.soap_created_at)}` : ""}
-                    {v.signed_at ? ` • Signed: ${fmtDate(v.signed_at)}` : ""}
+                    {v.soap_created_at ? ` | SOAP created: ${fmtDate(v.soap_created_at)}` : ""}
+                    {v.signed_at ? ` | Signed: ${fmtDate(v.signed_at)}` : ""}
                   </div>
                 </div>
 

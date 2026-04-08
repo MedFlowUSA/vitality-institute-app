@@ -94,8 +94,9 @@ export default function ProviderCommandCenter() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [attentionItems, setAttentionItems] = useState<WoundAttentionItem[]>([]);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  // Action loading for buttons so we don’t double-click
+  // Action loading for buttons so we don't double-click
   const [busyApptId, setBusyApptId] = useState<string | null>(null);
 
   const isAdmin = useMemo(() => role === "super_admin" || role === "location_admin", [role]);
@@ -108,7 +109,7 @@ export default function ProviderCommandCenter() {
 
   const svcName = useMemo(() => {
     const m = new Map(services.map((s) => [s.id, s.name]));
-    return (id: string | null) => (id ? m.get(id) ?? "—" : "—");
+    return (id: string | null) => (id ? m.get(id) ?? "-" : "-");
   }, [services]);
 
   const fmtTime = (iso: string) =>
@@ -161,7 +162,7 @@ export default function ProviderCommandCenter() {
     setLoading(true);
 
     try {
-      // If you’re not admin, you MUST have effectiveLocationId
+      // If you're not admin, you MUST have effectiveLocationId
       if (!isAdmin && !effectiveLocationId) {
         setApptsToday([]);
         setIntakesPending([]);
@@ -372,8 +373,14 @@ export default function ProviderCommandCenter() {
   };
 
   const setStatus = async (id: string, status: string) => {
+    setErr(null);
+    setActionMessage(null);
     const { error } = await supabase.from("appointments").update({ status }).eq("id", id);
-    if (error) return alert(error.message);
+    if (error) {
+      setErr(error.message);
+      return;
+    }
+    setActionMessage(`Appointment updated to ${status}.`);
     await refresh();
   };
 
@@ -512,7 +519,7 @@ export default function ProviderCommandCenter() {
       <div className="shell">
         <VitalityHero
           title="Command Center"
-          subtitle="One screen for today’s schedule + pending wound intakes"
+          subtitle="One screen for today's schedule + pending wound intakes"
           primaryCta={{ label: "Queue", to: "/provider/queue" }}
           secondaryCta={{ label: "Back to Dashboard", onClick: () => nav("/provider") }}
           showKpis={false}
@@ -583,7 +590,8 @@ export default function ProviderCommandCenter() {
 
         <div className="space" />
 
-        {loading ? <div className="muted">Loading…</div> : null}
+        {loading ? <div className="muted">Loading...</div> : null}
+        {actionMessage ? <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div> : null}
         {err ? <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div> : null}
 
         {attentionItems.length > 0 ? (
@@ -649,7 +657,7 @@ export default function ProviderCommandCenter() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 12 }}>
           {/* Left: Today */}
-          <Card title="Today’s Appointments">
+          <Card title="Today's Appointments">
             {apptsToday.length === 0 ? (
               <div className="muted">No appointments today.</div>
             ) : (
@@ -672,10 +680,10 @@ export default function ProviderCommandCenter() {
                       >
                         <div style={{ minWidth: 240 }}>
                           <div className="h2" style={{ margin: 0 }}>
-                            {fmtTime(a.start_time)} • {svcName(a.service_id)}
+                            {fmtTime(a.start_time)} | {svcName(a.service_id)}
                           </div>
                           <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-                            Status: <strong>{a.status}</strong> • Patient: {a.patient_id}
+                            Status: <strong>{a.status}</strong> | Patient: {a.patient_id}
                           </div>
                           {a.notes ? (
                             <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
@@ -709,7 +717,7 @@ export default function ProviderCommandCenter() {
                               onClick={() => approveAndOpenVisit(a)}
                               title="Approve appointment, create visit, and open chart"
                             >
-                              {isBusy ? "Working…" : "Approve & Open Chart"}
+                              {isBusy ? "Working..." : "Approve & Open Chart"}
                             </button>
                           ) : null}
 
@@ -737,7 +745,7 @@ export default function ProviderCommandCenter() {
                 {intakesPending.map((i) => (
                   <div key={i.id} className="card card-pad" style={{ background: "rgba(0,0,0,.18)" }}>
                     <div className="muted" style={{ fontSize: 12 }}>
-                      Status: <strong>{i.status ?? "—"}</strong>
+                      Status: <strong>{i.status ?? "-"}</strong>
                     </div>
                     <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                       Created: {new Date(i.created_at).toLocaleString()}
@@ -768,3 +776,5 @@ export default function ProviderCommandCenter() {
     </div>
   );
 }
+
+

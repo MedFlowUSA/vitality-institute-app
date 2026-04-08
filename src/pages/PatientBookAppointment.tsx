@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { clearPublicBookingDraft, getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { formatCatalogLocationName, getGuidedIntakePathwayForService, getIntakeOnlyPathwayForService } from "../lib/services/catalog";
+import { LAW_ENFORCEMENT_DISCOUNT_CODE, LAW_ENFORCEMENT_DISCOUNT_PERCENT } from "../lib/lawEnforcementDiscount";
 import { supabase } from "../lib/supabase";
 import RouteHeader from "../components/RouteHeader";
 
@@ -24,8 +25,6 @@ type ServiceRow = {
 };
 
 type PatientRow = { id: string; profile_id: string; first_name: string | null; last_name: string | null };
-
-const LAW_ENFORCEMENT_DISCOUNT_CODE = "BLUE25";
 
 function buildBookingNotes(notes: string, discountCode: string) {
   const trimmedNotes = notes.trim();
@@ -427,7 +426,7 @@ export default function PatientBookAppointment() {
                   placeholder={LAW_ENFORCEMENT_DISCOUNT_CODE}
                 />
                 <div className="muted" style={{ fontSize: 12, marginBottom: 10, lineHeight: 1.6 }}>
-                  Jane&apos;s Touch of Vitality police officers and other law enforcement clients can use {LAW_ENFORCEMENT_DISCOUNT_CODE} for 25% off eligible services. Verification may be requested at the visit.
+                  Jane&apos;s Touch of Vitality police officers and other law enforcement clients can use {LAW_ENFORCEMENT_DISCOUNT_CODE} for {LAW_ENFORCEMENT_DISCOUNT_PERCENT}% off eligible services. Verification may be requested at the visit.
                 </div>
                 <div className="muted" style={{ marginBottom: 6 }}>
                   Notes (optional)

@@ -392,7 +392,7 @@ export default function VitalAiSessionComplete() {
   };
 
   const handleCallClinic = () => {
-    window.location.href = "tel:+19095004572";
+    window.location.href = "tel:+12139126838";
   };
 
   const handlePrimaryOffer = () => {

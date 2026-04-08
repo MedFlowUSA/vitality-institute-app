@@ -77,6 +77,7 @@ export default function AdminHome() {
   const [locations, setLocations] = useState<LocationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [locationSaveMessage, setLocationSaveMessage] = useState<string | null>(null);
 
   const [adding, setAdding] = useState(false);
 
@@ -487,6 +488,7 @@ export default function AdminHome() {
 
           {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson" }}>{err}</div>}
+          {locationSaveMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{locationSaveMessage}</div>}
 
           {!loading && !err && (
             <>
@@ -495,6 +497,8 @@ export default function AdminHome() {
                   <form
                     onSubmit={async (e) => {
                       e.preventDefault();
+                      setErr(null);
+                      setLocationSaveMessage(null);
                       const form = e.currentTarget as HTMLFormElement;
                       const name = (form.elements.namedItem("name") as HTMLInputElement).value;
                       const addressLine1 = (form.elements.namedItem("address_line1") as HTMLInputElement).value;
@@ -515,11 +519,15 @@ export default function AdminHome() {
                         },
                       ]);
 
-                      if (error) return alert(error.message);
+                      if (error) {
+                        setErr(error.message);
+                        return;
+                      }
 
                       form.reset();
                       setAdding(false);
                       await loadLocations();
+                      setLocationSaveMessage("Location added successfully.");
                     }}
                   >
                     <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>

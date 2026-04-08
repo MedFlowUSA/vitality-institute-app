@@ -15,6 +15,7 @@ type Props = {
 
 const navItems = [
   { to: "/services", label: "Services" },
+  { to: "/how-to-use-the-app", label: "App Guide" },
   { to: getPublicAccessRoute("login"), label: "Sign In" },
 ];
 
@@ -22,6 +23,7 @@ function getBackFallback(pathname: string) {
   if (pathname.startsWith("/services/")) return "/services";
   if (pathname === "/contact") return "/";
   if (pathname === "/book") return "/services";
+  if (pathname === "/how-to-use-the-app") return "/";
   if (pathname === "/access" || pathname === "/patient/auth" || pathname === "/login") return "/";
   if (pathname === "/vital-ai" || pathname === "/start") return "/";
   if (pathname === "/privacy-policy" || pathname === "/terms-of-service") return "/";

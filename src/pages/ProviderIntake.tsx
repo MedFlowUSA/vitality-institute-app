@@ -62,7 +62,7 @@ type WoundIntakeRow = {
 };
 
 function fmt(iso: string | null | undefined) {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso).toLocaleString();
 }
 
@@ -116,6 +116,7 @@ export default function ProviderIntake() {
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const isAdmin = useMemo(() => role === "super_admin" || role === "location_admin", [role]);
 
@@ -288,7 +289,8 @@ export default function ProviderIntake() {
       if (!user?.id) return;
       try {
         const allowed = isAdmin ? [] : allowedLocationIds;
-        await loadIntakes(allowed);
+    await loadIntakes(allowed);
+    setActionMessage(`Intake updated to ${status}.`);
       } catch (error: unknown) {
         if (!cancelled) setErr(getErrorMessage(error, "Failed to refresh intakes."));
       }
@@ -301,9 +303,11 @@ export default function ProviderIntake() {
 
   const updateStatus = async (id: string, status: string, providerNotes: string) => {
     if (!user?.id) return;
+    setErr(null);
+    setActionMessage(null);
 
     // Prefer RPC if you have it; fallback to direct update.
-    // NOTE: RPC requires app auth context (won’t work in SQL editor).
+    // NOTE: RPC requires app auth context (won't work in SQL editor).
     const tryRpc = async () => {
       const { error } = await supabase.rpc("provider_set_intake_status", {
         p_intake_id: id,
@@ -341,13 +345,14 @@ export default function ProviderIntake() {
       try {
         await tryDirect();
       } catch (error: unknown) {
-        alert(getErrorMessage(error, "Failed to update intake."));
+        setErr(getErrorMessage(error, "Failed to update intake."));
         return;
       }
     }
 
     const allowed = isAdmin ? [] : allowedLocationIds;
     await loadIntakes(allowed);
+    setActionMessage(`Intake updated to ${status}.`);
   };
 
   return (
@@ -396,7 +401,8 @@ export default function ProviderIntake() {
         <div className="space" />
 
         <div className="card card-pad">
-          {loading && <div className="muted">Loading…</div>}
+          {loading && <div className="muted">Loading...</div>}
+          {actionMessage && <div className="surface-light-helper" style={{ marginBottom: 12 }}>{actionMessage}</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading && (
@@ -422,7 +428,7 @@ export default function ProviderIntake() {
                     value={locationId}
                     onChange={(e) => setLocationId(e.target.value)}
                     disabled={!isAdmin && allowedLocationIds.length <= 1}
-                    title={!isAdmin && allowedLocationIds.length <= 1 ? "You’re assigned to one location." : "Filter by location"}
+                    title={!isAdmin && allowedLocationIds.length <= 1 ? "You're assigned to one location." : "Filter by location"}
                     style={{ flex: "1 1 220px", minWidth: 220 }}
                   >
                     <option value="">{isAdmin ? "All Locations" : "My Locations"}</option>
@@ -465,7 +471,7 @@ export default function ProviderIntake() {
                     const patientLabel =
                       (p?.first_name || p?.last_name)
                         ? `${p?.first_name ?? ""} ${p?.last_name ?? ""}`.trim()
-                        : `Patient • ${r.patient_id.slice(0, 8)}…`;
+                        : `Patient | ${r.patient_id.slice(0, 8)}...`;
 
                     return (
                       <button
@@ -487,12 +493,12 @@ export default function ProviderIntake() {
                         onClick={() => setActiveId(r.id)}
                       >
                         <span style={{ textAlign: "left" }}>
-                          <span style={{ fontWeight: 700 }}>WOUND CARE</span> • <span style={badgeStyle(r.status)}>{r.status.toUpperCase()}</span>
+                          <span style={{ fontWeight: 700 }}>WOUND CARE</span> | <span style={badgeStyle(r.status)}>{r.status.toUpperCase()}</span>
                           <span className="muted" style={{ display: "block", fontSize: 12, marginTop: 6 }}>
-                            {patientLabel} • {locName(r.location_id)}
+                            {patientLabel} | {locName(r.location_id)}
                           </span>
                           <span className="muted" style={{ display: "block", fontSize: 12 }}>
-                            {new Date(r.created_at).toLocaleDateString()} • {new Date(r.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(r.created_at).toLocaleDateString()} | {new Date(r.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </span>
                       </button>
@@ -521,7 +527,7 @@ export default function ProviderIntake() {
         <div className="space" />
 
         <div className="muted" style={{ fontSize: 12 }}>
-          Tip: “Locked” should be your final step once intake is clinically approved — it triggers downstream Visit/SOAP automation (per your DB functions).
+          Tip: "Locked" should be your final step once intake is clinically approved - it triggers downstream Visit/SOAP automation (per your DB functions).
         </div>
       </div>
     </div>
@@ -559,7 +565,7 @@ function WoundIntakeDetail({
   const patientLabel =
     (patient?.first_name || patient?.last_name)
       ? `${patient?.first_name ?? ""} ${patient?.last_name ?? ""}`.trim()
-      : `Patient • ${row.patient_id.slice(0, 8)}…`;
+      : `Patient | ${row.patient_id.slice(0, 8)}...`;
 
   const doUpdate = async (status: string) => {
     setBusy(true);
@@ -592,7 +598,7 @@ function WoundIntakeDetail({
   useEffect(() => {
     setSignedUploads([]);
     setLoadingLinks(false);
-    // don’t auto-fetch links on every selection; keep it user-triggered for speed.
+    // don't auto-fetch links on every selection; keep it user-triggered for speed.
   }, [row.id]);
 
   return (
@@ -600,10 +606,10 @@ function WoundIntakeDetail({
       <div className="row" style={{ justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div style={{ flex: 1 }}>
           <div className="h2" style={{ marginBottom: 2, color: "#241B3D" }}>
-            WOUND CARE • <span style={badgeStyle(row.status)}>{row.status.toUpperCase()}</span>
+            WOUND CARE | <span style={badgeStyle(row.status)}>{row.status.toUpperCase()}</span>
           </div>
           <div className="muted" style={{ fontSize: 13, color: "#5B4E86" }}>
-            Submitted: {fmt(row.created_at)} • Location: {locationName}
+            Submitted: {fmt(row.created_at)} | Location: {locationName}
           </div>
 
           <div className="space" />
@@ -660,7 +666,7 @@ function WoundIntakeDetail({
             disabled={busy || lock || (row.status || "").toLowerCase() !== "approved"}
             title={(row.status || "").toLowerCase() !== "approved" ? "Approve first, then lock." : "Lock intake (final)."}
           >
-            {busy ? "Saving…" : "Lock Intake"}
+            {busy ? "Saving..." : "Lock Intake"}
           </button>
 
           {row.reviewed_at ? (
@@ -686,18 +692,18 @@ function WoundIntakeDetail({
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
           <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 240px", minWidth: 240 }}>
             <div className="muted" style={intakeLabelStyle}>Location</div>
-            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.wound_location || "—"}</div>
+            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.wound_location || "-"}</div>
           </div>
 
           <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 240px", minWidth: 240 }}>
             <div className="muted" style={intakeLabelStyle}>Duration</div>
-            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.wound_duration || "—"}</div>
+            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.wound_duration || "-"}</div>
           </div>
 
           <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 240px", minWidth: 240 }}>
-            <div className="muted" style={intakeLabelStyle}>Pain (0–10)</div>
+            <div className="muted" style={intakeLabelStyle}>Pain (0-10)</div>
             <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>
-              {typeof wound.pain_level === "number" ? wound.pain_level : "—"}
+              {typeof wound.pain_level === "number" ? wound.pain_level : "-"}
             </div>
           </div>
         </div>
@@ -707,17 +713,17 @@ function WoundIntakeDetail({
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
           <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 320px", minWidth: 280 }}>
             <div className="muted" style={intakeLabelStyle}>Cause</div>
-            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{wound.wound_cause || "—"}</div>
+            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{wound.wound_cause || "-"}</div>
           </div>
 
           <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 320px", minWidth: 280 }}>
             <div className="muted" style={intakeLabelStyle}>Prior Treatments</div>
-            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{wound.prior_treatments || "—"}</div>
+            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{wound.prior_treatments || "-"}</div>
           </div>
 
           <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 320px", minWidth: 280 }}>
             <div className="muted" style={intakeLabelStyle}>Current Dressing / Care</div>
-            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{wound.current_dressing || "—"}</div>
+            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{wound.current_dressing || "-"}</div>
           </div>
         </div>
 
@@ -726,17 +732,17 @@ function WoundIntakeDetail({
         <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
           <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 240px", minWidth: 240 }}>
             <div className="muted" style={intakeLabelStyle}>Diabetes</div>
-            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.has_diabetes || "—"}</div>
+            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.has_diabetes || "-"}</div>
           </div>
 
           <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "1 1 240px", minWidth: 240 }}>
             <div className="muted" style={intakeLabelStyle}>Smoking</div>
-            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.smokes || "—"}</div>
+            <div style={{ marginTop: 6, fontWeight: 700, ...intakeValueStyle }}>{wound.smokes || "-"}</div>
           </div>
 
           <div className="card card-pad" style={{ ...intakeLightCardStyle, flex: "2 1 420px", minWidth: 280 }}>
             <div className="muted" style={intakeLabelStyle}>Medications</div>
-            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{row.medications || "—"}</div>
+            <div style={{ marginTop: 6, whiteSpace: "pre-wrap", ...intakeValueStyle }}>{row.medications || "-"}</div>
           </div>
         </div>
       </div>
@@ -753,7 +759,7 @@ function WoundIntakeDetail({
           </div>
 
           <button className="btn btn-ghost" type="button" onClick={loadLinks} disabled={loadingLinks || uploads.length === 0}>
-            {loadingLinks ? "Loading…" : "Load file links"}
+            {loadingLinks ? "Loading..." : "Load file links"}
           </button>
         </div>
 
@@ -798,3 +804,5 @@ function WoundIntakeDetail({
     </>
   );
 }
+
+
