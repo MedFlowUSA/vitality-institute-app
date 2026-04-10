@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import BrandLockup from "./BrandLockup";
 
 type RouteHeaderProps = {
@@ -14,8 +15,8 @@ type RouteHeaderProps = {
 
 function getDefaultHome(role: ReturnType<typeof useAuth>["role"]) {
   if (role === "patient") return "/patient/home";
-  if (role === "super_admin") return "/admin";
-  return "/provider";
+  if (role === "super_admin" || role === "location_admin") return "/admin";
+  return PROVIDER_ROUTES.home;
 }
 
 export default function RouteHeader({ title, backTo, homeTo, subtitle, rightAction }: RouteHeaderProps) {

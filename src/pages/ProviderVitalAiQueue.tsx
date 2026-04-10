@@ -353,8 +353,8 @@ export default function ProviderVitalAiQueue() {
         <RouteHeader
           title="Vital AI Requests"
           subtitle="Review submitted requests and schedule the next step."
-          backTo="/provider"
-          homeTo="/provider"
+          backTo={PROVIDER_ROUTES.home}
+          homeTo={PROVIDER_ROUTES.home}
         />
 
         <div className="space" />
@@ -362,7 +362,7 @@ export default function ProviderVitalAiQueue() {
         <VitalityHero
           title="Vital AI Requests"
           subtitle="Review Vital AI intakes and convert approved requests into scheduled visits."
-          secondaryCta={{ label: "Back", to: "/provider" }}
+          secondaryCta={{ label: "Back", to: PROVIDER_ROUTES.home }}
           showKpis={false}
         />
 

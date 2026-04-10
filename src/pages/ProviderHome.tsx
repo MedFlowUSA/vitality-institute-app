@@ -17,6 +17,7 @@ import {
   providerVisitBuilderAppointmentPath,
   providerVisitBuilderPath,
 } from "../lib/providerRoutes";
+import { resolvePatientRecordId, startVisitFromAppointment } from "../lib/provider/visitLaunch";
 import { getVirtualVisitState } from "../lib/virtualVisits";
 
 type LocationRow = { id: string; name: string };
@@ -30,9 +31,6 @@ type PatientNameRow = {
 };
 type AppointmentStatusRow = { status: string | null };
 type IntakeStatusRow = { id: string };
-type VisitRpcResult = { id?: string | null } | string | null;
-type ExistingVisitRow = { id: string };
-
 type ApptRow = {
   id: string;
   location_id: string;
@@ -101,12 +99,6 @@ export default function ProviderHome() {
   }, [services]);
 
   const patientLabel = (id: string) => patientNames[id] ?? "Patient";
-  const getVisitIdFromRpc = (result: VisitRpcResult) => {
-    if (typeof result === "string") return result;
-    if (result && typeof result === "object" && "id" in result) return result.id ?? null;
-    return null;
-  };
-
   const nextAppointments = useMemo(() => appointments.slice(0, 3), [appointments]);
   const guide = useMemo(() => buildProviderHomeGuide(), []);
   const todayVirtualVisits = useMemo(
@@ -132,24 +124,6 @@ export default function ProviderHome() {
     if (!activeLocationId) return query;
     return query.eq("location_id", activeLocationId);
   }, [activeLocationId]);
-
-  const resolvePatientRecordId = async (candidateId: string) => {
-    if (!candidateId) throw new Error("Missing patient id.");
-
-    const { data: byId, error: byIdErr } = await supabase.from("patients").select("id").eq("id", candidateId).maybeSingle();
-    if (byIdErr) throw byIdErr;
-    if (byId?.id) return byId.id as string;
-
-    const { data: byProfile, error: byProfileErr } = await supabase
-      .from("patients")
-      .select("id")
-      .eq("profile_id", candidateId)
-      .maybeSingle();
-    if (byProfileErr) throw byProfileErr;
-    if (byProfile?.id) return byProfile.id as string;
-
-    throw new Error("Patient record not found.");
-  };
 
   const loadBase = useCallback(async (uid: string) => {
     setErr(null);
@@ -436,33 +410,12 @@ export default function ProviderHome() {
     try {
       setErr(null);
       setStartingVisitId(appt.id);
-      const visitPatientId = await resolvePatientRecordId(appt.patient_id);
-
-      const { data: existingVisit, error: visitErr } = await supabase
-        .from("patient_visits")
-        .select("id")
-        .eq("appointment_id", appt.id)
-        .maybeSingle<ExistingVisitRow>();
-
-      if (visitErr) throw visitErr;
-
-      if (existingVisit?.id) {
-        navigate(`${providerPatientCenterPath(visitPatientId)}?visitId=${existingVisit.id}`);
-        return;
-      }
-
-      const { data: visitId, error: rpcErr } = await supabase.rpc("start_patient_visit", {
-        p_patient: visitPatientId,
-        p_location: appt.location_id,
-        p_appointment: appt.id,
+      const launched = await startVisitFromAppointment({
+        appointmentId: appt.id,
+        patientCandidateId: appt.patient_id,
+        locationId: appt.location_id,
       });
-
-      if (rpcErr) throw rpcErr;
-
-      const nextVisitId = getVisitIdFromRpc(visitId as VisitRpcResult);
-      if (!nextVisitId) throw new Error("Visit created but no visitId was returned.");
-
-      navigate(`${providerPatientCenterPath(visitPatientId)}?visitId=${nextVisitId}`);
+      navigate(`${providerPatientCenterPath(launched.patientId)}?visitId=${launched.visitId}`);
       await refreshAll();
     } catch (e: unknown) {
       setErr(getErrorMessage(e, "Failed to start visit."));

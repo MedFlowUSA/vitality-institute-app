@@ -1,6 +1,7 @@
 ﻿import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import { getAuthRedirectUrl, supabase } from "../lib/supabase";
 
 type EntryMode = "signin" | "create";
@@ -42,7 +43,7 @@ export default function Login() {
       return;
     }
 
-    navigate("/provider", { replace: true });
+    navigate(PROVIDER_ROUTES.home, { replace: true });
   }
 
   async function onSubmit(e: React.FormEvent) {

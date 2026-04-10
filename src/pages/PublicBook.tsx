@@ -10,6 +10,7 @@ import { createBookingRequest } from "../lib/bookingRequests";
 import { buildFollowUpMessage, resolveBookingRequestLead } from "../lib/publicFollowUpEngine";
 import { getPublicOfferingBySlug, PUBLIC_OFFERINGS, type PublicOffering } from "../lib/publicMarketingCatalog";
 import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
+import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath, sanitizeInternalPath } from "../lib/routeFlow";
 import { LAW_ENFORCEMENT_DISCOUNT_CODE, LAW_ENFORCEMENT_DISCOUNT_PERCENT } from "../lib/lawEnforcementDiscount";
 import {
@@ -28,7 +29,7 @@ import {
 
 function getHomeRouteForRole(role: AppRole | null) {
   if (role === "super_admin" || role === "location_admin") return "/admin";
-  if (role && role !== "patient") return "/provider";
+  if (role && role !== "patient") return PROVIDER_ROUTES.home;
   return "/patient/home";
 }
 

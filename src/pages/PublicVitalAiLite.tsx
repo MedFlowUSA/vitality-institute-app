@@ -15,6 +15,7 @@ import {
 } from "../lib/publicVitalAiLite";
 import { buildFollowUpMessage } from "../lib/publicFollowUpEngine";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
+import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import { submitPublicVitalAiRequest } from "../lib/publicVitalAiSubmission";
 import { formatCatalogLocationDetails, formatCatalogLocationLabel, formatCatalogLocationName, loadCatalogLocations, type CatalogLocation } from "../lib/services/catalog";
 import { scoreConversionLead } from "../lib/vitalAi/conversionEngine";
@@ -30,7 +31,7 @@ const CONTACT_METHODS = [
 
 function getHomeRouteForRole(role: AppRole | null) {
   if (role === "super_admin" || role === "location_admin") return "/admin";
-  if (role && role !== "patient") return "/provider";
+  if (role && role !== "patient") return PROVIDER_ROUTES.home;
   return "/patient/home";
 }
 

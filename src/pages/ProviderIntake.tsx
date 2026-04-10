@@ -363,8 +363,8 @@ export default function ProviderIntake() {
         <RouteHeader
           title="Intakes"
           subtitle="Review and work submitted wound intakes."
-          backTo="/provider"
-          homeTo="/provider"
+          backTo={PROVIDER_ROUTES.home}
+          homeTo={PROVIDER_ROUTES.home}
           rightAction={
             <button className="btn btn-ghost" onClick={signOut} type="button">
               Sign out

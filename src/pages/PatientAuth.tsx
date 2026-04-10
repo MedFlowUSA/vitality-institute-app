@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, type AppRole } from "../auth/AuthProvider";
+import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { buildAuthRoute, normalizeRedirectTarget } from "../lib/routeFlow";
 import { getAuthRedirectUrl, supabase } from "../lib/supabase";
@@ -9,7 +10,7 @@ type Mode = "login" | "signup" | "magic";
 
 function getHomeRouteForRole(role: AppRole | null) {
   if (role === "super_admin" || role === "location_admin") return "/admin";
-  if (role && role !== "patient") return "/provider";
+  if (role && role !== "patient") return PROVIDER_ROUTES.home;
   return "/patient/home";
 }
 

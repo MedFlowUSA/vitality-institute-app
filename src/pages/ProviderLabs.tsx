@@ -382,7 +382,7 @@ export default function ProviderLabs() {
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <button className="btn btn-ghost" onClick={() => nav("/provider")}>
+              <button className="btn btn-ghost" onClick={() => nav(PROVIDER_ROUTES.home)}>
                 Back
               </button>
               <button className="btn btn-ghost" onClick={signOut}>

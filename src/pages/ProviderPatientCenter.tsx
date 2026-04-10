@@ -37,7 +37,7 @@ import {
   providerVisitBuilderPath,
   providerWoundTimelinePath,
 } from "../lib/providerRoutes";
-import { startVisitFromAppointment } from "../lib/provider/visitLaunch";
+import { resolvePatientRecordId, startVisitFromAppointment } from "../lib/provider/visitLaunch";
 import type { ProviderLabStatus, ProviderPatientSummary, ProviderVisitSummary } from "../lib/provider/types";
 
 const LazyTreatmentPlanSection = lazy(() => import("../components/provider/TreatmentPlanSection"));
@@ -742,7 +742,25 @@ export default function ProviderPatientCenter() {
   };
 
   useEffect(() => {
-    setResolvedPatientId(patientIdFromRoute);
+    if (!patientIdFromRoute) {
+      setResolvedPatientId("");
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const nextPatientId = await resolvePatientRecordId(patientIdFromRoute);
+        if (!cancelled) setResolvedPatientId(nextPatientId);
+      } catch {
+        if (!cancelled) setResolvedPatientId(patientIdFromRoute);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [patientIdFromRoute]);
 
   useEffect(() => {

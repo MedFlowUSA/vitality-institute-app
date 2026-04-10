@@ -151,7 +151,7 @@ function Gate() {
   }
 
   if ((PROVIDER_ROLES as readonly string[]).includes(role)) {
-    return <Navigate to="/provider" replace />;
+    return <Navigate to={PROVIDER_ROUTES.home} replace />;
   }
 
   return <Navigate to="/patient/home" replace />;
@@ -160,7 +160,7 @@ function Gate() {
 function getHomeRouteForRole(role: AppRole | null) {
   if (!role) return "/";
   if ((ADMIN_ROLES as readonly string[]).includes(role)) return "/admin";
-  if ((PROVIDER_ROLES as readonly string[]).includes(role)) return "/provider";
+  if ((PROVIDER_ROLES as readonly string[]).includes(role)) return PROVIDER_ROUTES.home;
   return "/patient/home";
 }
 

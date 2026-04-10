@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
+import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import logo from "../assets/vitality-logo.png";
 
 type Kpis = {
@@ -26,7 +27,7 @@ function endOfTodayLocalISO() {
 function getDefaultHome(role: ReturnType<typeof useAuth>["role"]) {
   if (role === "patient") return "/patient/home";
   if (role === "super_admin" || role === "location_admin") return "/admin";
-  return "/provider";
+  return PROVIDER_ROUTES.home;
 }
 
 export default function VitalityHero({

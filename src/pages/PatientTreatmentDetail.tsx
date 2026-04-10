@@ -27,8 +27,7 @@ type SoapRow = {
   objective: string | null;
   assessment: string | null;
   plan: string | null;
-  status: string | null;
-  locked: boolean | null;
+  is_locked: boolean | null;
   signed_at: string | null;
 };
 
@@ -101,14 +100,14 @@ export default function PatientTreatmentDetail() {
       if (vRes.error) throw new Error(vRes.error.message);
       if (!vRes.data) {
         setVisit(null);
-        throw new Error("Visit not found (or you don’t have access).");
+        throw new Error("Visit not found (or you do not have access).");
       }
       setVisit(vRes.data as VisitRow);
 
       // SOAP note (if exists)
       const soapRes = await supabase
         .from("patient_soap_notes")
-        .select("id,created_at,visit_id,subjective,objective,assessment,plan,status,locked,signed_at")
+        .select("id,created_at,visit_id,subjective,objective,assessment,plan,is_locked,signed_at")
         .eq("visit_id", visitId)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -227,9 +226,9 @@ export default function PatientTreatmentDetail() {
                 {soap ? (
                   <>
                     <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                      Created: {fmt(soap.created_at)} | Status: <strong>{soap.status ?? "-"}</strong>
+                      Created: {fmt(soap.created_at)}
                       {" | "}
-                      Locked: <strong>{soap.locked ? "Yes" : "No"}</strong>
+                      Locked: <strong>{soap.is_locked ? "Yes" : "No"}</strong>
                       {" | "}
                       Signed: <strong>{soap.signed_at ? "Yes" : "No"}</strong>
                     </div>

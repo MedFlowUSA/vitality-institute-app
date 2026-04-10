@@ -20,7 +20,6 @@ type VisitRow = {
 type SoapRow = {
   id: string;
   created_at: string;
-  status: string | null;
   subjective: string | null;
   objective: string | null;
   assessment: string | null;
@@ -181,7 +180,7 @@ export default function PatientVisitChart() {
         const [soapRes, fileRes, labRes, woundRes, planRes] = await Promise.all([
           supabase
             .from("patient_soap_notes")
-            .select("id,created_at,status,subjective,objective,assessment,plan")
+            .select("id,created_at,subjective,objective,assessment,plan")
             .eq("visit_id", visitId)
             .order("created_at", { ascending: false }),
 
@@ -500,7 +499,7 @@ export default function PatientVisitChart() {
                         >
                           <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                             <div className="muted">{new Date(n.created_at).toLocaleString()}</div>
-                            <span style={badge(n.status)}>{(n.status || "-").toUpperCase()}</span>
+                            <span style={badge("completed")}>SOAP NOTE</span>
                           </div>
                           <div className="space" />
                           {n.subjective && (

@@ -33,8 +33,7 @@ type SoapRow = {
   id: string;
   visit_id: string;
   created_at: string;
-  status: string | null;
-  locked: boolean | null;
+  is_locked: boolean | null;
   subjective: string | null;
   objective: string | null;
   assessment: string | null;
@@ -335,7 +334,7 @@ export default function PatientTreatments() {
       const sRes = await withTimeout(
         supabase
           .from("patient_soap_notes")
-          .select("id,visit_id,created_at,status,locked,subjective,objective,assessment,plan,signed_at")
+          .select("id,visit_id,created_at,is_locked,subjective,objective,assessment,plan,signed_at")
           .in("visit_id", visitIds)
           .order("created_at", { ascending: false }),
         12000
@@ -860,7 +859,7 @@ export default function PatientTreatments() {
                               {soapByVisit[activeVisit.id]!.signed_at
                                 ? fmt(soapByVisit[activeVisit.id]!.signed_at)
                                 : "-"}
-                              {" - "}Locked: {soapByVisit[activeVisit.id]!.locked ? "Yes" : "No"}
+                              {" - "}Locked: {soapByVisit[activeVisit.id]!.is_locked ? "Yes" : "No"}
                             </div>
 
                             <div className="card card-pad" style={{ marginBottom: 10 }}>

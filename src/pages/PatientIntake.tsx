@@ -265,7 +265,7 @@ export default function PatientIntake() {
       <div className="shell">
         <VitalityHero
           title="Vitality Institute"
-          subtitle="Patient Intake • Select therapy • Complete your form"
+          subtitle="Patient Intake â€¢ Select therapy â€¢ Complete your form"
           secondaryCta={{ label: "Back", to: "/patient/home" }}
           rightActions={
             <button className="btn btn-ghost" onClick={signOut} type="button">
@@ -298,7 +298,7 @@ export default function PatientIntake() {
 
           <div className="space" />
 
-          {loading && <div className="muted">Loading…</div>}
+          {loading && <div className="muted">Loading...</div>}
           {err && <div style={{ color: "crimson", marginBottom: 12 }}>{err}</div>}
 
           {!loading && (
@@ -315,7 +315,7 @@ export default function PatientIntake() {
                   <option value="">Select Appointment</option>
                   {appointments.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {new Date(a.start_time).toLocaleString()} — {locName(a.location_id)} — {a.status}
+                      {new Date(a.start_time).toLocaleString()} - {locName(a.location_id)} - {a.status}
                     </option>
                   ))}
                 </select>
@@ -428,7 +428,7 @@ export default function PatientIntake() {
 
                   <div className="space" />
                   <button className="btn btn-primary" onClick={submit} disabled={saving} type="button">
-                    {saving ? "Submitting…" : "Submit Intake"}
+                    {saving ? "Submittingâ€¦" : "Submit Intake"}
                   </button>
                 </div>
               ) : (

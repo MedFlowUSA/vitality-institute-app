@@ -15,6 +15,7 @@ import {
   providerVisitBuilderAppointmentPath,
   providerVisitChartPath,
 } from "../lib/providerRoutes";
+import { resolvePatientRecordId } from "../lib/provider/visitLaunch";
 import { analyzeWoundProgression } from "../lib/woundProgression";
 import { analyzeWoundRisk } from "../lib/woundRiskAlerts";
 
@@ -124,28 +125,6 @@ export default function ProviderCommandCenter() {
     new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
   const scope = (q: any) => (effectiveLocationId ? q.eq("location_id", effectiveLocationId) : q);
-
-  const resolvePatientRecordId = async (candidateId: string) => {
-    if (!candidateId) throw new Error("Missing patient id.");
-
-    const { data: byId, error: byIdErr } = await supabase
-      .from("patients")
-      .select("id")
-      .eq("id", candidateId)
-      .maybeSingle();
-    if (byIdErr) throw byIdErr;
-    if (byId?.id) return byId.id as string;
-
-    const { data: byProfile, error: byProfileErr } = await supabase
-      .from("patients")
-      .select("id")
-      .eq("profile_id", candidateId)
-      .maybeSingle();
-    if (byProfileErr) throw byProfileErr;
-    if (byProfile?.id) return byProfile.id as string;
-
-    throw new Error("Patient record not found.");
-  };
 
   const loadBase = async () => {
     // locations (admin can see all; non-admin normally uses activeLocationId already)

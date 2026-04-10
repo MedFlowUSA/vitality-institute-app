@@ -536,16 +536,16 @@ export default function SoapNotePanel({ visitId, patientId, locationId, onContin
         </div>
         <div style={{ marginTop: 6 }}>
           Status: <strong style={{ color: "rgba(255,255,255,.92)" }}>{statusLabel}</strong>
-          {" • "}
+          {" | "}
           Created: {new Date(row.created_at).toLocaleString()}
-          {" • "}
+          {" | "}
           Updated: {new Date(row.updated_at).toLocaleString()}
         </div>
         <div style={{ marginTop: 4 }}>
           Signed: <strong style={{ color: "rgba(255,255,255,.92)" }}>{signedAt ?? "No"}</strong>
           {signedAt ? (
             <>
-              {" • "}Signed By:{" "}
+              {" | "}Signed By:{" "}
               <strong style={{ color: "rgba(255,255,255,.92)" }}>{row.signed_by ?? "-"}</strong>
             </>
           ) : null}

@@ -8,6 +8,7 @@ import RouteHeader from "../components/RouteHeader";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import VirtualVisitFormFields from "../components/VirtualVisitFormFields";
 import { buildProviderVisitBuilderGuide } from "../lib/provider/providerGuide";
+import { resolvePatientRecordId } from "../lib/provider/visitLaunch";
 import { PROVIDER_ROUTES, providerVisitChartPath } from "../lib/providerRoutes";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
@@ -97,24 +98,6 @@ export default function ProviderVisitBuilderVirtual() {
     () => buildProviderVisitBuilderGuide(!!appointment, !!visit, appointmentVisitType === "virtual"),
     [appointment, appointmentVisitType, visit]
   );
-
-  const resolvePatientRecordId = async (candidateId: string) => {
-    if (!candidateId) throw new Error("Missing patient id.");
-
-    const { data: byId, error: byIdErr } = await supabase.from("patients").select("id").eq("id", candidateId).maybeSingle();
-    if (byIdErr) throw byIdErr;
-    if (byId?.id) return byId.id as string;
-
-    const { data: byProfile, error: byProfileErr } = await supabase
-      .from("patients")
-      .select("id")
-      .eq("profile_id", candidateId)
-      .maybeSingle();
-    if (byProfileErr) throw byProfileErr;
-    if (byProfile?.id) return byProfile.id as string;
-
-    throw new Error("Patient not found for appointment/profile.");
-  };
 
   useEffect(() => {
     const load = async () => {
@@ -392,7 +375,7 @@ export default function ProviderVisitBuilderVirtual() {
                 <strong>{fullName}</strong>
               </div>
               <div className="muted" style={{ marginTop: 4 }}>
-                {patient?.email ?? "-"} • {patient?.phone ?? "-"}
+                {patient?.email ?? "-"} | {patient?.phone ?? "-"}
               </div>
 
               {appointment ? (
@@ -401,7 +384,7 @@ export default function ProviderVisitBuilderVirtual() {
                   <div className="h2">Appointment</div>
                   <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
                     <div className="muted">
-                      {new Date(appointment.start_time).toLocaleString()} • {appointment.status ?? "-"}
+                      {new Date(appointment.start_time).toLocaleString()} | {appointment.status ?? "-"}
                     </div>
                     <VirtualVisitBadge appointment={appointment} />
                   </div>
@@ -504,7 +487,7 @@ export default function ProviderVisitBuilderVirtual() {
                   </button>
                 ) : (
                   <div className="muted">
-                    Visit created: <strong>{new Date(visit.visit_date).toLocaleString()}</strong> • You can now add a wound assessment or open the chart.
+                    Visit created: <strong>{new Date(visit.visit_date).toLocaleString()}</strong> | You can now add a wound assessment or open the chart.
                   </div>
                 )}
               </div>

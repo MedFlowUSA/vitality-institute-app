@@ -176,7 +176,7 @@ export default function ProviderPatients() {
         <VitalityHero
           title="Patients"
           subtitle="Search patients, open the patient center, and manage visits, files, and notes."
-          secondaryCta={{ label: "Back", to: "/provider" }}
+          secondaryCta={{ label: "Back", to: PROVIDER_ROUTES.home }}
           primaryCta={{ label: "AI Plan Builder", to: PROVIDER_ROUTES.ai }}
           rightActions={
             <button className="btn btn-ghost" onClick={signOut} type="button">

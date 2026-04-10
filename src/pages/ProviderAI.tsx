@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import InlineNotice from "../components/InlineNotice";
 import DictationTextarea from "../components/DictationTextarea";
+import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import { supabase } from "../lib/supabase";
 import logo from "../assets/vitality-logo.png";
 
@@ -357,7 +358,7 @@ export default function ProviderAI() {
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <button className="btn btn-ghost" onClick={() => nav("/provider")}>
+              <button className="btn btn-ghost" onClick={() => nav(PROVIDER_ROUTES.home)}>
                 Back
               </button>
               <button className="btn btn-ghost" onClick={signOut}>
