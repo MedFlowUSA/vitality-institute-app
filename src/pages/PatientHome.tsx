@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { getCanonicalPatientIntakeServiceType, getCanonicalServiceTypeKey } from "../lib/canonicalOfferRegistry";
-import { formatCatalogLocationName, getGuidedIntakePathwayForService, normalizePublicPriceLabel } from "../lib/services/catalog";
+import { readPatientNoticeState } from "../lib/patientNotices";
+import { formatCatalogLocationName, normalizePublicPriceLabel } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
 import {
   formatPatientFileSize,
@@ -18,6 +19,11 @@ import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
 import InlineNotice from "../components/InlineNotice";
 import { countUnreadConversationsForPatient, ensureAppointmentConversation } from "../lib/messaging/conversationService";
 import { getErrorMessage, getPatientRecordIdForProfile, isDatabaseErrorWithCode } from "../lib/patientRecords";
+import {
+  buildAppointmentIntakePath,
+  getPatientAppointmentIntakeCtaLabel,
+  getPatientDashboardIntakeAction,
+} from "../lib/patientWorkflow";
 import { getVirtualVisitState } from "../lib/virtualVisits";
 
 type LocationRow = {
@@ -570,12 +576,12 @@ export default function PatientHome() {
   }, [appointmentDrawerFiles]);
 
   useEffect(() => {
-    const state = location.state as { patientNotice?: string; patientNoticeTone?: "info" | "warning" | "success" } | null;
-    if (!state?.patientNotice) return;
+    const nextNotice = readPatientNoticeState(location.state);
+    if (!nextNotice) return;
 
     setPortalNotice({
-      tone: state.patientNoticeTone ?? "success",
-      message: state.patientNotice,
+      tone: nextNotice.tone,
+      message: nextNotice.message,
     });
     navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
   }, [location.pathname, location.search, location.state, navigate]);
@@ -633,6 +639,11 @@ export default function PatientHome() {
   const featuredServices = useMemo(() => {
     return services.slice(0, 6);
   }, [services]);
+
+  const dashboardIntakeAction = useMemo(
+    () => getPatientDashboardIntakeAction(latestVitalAiSession?.status),
+    [latestVitalAiSession?.status]
+  );
 
   const getPatientAppointmentIds = async () => {
     if (!user?.id) return [] as string[];
@@ -1771,21 +1782,17 @@ export default function PatientHome() {
 
   const startIntakeFromAppointment = (appt: ApptRow) => {
     const svc = serviceById(appt.service_id);
-    const nextPathway = svc
-      ? getGuidedIntakePathwayForService({
-          name: svc.name ?? "",
-          category: svc.category,
-          service_group: svc.visit_type,
-        })
-      : null;
-
-    if (!nextPathway) {
-      navigate(`/intake?appointmentId=${encodeURIComponent(appt.id)}`);
-      return;
-    }
-
     navigate(
-      `/intake?appointmentId=${encodeURIComponent(appt.id)}&pathway=${encodeURIComponent(nextPathway)}&autostart=1`
+      buildAppointmentIntakePath({
+        appointmentId: appt.id,
+        service: svc
+          ? {
+              name: svc.name ?? "",
+              category: svc.category,
+              visitType: svc.visit_type,
+            }
+          : null,
+      })
     );
   };
 
@@ -2161,9 +2168,9 @@ export default function PatientHome() {
                 </div>
               </div>
               <div style={glanceLinkStyle}>
-                {latestVitalAiSession?.status === "draft" ? "Continue Intake Form" : "Open Vital AI intake"}
-              </div>
-            </button>
+                  {dashboardIntakeAction.ctaLabel === "Continue Intake" ? "Continue Intake Form" : "Open Vital AI intake"}
+                </div>
+              </button>
 
             <button
               className="card card-pad surface-light"
@@ -2244,21 +2251,17 @@ export default function PatientHome() {
             <div style={primaryActionCardStyle}>
               <div style={sectionEyebrowStyle}>Intake</div>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>
-                  {latestVitalAiSession?.status === "draft" ? "Continue Intake" : "Start with Vital AI"}
+                  <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>{dashboardIntakeAction.title}</div>
+                  <div className="patient-helper-text" style={{ color: "#4B5563", lineHeight: 1.6 }}>
+                    {dashboardIntakeAction.description}
+                  </div>
                 </div>
-                <div className="patient-helper-text" style={{ color: "#4B5563", lineHeight: 1.6 }}>
-                  {latestVitalAiSession?.status === "draft"
-                    ? "Pick up where you left off so the care team has the details they need."
-                    : "Complete a guided intake before your next visit."}
+                <div>
+                  <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/intake")}>
+                    {dashboardIntakeAction.ctaLabel}
+                  </button>
                 </div>
               </div>
-              <div>
-                <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/intake")}>
-                  {latestVitalAiSession?.status === "draft" ? "Continue Intake" : "Open Intake"}
-                </button>
-              </div>
-            </div>
 
             <div style={primaryActionCardStyle}>
               <div style={sectionEyebrowStyle}>Messages</div>
@@ -3527,15 +3530,7 @@ export default function PatientHome() {
                   type="button"
                   onClick={() => startIntakeFromAppointment(selectedAppointment)}
                 >
-                  {!appointmentIntakeStatus
-                    ? "Start Intake"
-                    : appointmentIntakeStatus.status === "needs_info"
-                    ? "Update Intake"
-                    : appointmentIntakeStatus.status === "submitted"
-                    ? "Continue Intake Form"
-                    : appointmentIntakeStatus.status === "approved" || appointmentIntakeStatus.status === "locked"
-                    ? "View Intake"
-                    : "Open Intake"}
+                  {getPatientAppointmentIntakeCtaLabel(appointmentIntakeStatus?.status)}
                 </button>
 
                 <button

@@ -6,6 +6,7 @@ import { getErrorMessage, getPatientRecordIdForProfile } from "../lib/patientRec
 import { supabase } from "../lib/supabase";
 import { getSignedUrl } from "../lib/patientFiles";
 import VitalityHero from "../components/VitalityHero";
+import { getPatientVisitStatusLabel, splitPatientVisitsByActivity } from "../lib/patientWorkflow";
 import { normalizePublicPriceLabel } from "../lib/services/catalog";
 
 type VisitRow = {
@@ -108,14 +109,6 @@ function withTimeout<T>(p: PromiseLike<T>, ms = 12000): Promise<T> {
   ]);
 }
 
-function visitStatusLabel(status?: string | null) {
-  const s = (status ?? "").toLowerCase();
-  if (s === "open" || s === "in_progress") return "Active";
-  if (s === "completed") return "Completed";
-  if (s === "cancelled") return "Cancelled";
-  return status || "Unknown";
-}
-
 function visitStatusStyle(status?: string | null) {
   const s = (status ?? "").toLowerCase();
   const base = {
@@ -214,19 +207,7 @@ export default function PatientTreatments() {
 
   const activeTreatmentPlan = activeVisit ? treatmentPlanByVisit[activeVisit.id] ?? null : null;
 
-  const currentCareVisits = useMemo(() => {
-    return visits.filter((v) => {
-      const s = (v.status ?? "").toLowerCase();
-      return s === "open" || s === "in_progress";
-    });
-  }, [visits]);
-
-  const pastVisits = useMemo(() => {
-    return visits.filter((v) => {
-      const s = (v.status ?? "").toLowerCase();
-      return s !== "open" && s !== "in_progress";
-    });
-  }, [visits]);
+  const { currentCareVisits, pastVisits } = useMemo(() => splitPatientVisitsByActivity(visits), [visits]);
 
   const loadAll = useCallback(async () => {
     setErr(null);
@@ -541,10 +522,10 @@ export default function PatientTreatments() {
                           <span>
                             {fmtDateOnly(v.visit_date ?? v.created_at)}
                             <span className="muted" style={{ display: "block", fontSize: 12 }}>
-                              {locName(v.location_id)} - {visitStatusLabel(v.status)}
+                              {locName(v.location_id)} - {getPatientVisitStatusLabel(v.status)}
                             </span>
                           </span>
-                          <span style={visitStatusStyle(v.status)}>{visitStatusLabel(v.status)}</span>
+                          <span style={visitStatusStyle(v.status)}>{getPatientVisitStatusLabel(v.status)}</span>
                         </button>
                       );
                     })
@@ -582,7 +563,7 @@ export default function PatientTreatments() {
                           <span>
                             {fmtDateOnly(v.visit_date ?? v.created_at)}
                             <span className="muted" style={{ display: "block", fontSize: 12 }}>
-                              {locName(v.location_id)} - {visitStatusLabel(v.status)}
+                              {locName(v.location_id)} - {getPatientVisitStatusLabel(v.status)}
                             </span>
                           </span>
                           <span className="muted" style={{ fontSize: 12 }}>
@@ -610,7 +591,7 @@ export default function PatientTreatments() {
                           </div>
                         </div>
 
-                        <div style={visitStatusStyle(activeVisit.status)}>{visitStatusLabel(activeVisit.status)}</div>
+                        <div style={visitStatusStyle(activeVisit.status)}>{getPatientVisitStatusLabel(activeVisit.status)}</div>
                       </div>
 
                       <div className="space" />
@@ -619,7 +600,7 @@ export default function PatientTreatments() {
                         <div className="card card-pad patient-panel-soft" style={detailStatCardStyle}>
                           <div className="muted">Care Status</div>
                           <div style={{ fontWeight: 800, fontSize: 20, marginTop: 6 }}>
-                            {visitStatusLabel(activeVisit.status)}
+                            {getPatientVisitStatusLabel(activeVisit.status)}
                           </div>
                         </div>
 
@@ -941,7 +922,7 @@ export default function PatientTreatments() {
                                       {fmtDateOnly(visit.visit_date ?? visit.created_at)}
                                     </div>
                                     <div className="muted" style={{ fontSize: 12 }}>
-                                      {locName(visit.location_id)} - {visitStatusLabel(visit.status)}
+                                      {locName(visit.location_id)} - {getPatientVisitStatusLabel(visit.status)}
                                     </div>
                                   </div>
 

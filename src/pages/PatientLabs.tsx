@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { renderElementPdfBlob } from "../lib/pdf";
+import { buildPatientNoticeState } from "../lib/patientNotices";
+import { resolvePatientLabSourceLabel, validatePatientLabSubmission } from "../lib/patientWorkflow";
 import { getPatientRecordIdForProfile } from "../lib/patientRecords";
 import { uploadPatientFile } from "../lib/patientFiles";
 import { supabase } from "../lib/supabase";
@@ -98,11 +100,10 @@ export default function PatientLabs() {
     () => (resolvedLocationId ? locName(resolvedLocationId) : "-"),
     [locName, resolvedLocationId]
   );
-  const selectedLabSourceLabel = useMemo(() => {
-    if (!labSource) return "-";
-    if (labSource === "Other local lab" && labSourceOther.trim()) return labSourceOther.trim();
-    return labSource;
-  }, [labSource, labSourceOther]);
+  const selectedLabSourceLabel = useMemo(
+    () => resolvePatientLabSourceLabel(labSource, labSourceOther),
+    [labSource, labSourceOther]
+  );
   const patientName = useMemo(() => {
     if (!patientSummary) return user?.email ?? "Patient";
     const fullName = `${patientSummary.first_name ?? ""} ${patientSummary.last_name ?? ""}`.trim();
@@ -282,23 +283,21 @@ export default function PatientLabs() {
     setErr(null);
     if (!user) return;
 
-    if (!panelId) return setErr("Please select a lab panel.");
-    if (!labSource) return setErr("Please select the lab source.");
-    if (labSource === "Other local lab" && !labSourceOther.trim()) return setErr("Please enter the lab name.");
-    if (!appointmentId && locations.length === 0) return setErr("No locations found.");
+    const validationError = validatePatientLabSubmission({
+      panelId,
+      labSource,
+      labSourceOther,
+      appointmentId,
+      locationCount: locations.length,
+      panelMarkers: panelMarkers.map((marker) => ({ key: marker.key, label: marker.label })),
+      values,
+    });
+    if (validationError) return setErr(validationError);
 
     const appt = appointments.find((a) => a.id === appointmentId) ?? null;
     const locationId = appt?.location_id ?? locations[0]?.id ?? "";
 
     if (!locationId) return setErr("No location could be determined.");
-
-    // validate minimal: require value for every marker in that panel
-    for (const mk of panelMarkers) {
-      const v = values[mk.key];
-      if (v === undefined || v === null || String(v).trim() === "") {
-        return setErr(`Please complete: ${mk.label}`);
-      }
-    }
 
     setSaving(true);
 
@@ -333,7 +332,10 @@ export default function PatientLabs() {
       setPdfBusy(true);
       await uploadInternalPdf(patientId, locationId, data.id);
 
-      nav("/patient/home", { replace: true, state: { patientNotice: "Labs submitted successfully. An internal PDF copy was also saved.", patientNoticeTone: "success" } });
+      nav("/patient/home", {
+        replace: true,
+        state: buildPatientNoticeState("Labs submitted successfully. An internal PDF copy was also saved."),
+      });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Failed to save the internal PDF copy.";
       setErr(message);

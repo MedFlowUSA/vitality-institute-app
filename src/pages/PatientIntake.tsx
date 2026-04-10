@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { supabase } from "../lib/supabase";
+import { buildPatientNoticeState } from "../lib/patientNotices";
 import VitalityHero from "../components/VitalityHero";
 
 type FormTemplate = {
@@ -250,7 +251,7 @@ export default function PatientIntake() {
 
     if (error) return setErr(error.message);
 
-    nav(`/patient/assessment?appointmentId=${appointmentId}`, { replace: true, state: { patientNotice: "Intake submitted successfully.", patientNoticeTone: "success" } });
+    nav(`/patient/assessment?appointmentId=${appointmentId}`, { replace: true, state: buildPatientNoticeState("Intake submitted successfully.") });
   };
 
   const patientLabel = useMemo(() => {
