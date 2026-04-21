@@ -11,6 +11,11 @@ import { ensureAppointmentConversation } from "../lib/messaging/conversationServ
 import { getErrorMessage } from "../lib/patientRecords";
 import { buildProviderHomeGuide } from "../lib/provider/providerGuide";
 import {
+  getProviderPatientLabel,
+  isInactiveAppointmentStatus,
+  loadProviderPatientNames,
+} from "../lib/provider/workspace";
+import {
   PROVIDER_ROUTES,
   providerMessagesPath,
   providerPatientCenterPath,
@@ -23,12 +28,6 @@ import { getVirtualVisitState } from "../lib/virtualVisits";
 type LocationRow = { id: string; name: string };
 type ServiceRow = { id: string; name: string; location_id: string };
 type UserLocationRow = { location_id: string; is_primary: boolean };
-type PatientNameRow = {
-  id?: string | null;
-  profile_id?: string | null;
-  first_name: string | null;
-  last_name: string | null;
-};
 type AppointmentStatusRow = { status: string | null };
 type IntakeStatusRow = { id: string };
 type ApptRow = {
@@ -98,8 +97,23 @@ export default function ProviderHome() {
     return (id: string | null) => (id ? map.get(id) ?? "-" : "-");
   }, [services]);
 
-  const patientLabel = (id: string) => patientNames[id] ?? "Patient";
-  const nextAppointments = useMemo(() => appointments.slice(0, 3), [appointments]);
+  const patientLabel = (id: string) => getProviderPatientLabel(id, patientNames);
+  const nextAppointments = useMemo(() => {
+    const now = new Date();
+
+    return appointments
+      .filter((item) => {
+        const start = new Date(item.start_time);
+
+        return (
+          start.getFullYear() === now.getFullYear() &&
+          start.getMonth() === now.getMonth() &&
+          start.getDate() === now.getDate() &&
+          !isInactiveAppointmentStatus(item.status)
+        );
+      })
+      .slice(0, 3);
+  }, [appointments]);
   const guide = useMemo(() => buildProviderHomeGuide(), []);
   const todayVirtualVisits = useMemo(
     () =>
@@ -111,7 +125,8 @@ export default function ProviderHome() {
           state.isVirtual &&
           start.getFullYear() === now.getFullYear() &&
           start.getMonth() === now.getMonth() &&
-          start.getDate() === now.getDate()
+          start.getDate() === now.getDate() &&
+          !isInactiveAppointmentStatus(item.status)
         );
       }),
     [appointments]
@@ -181,6 +196,7 @@ export default function ProviderHome() {
     try {
       if (!activeLocationId) {
         setAppointments([]);
+        setPatientNames({});
         return;
       }
 
@@ -205,24 +221,7 @@ export default function ProviderHome() {
         return;
       }
 
-      const [{ data: byIdRows, error: byIdErr }, { data: byProfileRows, error: byProfileErr }] = await Promise.all([
-        supabase.from("patients").select("id,first_name,last_name").in("id", patientIds),
-        supabase.from("patients").select("profile_id,first_name,last_name").in("profile_id", patientIds),
-      ]);
-
-      if (byIdErr) throw byIdErr;
-      if (byProfileErr) throw byProfileErr;
-
-      const names: Record<string, string> = {};
-      [((byIdRows as PatientNameRow[] | null) ?? []), ((byProfileRows as PatientNameRow[] | null) ?? [])].forEach((group) => {
-        group.forEach((row) => {
-          const key = row.id ?? row.profile_id;
-          if (!key) return;
-          names[key] = `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() || "Patient";
-        });
-      });
-
-      setPatientNames(names);
+      setPatientNames(await loadProviderPatientNames(patientIds));
     } catch (e: unknown) {
       setErr(getErrorMessage(e, "Failed to load appointments."));
       setAppointments([]);
@@ -473,16 +472,16 @@ export default function ProviderHome() {
                 Provider Dashboard
               </div>
               <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900, color: "#FAF7FF", lineHeight: 1.04 }}>
-                Focus your day from one provider workspace.
+                Start the day from one provider overview.
               </div>
               <div style={{ marginTop: 10, maxWidth: 760, color: "rgba(233,226,255,.8)", lineHeight: 1.7 }}>
-                Queue, patients, intake review, referrals, and virtual visits stay one click away.
+                Use Queue for active encounters, Command Center for schedule and intake triage, and this page for quick status checks.
               </div>
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <button className="btn btn-secondary" type="button" onClick={() => navigate(PROVIDER_ROUTES.command)}>
-                Command Center
+                Intake Triage
               </button>
               <button className="btn btn-secondary" type="button" onClick={refreshAll}>
                 Refresh
@@ -560,8 +559,8 @@ export default function ProviderHome() {
           workflowState={guide.workflowState}
           nextAction={guide.nextAction}
           actions={[
-            { label: "Open Command Center", to: PROVIDER_ROUTES.command, tone: "primary" },
-            { label: "Open Full Queue", to: PROVIDER_ROUTES.queue },
+            { label: "Open Queue", to: PROVIDER_ROUTES.queue, tone: "primary" },
+            { label: "Open Intake Triage", to: PROVIDER_ROUTES.command },
           ]}
         />
 
@@ -671,15 +670,15 @@ export default function ProviderHome() {
         <div className="card card-pad">
           <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div>
-              <div className="h2">Today's Appointment Queue</div>
+              <div className="h2">Today's Quick Queue</div>
               <div className="muted" style={{ marginTop: 6 }}>
                 {activeLocationId
-                  ? `Appointments scoped to ${locName(activeLocationId)}.`
+                  ? `Appointments scoped to ${locName(activeLocationId)}. Open Queue for the full encounter worklist.`
                   : "Select an active location to load queue data."}
               </div>
             </div>
             <button className="btn btn-secondary" type="button" onClick={() => navigate(PROVIDER_ROUTES.queue)}>
-              Full Queue
+              Open Queue
             </button>
           </div>
 
@@ -691,7 +690,7 @@ export default function ProviderHome() {
 
           {!loading && !err && activeLocationId ? (
             nextAppointments.length === 0 ? (
-              <div className="muted">No appointments found for this location.</div>
+              <div className="muted">No active appointments remain in today&apos;s queue for this location.</div>
             ) : (
               <div style={{ display: "grid", gap: 12 }}>
                 {nextAppointments.map((appt) => (

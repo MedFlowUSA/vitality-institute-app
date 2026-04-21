@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import InlineNotice from "../InlineNotice";
 import { renderElementPdfBlob } from "../../lib/pdf";
 import { supabase } from "../../lib/supabase";
-import { getSignedUrl, uploadPatientFile } from "../../lib/patientFiles";
+import { getSignedUrl, resolvePatientFileOwnerIds, uploadPatientFile } from "../../lib/patientFiles";
+import { formatProviderStatusLabel } from "../../lib/provider/workspace";
 
 type TreatmentPlanRecord = import("../../lib/provider/types").TreatmentPlanRecord;
 
@@ -216,6 +217,11 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
     return parts.join(" ");
   }, [wounds, treatmentPlan]);
 
+  const visibleFiles = useMemo(
+    () => (packetMode === "patient" ? files.filter((file) => isImageFile(file)) : files),
+    [files, packetMode]
+  );
+
   const load = async () => {
     setLoading(true);
     setErr(null);
@@ -267,10 +273,11 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
       if (planErr) throw planErr;
       setTreatmentPlan((planRows?.[0] as TreatmentPlanRow) ?? null);
 
+      const patientFileOwnerIds = await resolvePatientFileOwnerIds(patientId);
       const { data: fileRows, error: fileErr } = await supabase
         .from("patient_files")
         .select("id,created_at,filename,category,bucket,path,content_type,visit_id")
-        .eq("patient_id", patientId)
+        .in("patient_id", patientFileOwnerIds)
         .eq("visit_id", visitId)
         .order("created_at", { ascending: false });
       if (fileErr) throw fileErr;
@@ -419,7 +426,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
             </div>
             <div class="mini">
               <div style="color:#666;font-size:12px;">Visit Status</div>
-              <div>${visit?.status ?? "-"}</div>
+              <div>${formatProviderStatusLabel(visit?.status)}</div>
             </div>
           </div>
         </div>
@@ -455,7 +462,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
             !treatmentPlan
               ? `<div>No treatment plan available.</div>`
               : `
-                <div><strong>Status:</strong> ${treatmentPlan.status ?? "-"}</div>
+                <div><strong>Status:</strong> ${formatProviderStatusLabel(treatmentPlan.status)}</div>
                 <div style="margin-top:10px;"><strong>Summary:</strong> ${treatmentPlan.summary ?? "-"}</div>
                 <div style="margin-top:10px;white-space:pre-wrap;"><strong>Patient Instructions:</strong><br/>${treatmentPlan.patient_instructions ?? "-"}</div>
                 <div style="margin-top:10px;"><strong>Signed:</strong> ${treatmentPlan.signed_at ? fmtDateTime(treatmentPlan.signed_at) : "-"}</div>
@@ -753,7 +760,7 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
               </div>
               <div className="mini">
                 <div className="muted">Visit Status</div>
-                <div>{visit?.status ?? "-"}</div>
+                <div>{formatProviderStatusLabel(visit?.status)}</div>
               </div>
               <div className="mini">
                 <div className="muted">Phone</div>
@@ -855,14 +862,14 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
               <div>No treatment plan available.</div>
             ) : packetMode === "patient" ? (
               <div style={{ display: "grid", gap: 10 }}>
-                <div><strong>Status:</strong> {treatmentPlan.status ?? "-"}</div>
+                <div><strong>Status:</strong> {formatProviderStatusLabel(treatmentPlan.status)}</div>
                 <div><strong>Summary:</strong> {treatmentPlan.summary ?? "-"}</div>
                 <div><strong>Patient Instructions:</strong> {treatmentPlan.patient_instructions ?? "-"}</div>
                 <div><strong>Signed:</strong> {treatmentPlan.signed_at ? fmtDateTime(treatmentPlan.signed_at) : "-"}</div>
               </div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
-                <div><strong>Status:</strong> {treatmentPlan.status ?? "-"}</div>
+                <div><strong>Status:</strong> {formatProviderStatusLabel(treatmentPlan.status)}</div>
                 <div><strong>Summary:</strong> {treatmentPlan.summary ?? "-"}</div>
                 <div><strong>Patient Instructions:</strong> {treatmentPlan.patient_instructions ?? "-"}</div>
                 <div><strong>Internal Notes:</strong> {treatmentPlan.internal_notes ?? "-"}</div>
@@ -892,13 +899,11 @@ export default function VisitPacketSection({ visitId, patientId, locationId }: P
             <div className="section-title">
               {packetMode === "patient" ? "Visit Images" : "Attached Images / Files"}
             </div>
-            {files.length === 0 ? (
+            {visibleFiles.length === 0 ? (
               <div>No attached visit files.</div>
             ) : (
               <div style={{ display: "grid", gap: 12 }}>
-                {files
-                  .filter((f) => (packetMode === "patient" ? isImageFile(f) : true))
-                  .map((f) => (
+                {visibleFiles.map((f) => (
                   <div key={f.id} className="mini">
                     <div style={{ fontWeight: 800 }}>{f.filename}</div>
                     <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../auth/AuthProvider";
 import { auditWrite } from "../../lib/audit";
+import { resolvePatientFileOwnerIds } from "../../lib/patientFiles";
 import { getErrorMessage } from "../../lib/patientRecords";
 import type { WoundAssessmentRecord, WoundExudateLevel, WoundLaterality } from "../../lib/provider/types";
 import ProviderPrerequisiteCard from "./ProviderPrerequisiteCard";
@@ -110,10 +111,11 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId, o
       if (wErr) throw wErr;
       setRows((woundRows as WoundRow[]) ?? []);
 
+      const patientFileOwnerIds = await resolvePatientFileOwnerIds(patientId);
       const { data: fileRows, error: fErr } = await supabase
         .from("patient_files")
         .select("id,filename,content_type,created_at,visit_id,category")
-        .eq("patient_id", patientId)
+        .in("patient_id", patientFileOwnerIds)
         .order("created_at", { ascending: false });
 
       if (fErr) throw fErr;

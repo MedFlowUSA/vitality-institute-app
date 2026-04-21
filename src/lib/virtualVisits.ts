@@ -9,6 +9,11 @@ export type AppointmentVirtualFields = {
   virtual_instructions?: string | null;
 };
 
+export type AppointmentDeliveryFields = {
+  visit_type: "virtual" | "in_person" | null;
+  telehealth_enabled: boolean;
+};
+
 export type VirtualVisitState = {
   isVirtual: boolean;
   hasMeetingUrl: boolean;
@@ -23,6 +28,29 @@ export type VirtualVisitState = {
 };
 
 const DEFAULT_JOIN_WINDOW_MINUTES = 15;
+
+export function getRequestedAppointmentDeliveryFields(visitType: string | null | undefined): AppointmentDeliveryFields {
+  const normalized = (visitType ?? "").trim().toLowerCase();
+
+  if (normalized === "virtual" || normalized === "telehealth") {
+    return {
+      visit_type: "virtual",
+      telehealth_enabled: true,
+    };
+  }
+
+  if (normalized === "in_person" || normalized === "in-person") {
+    return {
+      visit_type: "in_person",
+      telehealth_enabled: false,
+    };
+  }
+
+  return {
+    visit_type: null,
+    telehealth_enabled: false,
+  };
+}
 
 export function isVirtualVisit(appointment: Partial<AppointmentVirtualFields> | null | undefined) {
   if (!appointment) return false;

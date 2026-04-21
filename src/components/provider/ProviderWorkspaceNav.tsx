@@ -11,6 +11,7 @@ type ProviderWorkspaceNavProps = {
 type WorkspaceItem = {
   label: string;
   to: string;
+  allowRoles?: string[];
 };
 
 const WORKSPACE_ITEMS: WorkspaceItem[] = [
@@ -18,6 +19,7 @@ const WORKSPACE_ITEMS: WorkspaceItem[] = [
   { label: "Queue", to: PROVIDER_ROUTES.queue },
   { label: "Intakes", to: PROVIDER_ROUTES.intakes },
   { label: "Vital AI Requests", to: PROVIDER_ROUTES.vitalAi },
+  { label: "Protocol Queue", to: PROVIDER_ROUTES.protocolQueue, allowRoles: ["super_admin", "provider"] },
   { label: "Referrals", to: PROVIDER_ROUTES.referrals },
   { label: "Labs", to: PROVIDER_ROUTES.labs },
   { label: "Messages", to: PROVIDER_ROUTES.messages },
@@ -36,12 +38,16 @@ export default function ProviderWorkspaceNav({
 }: ProviderWorkspaceNavProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { activeLocationId } = useAuth();
+  const { activeLocationId, role } = useAuth();
   const [expanded, setExpanded] = useState(!compact);
 
   const locationSummary = useMemo(
     () => (activeLocationId ? "Location scope active" : "No active location selected"),
     [activeLocationId]
+  );
+  const visibleItems = useMemo(
+    () => WORKSPACE_ITEMS.filter((item) => !item.allowRoles || (role ? item.allowRoles.includes(role) : false)),
+    [role]
   );
 
   return (
@@ -74,7 +80,7 @@ export default function ProviderWorkspaceNav({
         <>
           <div className="space" />
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            {WORKSPACE_ITEMS.map((item) => (
+            {visibleItems.map((item) => (
               <button
                 key={item.to}
                 className={isActivePath(location.pathname, item.to) ? "btn btn-primary" : "btn btn-ghost"}

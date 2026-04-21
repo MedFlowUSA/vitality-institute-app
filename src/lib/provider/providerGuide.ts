@@ -15,9 +15,9 @@ export function buildProviderHomeGuide(): GuideContent {
   return {
     title: "Provider Dashboard",
     description:
-      "This page is the provider launch point for queue, intake review, Vital AI requests, messaging, labs, and patient chart work.",
+      "This page is the provider overview and launch point for queue work, intake triage, Vital AI requests, messaging, labs, and patient chart work.",
     workflowState: "daily operations",
-    nextAction: "Start with queue, virtual visits, or intake review based on what is most urgent right now.",
+    nextAction: "Open Queue for active encounters, Command Center for schedule and intake triage, or jump into virtual visits when needed.",
   };
 }
 
@@ -44,6 +44,31 @@ export function buildProviderVitalAiProfileGuide(hasInsights: boolean): GuideCon
     nextAction: hasInsights
       ? "Review the visit summary and recommendation sections, then return to the request queue to schedule the next step."
       : "Wait for the intake analysis blocks to load, then review the case.",
+  };
+}
+
+export function buildProviderProtocolQueueGuide(pendingCount: number): GuideContent {
+  return {
+    title: "Protocol Approval Queue",
+    description:
+      "Review AI-assisted protocol suggestions, confirm the clinical context, and complete physician-reviewed sign-off before any downstream routing happens.",
+    workflowState: pendingCount === 0 ? "all caught up" : `${pendingCount} awaiting review`,
+    nextAction:
+      pendingCount === 0
+        ? "Open a reviewed case for follow-up details or return to Vital AI requests."
+        : "Open the next assessment, confirm or modify the recommendation, and sign off as the licensed physician reviewer.",
+  };
+}
+
+export function buildProviderProtocolReviewGuide(hasExistingDecision: boolean): GuideContent {
+  return {
+    title: "Protocol Review",
+    description:
+      "Use this workspace to review the AI-assisted suggestion, edit the final recommendation as needed, and complete physician-reviewed sign-off.",
+    workflowState: hasExistingDecision ? "review on file" : "awaiting physician decision",
+    nextAction: hasExistingDecision
+      ? "Confirm whether the saved decision still stands or update the final protocol before routing the case forward."
+      : "Review the case, adjust the recommendation if needed, then approve, modify, or reject it.",
   };
 }
 

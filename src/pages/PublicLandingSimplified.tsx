@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { normalizePublicClinicLocationName, PUBLIC_CLINIC_LOCATIONS } from "../lib/publicClinicLocations";
 import { Link } from "react-router-dom";
+import MarketGroupedSelect from "../components/locations/MarketGroupedSelect";
 import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { getPublicAccessRoute } from "../lib/publicMarketingCatalog";
+import { buildMarketOptionGroups, isPlaceholderMarket } from "../lib/locationMarkets";
 
 const featuredServices = [
   {
@@ -37,15 +39,42 @@ const featuredServices = [
 
 export default function PublicLandingSimplified() {
   const [selectedLocationName, setSelectedLocationName] = useState(
-    normalizePublicClinicLocationName("Touch of Vitality - Los Angeles"),
+    PUBLIC_CLINIC_LOCATIONS[0]?.name ?? "",
   );
   const normalizedSelectedLocationName = normalizePublicClinicLocationName(selectedLocationName);
+  const liveLocations = useMemo(
+    () => PUBLIC_CLINIC_LOCATIONS.filter((location) => !isPlaceholderMarket(location)),
+    []
+  );
+  const comingSoonLocations = useMemo(
+    () => PUBLIC_CLINIC_LOCATIONS.filter((location) => isPlaceholderMarket(location)),
+    []
+  );
+  const featuredExpansionMarkets = useMemo(
+    () =>
+      comingSoonLocations
+        .slice(0, 6)
+        .map((location) => normalizePublicClinicLocationName(location.name)),
+    [comingSoonLocations]
+  );
 
   const selectedLocation = useMemo(
     () =>
       PUBLIC_CLINIC_LOCATIONS.find((location) => location.name === normalizedSelectedLocationName) ??
       PUBLIC_CLINIC_LOCATIONS[0],
     [normalizedSelectedLocationName],
+  );
+  const locationGroups = useMemo(
+    () =>
+      buildMarketOptionGroups(PUBLIC_CLINIC_LOCATIONS, {
+        valueOf: (location) => normalizePublicClinicLocationName(location.name),
+        labelOf: (location) => {
+          const base = normalizePublicClinicLocationName(location.name);
+          return isPlaceholderMarket(location) ? `${base} - Coming Soon` : base;
+        },
+        includeComingSoon: true,
+      }),
+    []
   );
 
   return (
@@ -92,6 +121,64 @@ export default function PublicLandingSimplified() {
             sign in
           </Link>
           .
+        </div>
+      </div>
+
+      <div className="space" />
+
+      <div className="card card-pad card-light surface-light public-growth-panel">
+        <div className="public-growth-header">
+          <div>
+            <div className="public-eyebrow">Nationwide Growth Markets</div>
+            <div className="h2 public-section-title" style={{ marginTop: 10 }}>
+              Vitality Institute is expanding beyond our live Southern California clinics.
+            </div>
+          </div>
+          <div className="public-growth-badge">Expansion waitlist available</div>
+        </div>
+
+        <div className="surface-light-body public-growth-copy" style={{ marginTop: 12 }}>
+          Choose a live clinic if you are ready to move into scheduling now, or select a coming-soon
+          city to raise your hand for expansion interest. We keep those paths separate so the site
+          feels national without pretending every market is already operational.
+        </div>
+
+        <div className="public-growth-stat-grid" style={{ marginTop: 18 }}>
+          <div className="public-growth-stat">
+            <div className="public-mini-title">Live Clinics</div>
+            <div className="public-growth-stat-value">{liveLocations.length}</div>
+            <div className="surface-light-helper">Available now for booking, intake, and care routing.</div>
+          </div>
+          <div className="public-growth-stat">
+            <div className="public-mini-title">Coming Soon Markets</div>
+            <div className="public-growth-stat-value">{comingSoonLocations.length}</div>
+            <div className="surface-light-helper">Visible for waitlist and expansion-interest capture only.</div>
+          </div>
+          <div className="public-growth-stat">
+            <div className="public-mini-title">How It Works</div>
+            <div className="public-growth-stat-value">Live first</div>
+            <div className="surface-light-helper">Operational teams stay scoped to real clinics until a market activates.</div>
+          </div>
+        </div>
+
+        <div className="public-growth-market-shell" style={{ marginTop: 18 }}>
+          <div className="public-mini-title">Featured Expansion Cities</div>
+          <div className="public-growth-market-list" style={{ marginTop: 12 }}>
+            {featuredExpansionMarkets.map((market) => (
+              <span key={market} className="public-growth-market-chip">
+                {market}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="row public-growth-actions" style={{ gap: 10, flexWrap: "wrap", marginTop: 18 }}>
+          <Link to="/book" className="btn btn-primary">
+            Explore Markets
+          </Link>
+          <Link to="/vital-ai" className="btn btn-secondary">
+            Start with Vital AI
+          </Link>
         </div>
       </div>
 
@@ -241,18 +328,19 @@ export default function PublicLandingSimplified() {
                 <div className="public-mini-title" style={{ marginBottom: 8 }}>
                   Select clinic
                 </div>
-              <select
+              <MarketGroupedSelect
+                label="Select clinic"
                 value={normalizedSelectedLocationName}
-                onChange={(event) => setSelectedLocationName(normalizePublicClinicLocationName(event.target.value))}
-                className="input"
-                aria-label="Select clinic location"
-              >
-                {PUBLIC_CLINIC_LOCATIONS.map((location) => (
-                  <option key={location.name} value={location.name}>
-                    {normalizePublicClinicLocationName(location.name)}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setSelectedLocationName(normalizePublicClinicLocationName(value))}
+                groups={locationGroups}
+                placeholder="Select clinic"
+                ariaLabel="Select clinic location"
+                helperText={
+                  selectedLocation && isPlaceholderMarket(selectedLocation)
+                    ? "This city is part of our expansion roadmap. Use booking or Vital AI to join the waitlist."
+                    : "Choose a live clinic to see the fastest contact details."
+                }
+              />
             </label>
 
             <Link to="/contact" className="btn btn-secondary">

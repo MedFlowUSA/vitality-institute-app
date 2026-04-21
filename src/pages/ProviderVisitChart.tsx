@@ -4,10 +4,11 @@ import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 import TreatmentPlanSection from "../components/provider/TreatmentPlanSection";
 import WoundAssessmentSection from "../components/provider/WoundAssessmentSection";
-import { getSignedUrl } from "../lib/patientFiles";
+import { getSignedUrl, resolvePatientFileOwnerIds } from "../lib/patientFiles";
 import SoapNotePanel from "../components/SoapNotePanel";
 import { analyzeWoundProgression } from "../lib/woundProgression";
 import { getErrorMessage } from "../lib/patientRecords";
+import { formatProviderStatusLabel } from "../lib/provider/workspace";
 import { PROVIDER_ROUTES, providerVisitChartPath } from "../lib/providerRoutes";
 import type { ProviderVisitSummary, SoapNoteRecord, TreatmentPlanRecord, WoundAssessmentRecord } from "../lib/provider/types";
 
@@ -259,10 +260,11 @@ export default function ProviderVisitChart() {
       if (!fErr) {
         setFiles((f as FileRow[]) ?? []);
       } else {
+        const patientFileOwnerIds = await resolvePatientFileOwnerIds(visitRow.patient_id);
         const { data: f2, error: f2Err } = await supabase
           .from("patient_files")
           .select("id,created_at,filename,category,bucket,path,content_type,size_bytes,visit_id")
-          .eq("patient_id", visitRow.patient_id)
+          .in("patient_id", patientFileOwnerIds)
           .order("created_at", { ascending: false })
           .limit(100);
 
@@ -368,7 +370,7 @@ export default function ProviderVisitChart() {
       <div className="shell">
         <VitalityHero
           title={patientName}
-          subtitle={visit ? `Visit - ${new Date(visit.visit_date).toLocaleString()} - ${visit.status ?? "new"}` : "Visit"}
+          subtitle={visit ? `Visit - ${new Date(visit.visit_date).toLocaleString()} - ${formatProviderStatusLabel(visit.status)}` : "Visit"}
           secondaryCta={{ label: "Back to Queue", to: PROVIDER_ROUTES.queue }}
           showKpis={false}
           rightActions={
@@ -405,7 +407,7 @@ export default function ProviderVisitChart() {
                   <div style={{ fontWeight: 600 }}>{patientName}</div>
                   <div className="space" />
                   <div className="muted">Visit Status</div>
-                  <div style={{ fontWeight: 600 }}>{visit.status ?? "new"}</div>
+                  <div style={{ fontWeight: 600 }}>{formatProviderStatusLabel(visit.status)}</div>
                   <div className="space" />
                   <div className="muted">Visit Summary</div>
                   <div>{visit.summary ?? "-"}</div>
@@ -432,7 +434,7 @@ export default function ProviderVisitChart() {
                       <div className="muted">Treatment Plan</div>
                       <div style={{ fontWeight: 700 }}>{treatment ? "On file" : "Missing"}</div>
                       <div className="muted" style={{ marginTop: 6 }}>
-                        {treatment?.status ?? "-"}
+                        {formatProviderStatusLabel(treatment?.status)}
                       </div>
                     </div>
                   </div>
@@ -520,7 +522,7 @@ export default function ProviderVisitChart() {
                                 {new Date(group.visit.visit_date).toLocaleString()}
                               </div>
                               <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-                                Status: {group.visit.status ?? "unknown"}
+                                Status: {formatProviderStatusLabel(group.visit.status)}
                               </div>
                             </div>
 

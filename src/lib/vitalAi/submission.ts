@@ -1,4 +1,5 @@
 import { supabase } from "../supabase";
+import { ensureProtocolAssessmentForSession } from "../../features/protocols/ProtocolEngineService";
 import { getVisibleQuestions, getVisibleSteps, normalizeAnswerValue } from "./branching";
 import type {
   IntakeQuestion,
@@ -27,9 +28,36 @@ function logVitalAiSubmitStage(stage: string, details?: unknown) {
   console.error(`[VitalAI submit] ${stage}`, details);
 }
 
+async function maybeGenerateProtocolAssessment(args: {
+  session: VitalAiSessionRow;
+  pathway: VitalAiPathwayRow;
+  patient: PatientRecord | null;
+  profile: VitalAiProfileRow | null;
+  answers: ResponseMap;
+  files: VitalAiFileRow[];
+}) {
+  try {
+    await ensureProtocolAssessmentForSession({
+      session: args.session,
+      pathway: args.pathway,
+      patient: args.patient,
+      profile: args.profile,
+      answers: args.answers,
+      files: args.files,
+    }, { skipReadExisting: true });
+  } catch (error) {
+    logVitalAiSubmitStage("protocol assessment generation failed", {
+      sessionId: args.session.id,
+      error,
+    });
+  }
+}
+
 async function persistVitalAiProfile(args: {
   sessionId: string;
   pathwayId: string;
+  clinicId: string | null;
+  locationId: string | null;
   patientId: string | null;
   profileId: string;
   summary: string;
@@ -41,6 +69,8 @@ async function persistVitalAiProfile(args: {
   const insertPayload = {
     session_id: args.sessionId,
     pathway_id: args.pathwayId,
+    clinic_id: args.clinicId,
+    location_id: args.locationId,
     patient_id: args.patientId,
     profile_id: args.profileId,
     summary: args.summary,
@@ -68,6 +98,8 @@ async function persistVitalAiProfile(args: {
 async function persistVitalAiLead(args: {
   sessionId: string;
   pathwayId: string;
+  clinicId: string | null;
+  locationId: string | null;
   patientId: string | null;
   profileId: string;
   priority: string;
@@ -77,6 +109,8 @@ async function persistVitalAiLead(args: {
   const insertPayload = {
     session_id: args.sessionId,
     pathway_id: args.pathwayId,
+    clinic_id: args.clinicId,
+    location_id: args.locationId,
     patient_id: args.patientId,
     profile_id: args.profileId,
     lead_status: "new",
@@ -102,6 +136,8 @@ async function persistVitalAiLead(args: {
 
 async function persistVitalAiReviewTasks(args: {
   sessionId: string;
+  clinicId: string | null;
+  locationId: string | null;
   profileRecordId: string;
   leadRecordId: string;
   submittedAt: string;
@@ -109,6 +145,8 @@ async function persistVitalAiReviewTasks(args: {
   const desiredTasks = [
     {
       session_id: args.sessionId,
+      clinic_id: args.clinicId,
+      location_id: args.locationId,
       profile_id: args.profileRecordId,
       lead_id: args.leadRecordId,
       task_type: "staff_follow_up" as const,
@@ -118,6 +156,8 @@ async function persistVitalAiReviewTasks(args: {
     },
     {
       session_id: args.sessionId,
+      clinic_id: args.clinicId,
+      location_id: args.locationId,
       profile_id: args.profileRecordId,
       lead_id: args.leadRecordId,
       task_type: "provider_review" as const,
@@ -136,7 +176,7 @@ async function persistVitalAiReviewTasks(args: {
 export async function resolveCurrentPatient(profileId: string) {
   const { data, error } = await supabase
     .from("patients")
-    .select("id,profile_id,first_name,last_name,phone,email,dob")
+    .select("id,profile_id,clinic_id,location_id,first_name,last_name,phone,email,dob")
     .eq("profile_id", profileId)
     .maybeSingle();
 
@@ -148,12 +188,16 @@ export async function createVitalAiSession(args: {
   pathway: VitalAiPathwayRow;
   patient: PatientRecord | null;
   profileId: string;
+  clinicId: string;
+  locationId: string;
 }) {
-  const { pathway, patient, profileId } = args;
+  const { pathway, patient, profileId, clinicId, locationId } = args;
   const { data, error } = await supabase
     .from("vital_ai_sessions")
     .insert({
       pathway_id: pathway.id,
+      clinic_id: clinicId,
+      location_id: locationId,
       patient_id: patient?.id ?? null,
       profile_id: profileId,
       status: "draft",
@@ -258,6 +302,8 @@ export async function updateVitalAiSessionStep(sessionId: string, stepKey: strin
 
 export async function uploadVitalAiFile(args: {
   sessionId: string;
+  clinicId: string | null;
+  locationId: string | null;
   patient: PatientRecord | null;
   profileId: string;
   category: string;
@@ -278,6 +324,8 @@ export async function uploadVitalAiFile(args: {
     .from("vital_ai_files")
     .insert({
       session_id: args.sessionId,
+      clinic_id: args.clinicId ?? args.patient?.clinic_id ?? null,
+      location_id: args.locationId ?? args.patient?.location_id ?? null,
       patient_id: args.patient?.id ?? null,
       profile_id: args.profileId,
       bucket,
@@ -417,10 +465,13 @@ function buildProfileJson(args: {
   patient: PatientRecord | null;
   answers: ResponseMap;
   files: VitalAiFileRow[];
+  session: VitalAiSessionRow;
 }) {
-  const { pathway, patient, answers, files } = args;
+  const { pathway, patient, answers, files, session } = args;
   return {
     pathway: pathway.slug,
+    clinic_id: session.clinic_id,
+    location_id: session.location_id,
     patient: {
       patient_id: patient?.id ?? null,
       profile_id: patient?.profile_id ?? null,
@@ -448,10 +499,13 @@ function buildLeadJson(args: {
   patient: PatientRecord | null;
   answers: ResponseMap;
   files: VitalAiFileRow[];
+  session: VitalAiSessionRow;
 }) {
-  const { pathway, patient, answers, files } = args;
+  const { pathway, patient, answers, files, session } = args;
   return {
     pathway: pathway.slug,
+    clinic_id: session.clinic_id,
+    location_id: session.location_id,
     name: [answers.first_name, answers.last_name].filter(Boolean).join(" ") || [patient?.first_name, patient?.last_name].filter(Boolean).join(" "),
     contact: {
       phone: answers.phone ?? patient?.phone ?? null,
@@ -516,6 +570,8 @@ export async function submitVitalAiSession(args: {
     profileRecord = await persistVitalAiProfile({
       sessionId: args.session.id,
       pathwayId: args.pathway.id,
+      clinicId: args.session.clinic_id,
+      locationId: args.session.location_id,
       patientId: args.patient?.id ?? null,
       profileId: effectiveProfileId,
       summary,
@@ -528,6 +584,8 @@ export async function submitVitalAiSession(args: {
     leadRecord = await persistVitalAiLead({
       sessionId: args.session.id,
       pathwayId: args.pathway.id,
+      clinicId: args.session.clinic_id,
+      locationId: args.session.location_id,
       patientId: args.patient?.id ?? null,
       profileId: effectiveProfileId,
       priority: buildLeadPriority(args.pathway.slug, args.answers),
@@ -537,6 +595,8 @@ export async function submitVitalAiSession(args: {
 
     await persistVitalAiReviewTasks({
       sessionId: args.session.id,
+      clinicId: args.session.clinic_id,
+      locationId: args.session.location_id,
       profileRecordId: profileRecord.id,
       leadRecordId: leadRecord.id,
       submittedAt,
@@ -573,6 +633,21 @@ export async function submitVitalAiSession(args: {
       false
     );
   }
+
+  await maybeGenerateProtocolAssessment({
+    session: {
+      ...args.session,
+      status: "submitted",
+      completed_at: submittedAt,
+      last_saved_at: submittedAt,
+      updated_at: submittedAt,
+    },
+    pathway: args.pathway,
+    patient: args.patient,
+    profile: profileRecord,
+    answers: args.answers,
+    files: args.files,
+  });
 
   return {
     profile: profileRecord,

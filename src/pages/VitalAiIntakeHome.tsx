@@ -9,9 +9,12 @@ import {
   guidedPanelSoftStyle,
   guidedPanelStyle,
 } from "../components/vital-ai/guidedIntakeStyles";
+import MarketGroupedSelect from "../components/locations/MarketGroupedSelect";
 import PathwaySelector from "../components/vital-ai/PathwaySelector";
 import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import { useAuth } from "../auth/AuthProvider";
+import { useClinicContext } from "../features/clinics/hooks/useClinicContext";
+import { buildMarketOptionGroups, isPlaceholderMarket, type MarketStatus } from "../lib/locationMarkets";
 import { clearPublicBookingDraft, readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { supabase } from "../lib/supabase";
 import {
@@ -25,8 +28,19 @@ import { loadVitalAiPathways } from "../lib/vitalAi/pathways";
 import { createVitalAiSession, resolveCurrentPatient, saveVitalAiResponses } from "../lib/vitalAi/submission";
 import type { PatientRecord, VitalAiPathwayRow, VitalAiSessionRow } from "../lib/vitalAi/types";
 
+type IntakeLocationOption = {
+  location_id: string;
+  location_name: string;
+  city: string | null;
+  state: string | null;
+  is_placeholder: boolean;
+  market_status: MarketStatus;
+  display_priority: number | null;
+};
+
 export default function VitalAiIntakeHome() {
-  const { user, resumeKey } = useAuth();
+  const { user, activeLocationId, setActiveLocationId, resumeKey } = useAuth();
+  const { activeClinic, activeClinicId, activeClinicLocations, loading: clinicLoading, setActiveClinicId } = useClinicContext();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -36,11 +50,45 @@ export default function VitalAiIntakeHome() {
   const [pathways, setPathways] = useState<VitalAiPathwayRow[]>([]);
   const [patient, setPatient] = useState<PatientRecord | null>(null);
   const [drafts, setDrafts] = useState<VitalAiSessionRow[]>([]);
+  const [allLocationMarkets, setAllLocationMarkets] = useState<IntakeLocationOption[]>([]);
   const [intakeGender, setIntakeGender] = useState<IntakeGender | "">(() => readStoredIntakeGender());
   const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
   const requestedPathway = searchParams.get("pathway");
   const shouldAutostart = searchParams.get("autostart") === "1";
   const autoStartedPathwayRef = useRef<string | null>(null);
+  const effectiveLocationId = bookingDraft?.locationId || activeLocationId || patient?.location_id || "";
+  const intakeLocationOptions = useMemo<IntakeLocationOption[]>(() => {
+    const clinicScoped = activeClinicLocations.map((location) => ({
+      location_id: location.location_id,
+      location_name: location.location_name,
+      city: location.city,
+      state: location.state,
+      is_placeholder: location.is_placeholder,
+      market_status: location.market_status,
+      display_priority: location.display_priority,
+    }));
+    const next = new Map<string, IntakeLocationOption>(clinicScoped.map((location) => [location.location_id, location]));
+    for (const location of allLocationMarkets.filter((market) => isPlaceholderMarket(market))) {
+      next.set(location.location_id, location);
+    }
+    return Array.from(next.values());
+  }, [activeClinicLocations, allLocationMarkets]);
+  const effectiveLocationSummary =
+    intakeLocationOptions.find((location) => location.location_id === effectiveLocationId) ?? null;
+  const intakeLocationGroups = useMemo(
+    () =>
+      buildMarketOptionGroups(intakeLocationOptions, {
+        valueOf: (location) => location.location_id,
+        labelOf: (location) => {
+          const place = [location.city, location.state].filter(Boolean).join(", ");
+          return place ? `${location.location_name} - ${place}` : location.location_name;
+        },
+        includeComingSoon: true,
+        disableComingSoon: true,
+      }),
+    [intakeLocationOptions]
+  );
+  const canStartIntake = Boolean(activeClinicId && effectiveLocationId && effectiveLocationSummary && !isPlaceholderMarket(effectiveLocationSummary));
 
   const matchedRequestedPathway = useMemo(() => {
     if (!requestedPathway) return null;
@@ -85,29 +133,71 @@ export default function VitalAiIntakeHome() {
     setErr(null);
 
     try {
-      const [pathwayRows, patientRow, draftRows] = await Promise.all([
+      const [pathwayRows, patientRow, draftRows, locationRows] = await Promise.all([
         loadVitalAiPathways(),
         resolveCurrentPatient(user.id),
+        (() => {
+          let query = supabase
+            .from("vital_ai_sessions")
+            .select("*")
+            .eq("profile_id", user.id)
+            .eq("status", "draft");
+
+          if (activeClinicId) query = query.eq("clinic_id", activeClinicId);
+          if (effectiveLocationId) query = query.eq("location_id", effectiveLocationId);
+
+          return query.order("updated_at", { ascending: false }).limit(10);
+        })(),
         supabase
-          .from("vital_ai_sessions")
-          .select("*")
-          .eq("profile_id", user.id)
-          .eq("status", "draft")
-          .order("updated_at", { ascending: false })
-          .limit(10),
+          .from("locations")
+          .select("id,name,city,state,is_placeholder,market_status,display_priority")
+          .order("display_priority")
+          .order("name"),
       ]);
 
       if (draftRows.error) throw draftRows.error;
+      if (locationRows.error) throw locationRows.error;
 
       setPathways(pathwayRows);
       setPatient(patientRow);
       setDrafts((draftRows.data as VitalAiSessionRow[]) ?? []);
+      setAllLocationMarkets(
+        (((locationRows.data as Array<{
+          id: string;
+          name: string;
+          city: string | null;
+          state: string | null;
+          is_placeholder: boolean;
+          market_status: MarketStatus;
+          display_priority: number | null;
+        }>) ?? [])).map((location) => ({
+          location_id: location.id,
+          location_name: location.name,
+          city: location.city,
+          state: location.state,
+          is_placeholder: location.is_placeholder,
+          market_status: location.market_status,
+          display_priority: location.display_priority,
+        }))
+      );
+
+      const preferredLocationId = bookingDraft?.locationId || patientRow?.location_id || null;
+      const preferredLocation = (locationRows.data as Array<{ id: string; is_placeholder: boolean; market_status: MarketStatus }> | null)?.find(
+        (location) => location.id === preferredLocationId
+      );
+
+      if (!activeLocationId && preferredLocationId && preferredLocation && !isPlaceholderMarket(preferredLocation)) {
+        await setActiveLocationId(preferredLocationId);
+      }
+      if (!activeClinicId && patientRow?.clinic_id) {
+        await setActiveClinicId(patientRow.clinic_id);
+      }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Failed to load Vital AI intake options.");
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [activeClinicId, activeLocationId, bookingDraft?.locationId, effectiveLocationId, setActiveClinicId, setActiveLocationId, user?.id]);
 
   useEffect(() => {
     void load();
@@ -121,11 +211,25 @@ export default function VitalAiIntakeHome() {
 
   const startPathway = useCallback(async (pathway: VitalAiPathwayRow) => {
     if (!user?.id) return;
+    if (!activeClinicId) {
+      setErr("Choose or confirm your clinic before starting intake.");
+      return;
+    }
+    if (!effectiveLocationId) {
+      setErr("Choose your location before starting intake.");
+      return;
+    }
     setBusySlug(pathway.slug);
     setErr(null);
 
     try {
-      const session = await createVitalAiSession({ pathway, patient, profileId: user.id });
+      const session = await createVitalAiSession({
+        pathway,
+        patient,
+        profileId: user.id,
+        clinicId: activeClinicId,
+        locationId: effectiveLocationId,
+      });
       if (intakeGender) {
         await saveVitalAiResponses(session.id, { patient_gender: intakeGender });
       }
@@ -137,7 +241,7 @@ export default function VitalAiIntakeHome() {
     } finally {
       setBusySlug(null);
     }
-  }, [intakeGender, navigate, patient, user?.id]);
+  }, [activeClinicId, effectiveLocationId, intakeGender, navigate, patient, user?.id]);
 
   useEffect(() => {
     if (!shouldAutostart || loading || busySlug || !matchedRequestedPathway) return;
@@ -180,7 +284,7 @@ export default function VitalAiIntakeHome() {
               <div className="muted" style={{ marginTop: 8, lineHeight: 1.7, ...guidedMutedStyle }}>
                 {bookingDraft.serviceName || "Your selected service"} at {bookingDraft.locationName || "your preferred location"}
                 {bookingDraft.startTimeLocal ? ` with a preferred time of ${new Date(bookingDraft.startTimeLocal).toLocaleString()}` : ""} has been saved.
-                Choose the pathway that best matches your concern so the team receives the right intake and wound care urgency details early.
+                  Choose the pathway that best matches your concern so the team receives the right intake and wound care urgency details early.
               </div>
             </div>
             <div className="space" />
@@ -250,6 +354,46 @@ export default function VitalAiIntakeHome() {
         <div className="space" />
 
         <div className="card card-pad" style={guidedPanelStyle}>
+          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <div style={{ flex: "1 1 320px" }}>
+              <div className="h2" style={{ color: "#F8FAFC" }}>Clinic Intake Scope</div>
+              <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, ...guidedMutedStyle }}>
+                Vital AI attaches your clinic automatically and routes this intake using your selected location. Provider review and follow-up stay clinic-aware, and clinical decisions remain physician-reviewed.
+              </div>
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <div className="v-chip" style={guidedChipStyle}>
+                Clinic: <strong>{activeClinic?.name ?? (clinicLoading ? "Loading..." : "Not set")}</strong>
+              </div>
+              <div className="v-chip" style={guidedChipStyle}>
+                Location: <strong>{effectiveLocationSummary?.location_name ?? bookingDraft?.locationName ?? "Not set"}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="space" />
+
+          <MarketGroupedSelect
+            label="Location"
+            value={effectiveLocationId}
+            onChange={(value) => void setActiveLocationId(value || null)}
+            groups={intakeLocationGroups}
+            placeholder="Select location..."
+            disabled={intakeLocationOptions.length === 0}
+            helperText="Clinic-linked live locations can start intake. Coming-soon markets are shown here for network visibility but stay disabled."
+            style={{ marginTop: 8, maxWidth: 420 }}
+            selectStyle={{ width: "100%" }}
+          />
+          {!canStartIntake ? (
+            <div className="muted" style={{ marginTop: 10, fontSize: 12, ...guidedHelperStyle }}>
+              Select a clinic-linked live location before you begin. Existing location-based access stays in place and the intake will also carry clinic scope.
+            </div>
+          ) : null}
+        </div>
+
+        <div className="space" />
+
+        <div className="card card-pad" style={guidedPanelStyle}>
           <div className="h2" style={{ color: "#F8FAFC" }}>Before You Begin</div>
           <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, ...guidedMutedStyle }}>
             We use this to personalize hormone-related recommendations while keeping all other intake logic unchanged.
@@ -282,12 +426,18 @@ export default function VitalAiIntakeHome() {
         <div className="card card-pad" style={guidedPanelStyle}>
           <div className="h2" style={{ color: "#F8FAFC" }}>Choose Your Intake Pathway</div>
           <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, ...guidedMutedStyle }}>
-            Start with the pathway that best matches the patient concern. Wound care stays front and center for urgent wound history, infection screening, and photo upload.
+            Start with the pathway that best matches the patient concern. Growth pathways like GLP-1, TRT, wellness, and peptide consults stay prominent here, while wound care remains fully supported when it is the right clinical pathway.
           </div>
 
           <div className="space" />
 
-          {loading ? <div className="muted">Loading pathways...</div> : <PathwaySelector pathways={prioritizedPathways} busySlug={busySlug} onSelect={startPathway} />}
+          {!canStartIntake ? (
+            <div className="muted" style={guidedMutedStyle}>Choose a clinic-linked location to unlock intake pathways.</div>
+          ) : loading ? (
+            <div className="muted">Loading pathways...</div>
+          ) : (
+            <PathwaySelector pathways={prioritizedPathways} busySlug={busySlug} onSelect={startPathway} />
+          )}
         </div>
 
         <div className="space" />
@@ -328,3 +478,4 @@ export default function VitalAiIntakeHome() {
     </div>
   );
 }
+

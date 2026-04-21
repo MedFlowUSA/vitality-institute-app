@@ -19,6 +19,7 @@ import {
 } from "../lib/patientFiles";
 import { auditWrite } from "../lib/audit";
 import { getErrorMessage } from "../lib/patientRecords";
+import { fromDateTimeLocalValue, toDateTimeLocalValue } from "../lib/virtualVisits";
 
 import SoapNotePanel from "../components/SoapNotePanel";
 import VisitTimelinePanel from "../components/VisitTimelinePanel";
@@ -31,6 +32,11 @@ import {
 } from "../lib/provider/encounterState";
 import { buildProviderPatientCenterGuide } from "../lib/provider/providerGuide";
 import { getProviderPatientCenterRecommendation } from "../lib/provider/providerWorkflow";
+import {
+  formatProviderStatusLabel,
+  isVisitClosedStatus,
+  sortProviderActionableAppointments,
+} from "../lib/provider/workspace";
 import {
   PROVIDER_ROUTES,
   providerMessagesPath,
@@ -315,8 +321,9 @@ export default function ProviderPatientCenter() {
   ].filter(Boolean) as string[];
   const profileIsComplete = profileMissingFields.length === 0;
   const hasIntakeOnFile = woundHistory.length > 0;
-  const hasPendingAppointment = appointments.length > 0;
-  const recommendedAppointment = appointments[0] ?? null;
+  const actionableAppointments = useMemo(() => sortProviderActionableAppointments(appointments), [appointments]);
+  const hasPendingAppointment = actionableAppointments.length > 0;
+  const recommendedAppointment = actionableAppointments[0] ?? null;
   const hasAppointmentContext = hasPendingAppointment || visitsFallback.some((visit) => !!visit.appointment_id);
   const noActiveVisitMessage = "This patient doesn't have an active visit yet. Start a visit or select an appointment to continue.";
 
@@ -404,7 +411,7 @@ export default function ProviderPatientCenter() {
     }
 
     setNextActionTypeDraft(activeVisit.next_action_type ?? "none");
-    setNextActionDueAtDraft(activeVisit.next_action_due_at ? new Date(activeVisit.next_action_due_at).toISOString().slice(0, 16) : "");
+    setNextActionDueAtDraft(toDateTimeLocalValue(activeVisit.next_action_due_at));
     setNextActionNotesDraft(activeVisit.next_action_notes ?? "");
     setFollowUpModeDraft((activeVisit.follow_up_mode as "none" | "virtual" | "in_person" | null) ?? "none");
     setRequiresLabsBeforeFollowUpDraft(!!activeVisit.requires_labs_before_followup);
@@ -639,9 +646,9 @@ export default function ProviderPatientCenter() {
           .in("patient_id", appointmentPatientIds)
           .order("start_time", { ascending: false });
         if (appointmentErr) throw appointmentErr;
-        setAppointments(
+        setAppointments(sortProviderActionableAppointments(
           ((appointmentRows as AppointmentRow[]) ?? []).filter((appointment) => !linkedAppointmentIds.has(appointment.id))
-        );
+        ));
       } else {
         setAppointments([]);
       }
@@ -660,7 +667,7 @@ export default function ProviderPatientCenter() {
         .select(
           "id,created_at,location_id,patient_id,visit_id,uploaded_by,bucket,path,filename,content_type,size_bytes,category,is_internal,notes"
         )
-        .eq("patient_id", patientId)
+        .in("patient_id", appointmentPatientIds)
         .order("created_at", { ascending: false });
       if (fErr) throw fErr;
       setFiles((f as FileRow[]) ?? []);
@@ -884,13 +891,11 @@ export default function ProviderPatientCenter() {
 
     const existingOpenVisit =
       visitsFallback.find((visit) => {
-        const status = (visit.status ?? "").toLowerCase();
-        return status !== "completed" && status !== "closed";
+        return !isVisitClosedStatus(visit.status);
       }) ??
       timeline
         .filter((visit) => {
-          const status = (visit.visit_status ?? "").toLowerCase();
-          return status !== "completed" && status !== "closed";
+          return !isVisitClosedStatus(visit.visit_status);
         })
         .map((visit) => visit.visit_id)[0];
 
@@ -976,7 +981,7 @@ export default function ProviderPatientCenter() {
       } = {
         status: "completed",
         next_action_type: nextActionTypeDraft || "none",
-        next_action_due_at: nextActionDueAtDraft ? new Date(nextActionDueAtDraft).toISOString() : null,
+        next_action_due_at: fromDateTimeLocalValue(nextActionDueAtDraft),
         next_action_notes: nextActionNotesDraft.trim() || null,
         follow_up_required: derivedFollowUpRequired,
         follow_up_mode: derivedFollowUpMode,
@@ -1663,7 +1668,7 @@ export default function ProviderPatientCenter() {
                 {activeVisit ? (
                   <>
                     Active visit: <strong>{new Date(activeVisit.visit_date).toLocaleDateString()}</strong>{" "}
-                    {activeVisit.status ? `• ${activeVisit.status}` : ""}{" "}
+                    {activeVisit.status ? `• ${formatProviderStatusLabel(activeVisit.status)}` : ""}{" "}
                     {activeVisit.summary ? `• ${activeVisit.summary}` : ""}
                   </>
                 ) : (
@@ -1754,7 +1759,7 @@ export default function ProviderPatientCenter() {
                         <div className="h2">{activeVisit ? `Visit: ${fmt(activeVisit.visit_date)}` : "Select a visit"}</div>
                         <div className="muted" style={{ marginTop: 4 }}>
                           {activeVisit
-                            ? `${activeVisit.status ?? "-"} | ${activeVisit.summary ?? ""}`
+                            ? `${formatProviderStatusLabel(activeVisit.status)} | ${activeVisit.summary ?? ""}`
                             : "Pick a visit from the timeline."}
                         </div>
                       </div>

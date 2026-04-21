@@ -66,7 +66,7 @@ export default function PublicAppGuide() {
       preferFallbackBack
     >
       <div className="card card-pad card-light surface-light public-panel">
-        <div className="h2">Touch of Vitality Law Enforcement Guide</div>
+        <div className="h2">Vitality Institute Law Enforcement Guide</div>
         <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
           This guide explains how law enforcement clients can use the full app experience, from choosing services and
           submitting a request to completing intake, using the patient dashboard, and reviewing follow-up information.

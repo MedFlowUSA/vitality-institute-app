@@ -4,6 +4,7 @@ import type { ConversionPathway, ConversionUrgencyLevel, ConversionValueLevel } 
 export type FunnelEventName =
   | "public_booking_started"
   | "public_booking_submitted"
+  | "public_expansion_interest_submitted"
   | "vital_ai_started"
   | "vital_ai_submitted"
   | "care_summary_viewed"

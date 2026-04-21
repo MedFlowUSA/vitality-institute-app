@@ -4,7 +4,19 @@ import RouteHeader from "../components/RouteHeader";
 import { preparePublicVitalAiOutboundPayload } from "../lib/outboundMessagePrep";
 import { formatAnswerValue, getPathwayLabel, getPathwayQuestions, type PublicVitalAiAnswers, type PublicVitalAiPathway, type PublicVitalAiStatus } from "../lib/publicVitalAiLite";
 import { buildFollowUpMessage, compareLeadPriority, getUrgencyIndicatorStyle, getValueIndicatorStyle } from "../lib/publicFollowUpEngine";
-import { describePublicSubmissionOrigin, getBookingRequestStatusLabel, getVitalAiNextStep, getVitalAiStatusLabel, isWoundRelated, type BookingRequestStatus } from "../lib/publicSubmissionOps";
+import {
+  describePublicSubmissionOrigin,
+  getBookingRequestStatusLabel,
+  getPublicVitalAiCaptureTypeLabel,
+  getVitalAiNextStep,
+  getVitalAiStatusLabel,
+  isExpansionBookingRequest,
+  isExpansionPublicVitalAiSubmission,
+  isWoundRelated,
+  type BookingRequestCaptureType,
+  type BookingRequestStatus,
+  type PublicVitalAiCaptureType,
+} from "../lib/publicSubmissionOps";
 import { supabase } from "../lib/supabase";
 import { scoreConversionLead, type ConversionPathway, type ConversionUrgencyLevel, type ConversionValueLevel } from "../lib/vitalAi/conversionEngine";
 import { getRevenueRecommendation } from "../lib/vitalAi/revenueEngine";
@@ -24,6 +36,7 @@ type SubmissionRow = {
   answers_json: PublicVitalAiAnswers;
   summary: string | null;
   source: string;
+  capture_type: PublicVitalAiCaptureType | null;
   notes: string | null;
   internal_notes: string | null;
   assigned_to: string | null;
@@ -45,6 +58,8 @@ type StaffOption = {
 type LocationOption = {
   id: string;
   name: string | null;
+  is_placeholder: boolean | null;
+  market_status: "live" | "coming_soon" | null;
 };
 
 type ServiceOption = {
@@ -56,15 +71,16 @@ type BookingRequestRow = {
   id: string;
   status: BookingRequestStatus;
   source: string;
+  capture_type: BookingRequestCaptureType | null;
   patient_id: string | null;
   requested_start: string;
   service_label: string | null;
 };
 
-type QueueFilter = "open" | "wound" | "booking-linked" | "all";
+type QueueFilter = "open" | "wound" | "booking-linked" | "expansion" | "all";
 
 const SUBMISSION_SELECT =
-  "id,pathway,status,first_name,last_name,phone,email,preferred_contact_method,preferred_location_id,booking_request_id,service_id,answers_json,summary,source,notes,internal_notes,assigned_to,contacted_at,resolved_at,lead_type,urgency_level,value_level,created_at,updated_at";
+  "id,pathway,status,first_name,last_name,phone,email,preferred_contact_method,preferred_location_id,booking_request_id,service_id,answers_json,summary,source,capture_type,notes,internal_notes,assigned_to,contacted_at,resolved_at,lead_type,urgency_level,value_level,created_at,updated_at";
 
 export default function AdminPublicVitalAiSubmissions() {
   const { user } = useAuth();
@@ -86,6 +102,9 @@ export default function AdminPublicVitalAiSubmissions() {
   const locationNameById = useMemo(() => {
     return new Map(locations.map((location) => [location.id, location.name ?? location.id]));
   }, [locations]);
+  const locationById = useMemo(() => {
+    return new Map(locations.map((location) => [location.id, location]));
+  }, [locations]);
 
   const serviceNameById = useMemo(() => {
     return new Map(services.map((service) => [service.id, service.name ?? service.id]));
@@ -99,6 +118,7 @@ export default function AdminPublicVitalAiSubmissions() {
     return submissions.map((submission) => {
       const linkedBookingRequest = submission.booking_request_id ? bookingRequestById.get(submission.booking_request_id) ?? null : null;
       const serviceName = submission.service_id ? serviceNameById.get(submission.service_id) ?? submission.service_id : null;
+      const preferredLocation = submission.preferred_location_id ? locationById.get(submission.preferred_location_id) ?? null : null;
       const scoredLead =
         submission.lead_type && submission.urgency_level && submission.value_level
           ? scoreConversionLead({
@@ -120,12 +140,27 @@ export default function AdminPublicVitalAiSubmissions() {
         serviceName,
         scoredLead,
         revenueRecommendation,
+        captureType: isExpansionPublicVitalAiSubmission({
+          captureType: submission.capture_type,
+          preferredLocationIsPlaceholder: preferredLocation?.is_placeholder === true || preferredLocation?.market_status === "coming_soon",
+        })
+          ? ("expansion_interest" as const)
+          : ("standard_intake" as const),
         originLabel: describePublicSubmissionOrigin({
           bookingSource: linkedBookingRequest?.source,
           vitalAiSource: submission.source,
           hasBookingRequest: !!linkedBookingRequest,
           hasVitalAiSubmission: true,
         }),
+        isExpansionInterest:
+          isExpansionPublicVitalAiSubmission({
+            captureType: submission.capture_type,
+            preferredLocationIsPlaceholder: preferredLocation?.is_placeholder === true || preferredLocation?.market_status === "coming_soon",
+          }) ||
+          isExpansionBookingRequest({
+            captureType: linkedBookingRequest?.capture_type,
+            source: linkedBookingRequest?.source,
+          }),
         isWound: isWoundRelated({
           pathway: submission.pathway,
           serviceName,
@@ -133,7 +168,7 @@ export default function AdminPublicVitalAiSubmissions() {
         }),
       };
     });
-  }, [bookingRequestById, serviceNameById, submissions]);
+  }, [bookingRequestById, locationById, serviceNameById, submissions]);
 
   const visibleSubmissions = useMemo(() => {
     const filtered =
@@ -141,6 +176,8 @@ export default function AdminPublicVitalAiSubmissions() {
         ? enrichedSubmissions
         : filter === "wound"
         ? enrichedSubmissions.filter((submission) => submission.isWound)
+        : filter === "expansion"
+        ? enrichedSubmissions.filter((submission) => submission.isExpansionInterest)
         : filter === "booking-linked"
         ? enrichedSubmissions.filter((submission) => !!submission.linkedBookingRequest)
         : enrichedSubmissions.filter((submission) => submission.status !== "closed");
@@ -206,6 +243,7 @@ export default function AdminPublicVitalAiSubmissions() {
       open: enrichedSubmissions.filter((submission) => submission.status !== "closed").length,
       wound: enrichedSubmissions.filter((submission) => submission.isWound).length,
       bookingLinked: enrichedSubmissions.filter((submission) => !!submission.linkedBookingRequest).length,
+      expansion: enrichedSubmissions.filter((submission) => submission.isExpansionInterest).length,
       all: enrichedSubmissions.length,
     };
   }, [enrichedSubmissions]);
@@ -221,9 +259,9 @@ export default function AdminPublicVitalAiSubmissions() {
           .select("id,email,role")
           .in("role", ["super_admin", "location_admin", "provider", "clinical_staff", "billing", "front_desk"])
           .order("email"),
-        supabase.from("locations").select("id,name").order("name"),
+        supabase.from("locations").select("id,name,is_placeholder,market_status").order("name"),
         supabase.from("services").select("id,name").eq("is_active", true).order("name"),
-        supabase.from("booking_requests").select("id,status,source,patient_id,requested_start,service_label"),
+        supabase.from("booking_requests").select("id,status,source,capture_type,patient_id,requested_start,service_label"),
       ]);
 
       if (submissionRes.error) throw submissionRes.error;
@@ -337,6 +375,9 @@ export default function AdminPublicVitalAiSubmissions() {
                   <button className={filter === "booking-linked" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("booking-linked")}>
                     Booking Linked ({filterSummary.bookingLinked})
                   </button>
+                  <button className={filter === "expansion" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("expansion")}>
+                    Expansion Interest ({filterSummary.expansion})
+                  </button>
                   <button className={filter === "all" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("all")}>
                     All ({filterSummary.all})
                   </button>
@@ -352,7 +393,11 @@ export default function AdminPublicVitalAiSubmissions() {
                 </div>
                 <div className="space" />
                 {visibleSubmissions.length === 0 ? (
-                  <div className="surface-light-helper">No Vital AI Lite submissions match this filter yet.</div>
+                  <div className="surface-light-helper">
+                    {filter === "expansion"
+                      ? "No expansion-interest Vital AI submissions match this filter yet."
+                      : "No Vital AI Lite submissions match this filter yet."}
+                  </div>
                 ) : (
                   visibleSubmissions.map((submission) => (
                     <button
@@ -367,12 +412,18 @@ export default function AdminPublicVitalAiSubmissions() {
                         <div style={{ fontSize: 12, marginTop: 4 }}>
                           {getPathwayLabel(submission.pathway)} | {getVitalAiStatusLabel(submission.status)} | {submission.originLabel}
                         </div>
+                        {submission.isExpansionInterest ? (
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#8a4b14" }}>
+                            Expansion market follow-up - do not treat as live scheduling
+                          </div>
+                        ) : null}
                         <div style={{ fontSize: 12, opacity: 0.85 }}>
                           Next step: {getVitalAiNextStep({
                             status: submission.status,
                             pathway: submission.pathway,
                             hasBookingRequest: !!submission.linkedBookingRequest,
                             patientLinked: !!submission.linkedBookingRequest?.patient_id,
+                            isExpansionInterest: submission.isExpansionInterest,
                           })}
                         </div>
                       </span>
@@ -387,6 +438,25 @@ export default function AdminPublicVitalAiSubmissions() {
                   <div className="surface-light-helper">Select a submission.</div>
                 ) : (
                   <>
+                    {selected.isExpansionInterest ? (
+                      <>
+                        <div
+                          className="card card-pad card-light surface-light"
+                          style={{
+                            marginBottom: 12,
+                            border: "1px solid rgba(191,90,36,0.22)",
+                            background: "linear-gradient(180deg, rgba(255,249,243,0.98), rgba(255,245,238,0.96))",
+                          }}
+                        >
+                          <div className="public-eyebrow" style={{ color: "#a64e20" }}>Expansion Interest</div>
+                          <div className="h2" style={{ marginTop: 10 }}>This submission should stay out of live-market scheduling</div>
+                          <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
+                            Treat this as market-demand follow-up unless the patient is intentionally redirected to a live clinic. It should not inflate live operational intake or booking counts for a coming-soon market.
+                          </div>
+                        </div>
+                      </>
+                    ) : null}
+
                     <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
                       <div>
                         <div className="h2">{selected.first_name} {selected.last_name}</div>
@@ -402,6 +472,7 @@ export default function AdminPublicVitalAiSubmissions() {
                         <div className="v-chip" style={getValueIndicatorStyle(selected.scoredLead.valueLevel)}>Value: <strong>{selected.scoredLead.valueLevel}</strong></div>
                         {selected.linkedBookingRequest ? <div className="v-chip">Booking status: <strong>{getBookingRequestStatusLabel(selected.linkedBookingRequest.status)}</strong></div> : null}
                         {selected.isWound ? <div className="v-chip">Priority: <strong>Wound review</strong></div> : null}
+                        {selected.isExpansionInterest ? <div className="v-chip">Market: <strong>Coming Soon</strong></div> : null}
                       </div>
                     </div>
 
@@ -416,6 +487,7 @@ export default function AdminPublicVitalAiSubmissions() {
                           <div><strong>Phone:</strong> {selected.phone || "-"}</div>
                           <div><strong>Location:</strong> {selected.preferred_location_id ? locationNameById.get(selected.preferred_location_id) ?? selected.preferred_location_id : "Not provided"}</div>
                           <div><strong>Service:</strong> {selected.serviceName || "Not provided"}</div>
+                          <div><strong>Capture type:</strong> {getPublicVitalAiCaptureTypeLabel(selected.captureType)}</div>
                           <div><strong>Lead type:</strong> {selected.scoredLead.leadType}</div>
                           <div><strong>Urgency:</strong> {selected.scoredLead.urgencyLevel}</div>
                           <div><strong>Value:</strong> {selected.scoredLead.valueLevel}</div>
@@ -509,10 +581,13 @@ export default function AdminPublicVitalAiSubmissions() {
                             pathway: selected.pathway,
                             hasBookingRequest: !!selected.linkedBookingRequest,
                             patientLinked: !!selected.linkedBookingRequest?.patient_id,
+                            isExpansionInterest: selected.isExpansionInterest,
                           })}
                         </div>
                         <div className="surface-light-helper" style={{ marginTop: 10 }}>
-                          {selected.isWound
+                          {selected.isExpansionInterest
+                            ? "Keep expansion-market follow-up separate from live intake conversion unless the patient is intentionally moved to an active clinic."
+                            : selected.isWound
                             ? "Keep urgency, infection concerns, and the need for photos or faster follow-up visible."
                             : "Use this to decide whether booking confirmation, coordinator outreach, account setup, or provider review should happen next."}
                         </div>
@@ -535,7 +610,7 @@ export default function AdminPublicVitalAiSubmissions() {
                             <option value="new">Requested</option>
                             <option value="reviewed">Needs Follow-up</option>
                             <option value="contacted">Contacted</option>
-                            <option value="scheduled">Converted to Scheduling</option>
+                            {!selected.isExpansionInterest ? <option value="scheduled">Converted to Scheduling</option> : null}
                             <option value="closed">Closed</option>
                           </select>
                         </div>

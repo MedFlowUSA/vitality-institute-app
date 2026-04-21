@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Vitality Institute</string>
+    <string name="title_activity_main">Vitality Institute</string>
+    <string name="package_name">com.vitalityinstitute.app</string>
+    <string name="custom_url_scheme">com.vitalityinstitute.app</string>
+</resources>

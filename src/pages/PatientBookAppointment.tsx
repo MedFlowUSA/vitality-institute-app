@@ -2,10 +2,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import MarketGroupedSelect from "../components/locations/MarketGroupedSelect";
 import { clearPublicBookingDraft, getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { formatCatalogLocationName, getGuidedIntakePathwayForService, getIntakeOnlyPathwayForService } from "../lib/services/catalog";
 import { LAW_ENFORCEMENT_DISCOUNT_CODE, LAW_ENFORCEMENT_DISCOUNT_PERCENT } from "../lib/lawEnforcementDiscount";
+import { buildMarketOptionGroups, type MarketStatus } from "../lib/locationMarkets";
 import { supabase } from "../lib/supabase";
+import { getRequestedAppointmentDeliveryFields } from "../lib/virtualVisits";
 import RouteHeader from "../components/RouteHeader";
 
 type LocationRow = {
@@ -14,6 +17,9 @@ type LocationRow = {
   address_line1: string | null;
   city: string | null;
   state: string | null;
+  is_placeholder: boolean;
+  market_status: MarketStatus;
+  display_priority: number;
 };
 type ServiceRow = {
   id: string;
@@ -77,6 +83,19 @@ export default function PatientBookAppointment() {
   const renderedLocationId = useMemo(() => {
     return locations.some((locationRow) => locationRow.id === locationId) ? locationId : "";
   }, [locationId, locations]);
+  const locationGroups = useMemo(
+    () =>
+      buildMarketOptionGroups(locations, {
+        valueOf: (location) => location.id,
+        labelOf: (location) =>
+          [formatCatalogLocationName(location), [location.city, location.state].filter(Boolean).join(", ")]
+            .filter(Boolean)
+            .join(" - "),
+        includeComingSoon: true,
+        disableComingSoon: true,
+      }),
+    [locations]
+  );
 
   const servicesForLocation = useMemo(() => {
     if (!renderedLocationId) return [];
@@ -141,10 +160,12 @@ export default function PatientBookAppointment() {
         // 2) Locations
         const { data: locs, error: locErr } = await supabase
           .from("locations")
-          .select("id,name,address_line1,city,state")
+          .select("id,name,address_line1,city,state,is_placeholder,market_status,display_priority")
+          .order("display_priority")
           .order("name");
         if (locErr) throw locErr;
-        setLocations((locs as LocationRow[]) ?? []);
+        const locationRows = (locs as LocationRow[]) ?? [];
+        setLocations(locationRows);
 
         // 3) Services
         const { data: svcs, error: svcErr } = await supabase
@@ -155,7 +176,6 @@ export default function PatientBookAppointment() {
         if (svcErr) throw svcErr;
         const serviceRows = (svcs as ServiceRow[]) ?? [];
         setServices(serviceRows);
-        const locationRows = (locs as LocationRow[]) ?? [];
         const preferredService =
           prefillServiceId && serviceRows.some((service) => service.id === prefillServiceId)
             ? serviceRows.find((service) => service.id === prefillServiceId) ?? null
@@ -295,6 +315,7 @@ export default function PatientBookAppointment() {
 
     const startIso = toIsoFromLocal(startTimeLocal);
     const endIso = computeEndTimeIso(startIso);
+    const appointmentDelivery = getRequestedAppointmentDeliveryFields(selectedService.visit_type);
 
     setSaving(true);
 
@@ -309,9 +330,9 @@ export default function PatientBookAppointment() {
           service_id: renderedServiceId,
           start_time: startIso,
           end_time: endIso,
-          status: "scheduled",
-          visit_type: "in_person",
-          telehealth_enabled: false,
+          status: "requested",
+          visit_type: appointmentDelivery.visit_type,
+          telehealth_enabled: appointmentDelivery.telehealth_enabled,
           notes: bookingNotes || null,
           referral_id: null,
         },
@@ -367,14 +388,15 @@ export default function PatientBookAppointment() {
           {!loading && hasRenderableFormState && (
             <>
               <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-                <select className="input" style={{ flex: "1 1 220px" }} value={renderedLocationId} onChange={(e) => setLocationId(e.target.value)}>
-                  <option value="">Select location...</option>
-                  {locations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {[formatCatalogLocationName(l), [l.city, l.state].filter(Boolean).join(", ")].filter(Boolean).join(" - ")}
-                    </option>
-                  ))}
-                </select>
+                <MarketGroupedSelect
+                  label="Location"
+                  value={renderedLocationId}
+                  onChange={setLocationId}
+                  groups={locationGroups}
+                  placeholder="Select location..."
+                  helperText="Live clinics are bookable now. Coming-soon markets are shown here for visibility but stay disabled in patient booking."
+                  style={{ flex: "1 1 220px" }}
+                />
 
                 <select className="input" style={{ flex: "2 1 320px" }} value={renderedServiceId} onChange={(e) => setServiceId(e.target.value)} disabled={!renderedLocationId || servicesForLocation.length === 0}>
                   <option value="">Select service...</option>
@@ -426,7 +448,7 @@ export default function PatientBookAppointment() {
                   placeholder={LAW_ENFORCEMENT_DISCOUNT_CODE}
                 />
                 <div className="muted" style={{ fontSize: 12, marginBottom: 10, lineHeight: 1.6 }}>
-                  Jane&apos;s Touch of Vitality police officers and other law enforcement clients can use {LAW_ENFORCEMENT_DISCOUNT_CODE} for {LAW_ENFORCEMENT_DISCOUNT_PERCENT}% off eligible services. Verification may be requested at the visit.
+                  Vitality Institute law enforcement clients can use {LAW_ENFORCEMENT_DISCOUNT_CODE} for {LAW_ENFORCEMENT_DISCOUNT_PERCENT}% off eligible services. Verification may be requested at the visit.
                 </div>
                 <div className="muted" style={{ marginBottom: 6 }}>
                   Notes (optional)

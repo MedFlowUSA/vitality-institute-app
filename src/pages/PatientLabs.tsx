@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { useClinicContext } from "../features/clinics/hooks/useClinicContext";
 import { renderElementPdfBlob } from "../lib/pdf";
 import { buildPatientNoticeState } from "../lib/patientNotices";
 import { resolvePatientLabSourceLabel, validatePatientLabSubmission } from "../lib/patientWorkflow";
@@ -45,6 +46,7 @@ function formatDisplayDateTime(value: string | null | undefined) {
 
 export default function PatientLabs() {
   const { user, role, signOut } = useAuth();
+  const { activeClinicId, activeClinic, activeClinicLocations, loading: clinicLoading } = useClinicContext();
   const nav = useNavigate();
   const [params] = useSearchParams();
 
@@ -61,6 +63,7 @@ export default function PatientLabs() {
   const [panelId, setPanelId] = useState("");
   const [appointmentId, setAppointmentId] = useState(prefillApptId);
   const [intakeId, setIntakeId] = useState(prefillIntakeId);
+  const [manualLocationId, setManualLocationId] = useState("");
   const [labSource, setLabSource] = useState("");
   const [labSourceOther, setLabSourceOther] = useState("");
 
@@ -75,9 +78,26 @@ export default function PatientLabs() {
   const printRef = useRef<HTMLDivElement | null>(null);
 
   const locName = useMemo(() => {
-    const m = new Map(locations.map((l) => [l.id, l.name]));
+    const mergedLocations =
+      activeClinicLocations.length > 0
+        ? activeClinicLocations.map((location) => ({ id: location.location_id, name: location.location_name }))
+        : locations;
+    const m = new Map(mergedLocations.map((l) => [l.id, l.name]));
     return (id: string) => m.get(id) ?? id;
-  }, [locations]);
+  }, [activeClinicLocations, locations]);
+
+  const availableLocations = useMemo(
+    () =>
+      activeClinicLocations.length > 0
+        ? activeClinicLocations.map((location) => ({ id: location.location_id, name: location.location_name }))
+        : locations,
+    [activeClinicLocations, locations]
+  );
+
+  const availableLocationIds = useMemo(
+    () => availableLocations.map((location) => location.id),
+    [availableLocations]
+  );
 
   const panelName = useMemo(() => {
     const m = new Map(panels.map((p) => [p.id, p.name]));
@@ -93,8 +113,8 @@ export default function PatientLabs() {
     [appointmentId, appointments]
   );
   const resolvedLocationId = useMemo(
-    () => selectedAppointment?.location_id ?? locations[0]?.id ?? "",
-    [locations, selectedAppointment]
+    () => selectedAppointment?.location_id ?? manualLocationId ?? availableLocations[0]?.id ?? "",
+    [availableLocations, manualLocationId, selectedAppointment]
   );
   const resolvedLocationName = useMemo(
     () => (resolvedLocationId ? locName(resolvedLocationId) : "-"),
@@ -125,7 +145,7 @@ export default function PatientLabs() {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Touch of Vitality Lab Form</title>
+          <title>Vitality Institute Lab Form</title>
           <style>
             body { font-family: Arial, Helvetica, sans-serif; margin: 24px; color: #111; background: #fff; }
             .pdf-shell { max-width: 900px; margin: 0 auto; }
@@ -169,11 +189,11 @@ export default function PatientLabs() {
     try {
       const panelLabel = panelName(panelId).replace(/[^\w.-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "lab-panel";
       const pdfBlob = await renderElementPdfBlob(wrapper, {
-        filename: `touch-of-vitality-lab-form-${panelLabel}.pdf`,
+        filename: `vitality-institute-lab-form-${panelLabel}.pdf`,
       });
       const pdfFile = new File(
         [pdfBlob],
-        `touch-of-vitality-lab-form-${panelLabel}-${resultId}.pdf`,
+        `vitality-institute-lab-form-${panelLabel}-${resultId}.pdf`,
         { type: "application/pdf" }
       );
 
@@ -204,7 +224,12 @@ export default function PatientLabs() {
       setLoading(false);
       return;
     }
-    setLocations((locs as LocationRow[]) ?? []);
+    const nextLocations = (locs as LocationRow[]) ?? [];
+    setLocations(nextLocations);
+    if (!manualLocationId) {
+      const clinicScopedDefault = availableLocations[0]?.id ?? nextLocations[0]?.id ?? "";
+      if (clinicScopedDefault) setManualLocationId(clinicScopedDefault);
+    }
 
     if (user) {
       const patientId = await getPatientRecordIdForProfile(user.id);
@@ -227,12 +252,18 @@ export default function PatientLabs() {
       }
       setPatientSummary((patientRow as PatientSummaryRow) ?? null);
 
-      const { data: appts, error: apptErr } = await supabase
+      let appointmentQuery = supabase
         .from("appointments")
         .select("id,location_id,start_time,status")
         .eq("patient_id", patientId)
         .order("start_time", { ascending: false })
         .limit(25);
+
+      if (availableLocationIds.length > 0) {
+        appointmentQuery = appointmentQuery.in("location_id", availableLocationIds);
+      }
+
+      const { data: appts, error: apptErr } = await appointmentQuery;
 
       if (apptErr) {
         setErr(apptErr.message);
@@ -272,7 +303,23 @@ export default function PatientLabs() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [availableLocationIds.join(","), user?.id]);
+
+  useEffect(() => {
+    if (selectedAppointment?.location_id) {
+      setManualLocationId(selectedAppointment.location_id);
+      return;
+    }
+
+    if (manualLocationId && !availableLocationIds.includes(manualLocationId)) {
+      setManualLocationId(availableLocations[0]?.id ?? "");
+      return;
+    }
+
+    if (!manualLocationId && availableLocations[0]?.id) {
+      setManualLocationId(availableLocations[0].id);
+    }
+  }, [availableLocationIds, availableLocations, manualLocationId, selectedAppointment?.location_id]);
 
   useEffect(() => {
     // reset values when panel changes
@@ -295,9 +342,10 @@ export default function PatientLabs() {
     if (validationError) return setErr(validationError);
 
     const appt = appointments.find((a) => a.id === appointmentId) ?? null;
-    const locationId = appt?.location_id ?? locations[0]?.id ?? "";
+    const locationId = appt?.location_id ?? manualLocationId ?? availableLocations[0]?.id ?? "";
 
     if (!locationId) return setErr("No location could be determined.");
+    if (clinicLoading) return setErr("Clinic context is still loading. Please try again.");
 
     setSaving(true);
 
@@ -312,6 +360,7 @@ export default function PatientLabs() {
         .from("lab_results")
         .insert([
           {
+            clinic_id: activeClinicId || null,
             location_id: locationId,
             patient_id: patientId,
             appointment_id: appointmentId || null,
@@ -415,8 +464,8 @@ export default function PatientLabs() {
       <div className="v">{appointmentId ? "Attached" : "Optional"}</div>
     </div>
     <div className="v-stat">
-      <div className="k">Intake Context</div>
-      <div className="v">{intakeId ? "Linked" : "Optional"}</div>
+      <div className="k">Clinic</div>
+      <div className="v">{activeClinic?.brand_name ?? activeClinic?.name ?? "Unassigned"}</div>
     </div>
     <div className="v-stat">
       <div className="k">Status</div>
@@ -480,13 +529,37 @@ export default function PatientLabs() {
                   placeholder="Collected on (optional)"
                 />
 
-                <input
+                <select
                   className="input"
                   style={{ flex: "2 1 320px" }}
+                  value={manualLocationId}
+                  onChange={(e) => setManualLocationId(e.target.value)}
+                  disabled={Boolean(selectedAppointment)}
+                >
+                  <option value="">Select submission location</option>
+                  {availableLocations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space" />
+
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <input
+                  className="input"
+                  style={{ flex: "1 1 320px" }}
                   value={intakeId}
                   onChange={(e) => setIntakeId(e.target.value)}
                   placeholder="Link to Intake ID (optional)"
                 />
+                <div className="muted patient-helper-text" style={{ flex: "1 1 280px", alignSelf: "center" }}>
+                  {selectedAppointment
+                    ? "Location is locked to the linked appointment."
+                    : "Choose the clinic location this lab snapshot belongs to."}
+                </div>
               </div>
 
               <div className="space" />
@@ -572,7 +645,7 @@ export default function PatientLabs() {
                   <div>
                     <div className="h2">Lab Form PDF Preview</div>
                     <div className="muted patient-section-intro patient-mini-note">
-                      After submission, this completed form will be converted into an internal PDF copy for Touch of Vitality.
+                      After submission, this completed form will be converted into an internal PDF copy for Vitality Institute.
                     </div>
                   </div>
 
@@ -587,7 +660,7 @@ export default function PatientLabs() {
                   <div className="pdf-header" style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }}>
                     <img src={logo} alt="Vitality Institute" style={{ width: 72, height: 72, objectFit: "contain" }} />
                     <div>
-                      <div className="pdf-title" style={{ fontSize: 28, fontWeight: 700 }}>Touch of Vitality Lab Form</div>
+                      <div className="pdf-title" style={{ fontSize: 28, fontWeight: 700 }}>Vitality Institute Lab Form</div>
                       <div className="pdf-sub" style={{ color: "#555", fontSize: 13, marginTop: 4 }}>
                         Completed patient lab snapshot for internal review and PDF filing.
                       </div>

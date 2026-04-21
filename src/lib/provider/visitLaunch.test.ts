@@ -140,6 +140,49 @@ describe("visitLaunch", () => {
     });
   });
 
+  it("reuses an existing visit when the incoming candidate id is already the patient record id", async () => {
+    const byProfile = createMaybeSingleChain({
+      data: null,
+      error: null,
+    });
+    const byId = createMaybeSingleChain({
+      data: { id: "patient_5", profile_id: "profile_5" },
+      error: null,
+    });
+    const existingVisit = createMaybeSingleChain({
+      data: { id: "visit_existing_patient_id" },
+      error: null,
+    });
+
+    let patientCall = 0;
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === "patients") {
+        patientCall += 1;
+        return patientCall === 1 ? byProfile : byId;
+      }
+      if (table === "patient_visits") return existingVisit;
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const { startVisitFromAppointment } = await import("./visitLaunch");
+
+    await expect(
+      startVisitFromAppointment({
+        appointmentId: "appt_5",
+        patientCandidateId: "patient_5",
+        locationId: "loc_5",
+      })
+    ).resolves.toEqual({
+      patientId: "patient_5",
+      visitId: "visit_existing_patient_id",
+      reusedExistingVisit: true,
+    });
+
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    expect(byProfile.eq).toHaveBeenCalledWith("profile_id", "patient_5");
+    expect(byId.eq).toHaveBeenCalledWith("id", "patient_5");
+  });
+
   it("throws a deterministic error when no patient record can be resolved", async () => {
     const byProfile = createMaybeSingleChain({
       data: null,

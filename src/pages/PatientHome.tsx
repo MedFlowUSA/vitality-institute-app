@@ -2,9 +2,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import MarketGroupedSelect from "../components/locations/MarketGroupedSelect";
 import { getCanonicalPatientIntakeServiceType, getCanonicalServiceTypeKey } from "../lib/canonicalOfferRegistry";
 import { readPatientNoticeState } from "../lib/patientNotices";
 import { formatCatalogLocationName, normalizePublicPriceLabel } from "../lib/services/catalog";
+import { buildMarketOptionGroups, type MarketStatus } from "../lib/locationMarkets";
 import { supabase } from "../lib/supabase";
 import {
   formatPatientFileSize,
@@ -24,7 +26,7 @@ import {
   getPatientAppointmentIntakeCtaLabel,
   getPatientDashboardIntakeAction,
 } from "../lib/patientWorkflow";
-import { getVirtualVisitState } from "../lib/virtualVisits";
+import { getRequestedAppointmentDeliveryFields, getVirtualVisitState } from "../lib/virtualVisits";
 
 type LocationRow = {
   id: string;
@@ -33,6 +35,9 @@ type LocationRow = {
   city: string | null;
   state: string | null;
   zip?: string | null;
+  is_placeholder: boolean;
+  market_status: MarketStatus;
+  display_priority: number;
 };
 type ServiceRow = {
   id: string;
@@ -561,6 +566,19 @@ export default function PatientHome() {
   const selectedLocation = useMemo(
     () => locations.find((l) => l.id === locationId) ?? null,
     [locations, locationId]
+  );
+  const locationGroups = useMemo(
+    () =>
+      buildMarketOptionGroups(locations, {
+        valueOf: (location) => location.id,
+        labelOf: (location) => {
+          const place = [location.city, location.state].filter(Boolean).join(", ");
+          return place ? `${formatCatalogLocationName(location)} - ${place}` : formatCatalogLocationName(location);
+        },
+        includeComingSoon: true,
+        disableComingSoon: true,
+      }),
+    [locations]
   );
 
   useEffect(() => {
@@ -1373,20 +1391,20 @@ export default function PatientHome() {
     if (!user?.id) return;
 
     try {
-        const patientId = await getPatientRecordIdForProfile(user.id);
-        if (!patientId) {
-          setPatientFiles([]);
-          return;
+      const patientId = await getPatientRecordIdForProfile(user.id);
+      if (!patientId) {
+        setPatientFiles([]);
+        return;
       }
 
-        const { data: files } = await supabase
-          .from("patient_files")
-          .select("*")
-          .eq("patient_id", patientId)
+      const { data: files } = await supabase
+        .from("patient_files")
+        .select("*")
+        .in("patient_id", Array.from(new Set([patientId, user.id])))
         .order("created_at", { ascending: false })
         .limit(10);
 
-        if (files) setPatientFiles((files as PatientFileRow[]) ?? []);
+      if (files) setPatientFiles((files as PatientFileRow[]) ?? []);
     } catch (e) {
       console.error("Patient files load failed:", e);
       setPatientFiles([]);
@@ -1492,7 +1510,8 @@ export default function PatientHome() {
       try {
         const { data: locs, error: locErr } = await supabase
           .from("locations")
-          .select("id,name,address_line1,city,state,zip")
+          .select("id,name,address_line1,city,state,zip,is_placeholder,market_status,display_priority")
+          .order("display_priority")
           .order("name");
         if (locErr) throw locErr;
 
@@ -1506,7 +1525,7 @@ export default function PatientHome() {
 
         if (cancelled) return;
 
-        setLocations(locs ?? []);
+        setLocations((locs as LocationRow[] | null) ?? []);
         setServices(svcs ?? []);
 
         await loadMyAppointments();
@@ -1628,6 +1647,7 @@ export default function PatientHome() {
     try {
       const patientId = await getPatientRecordIdForProfile(user.id);
       if (!patientId) throw new Error("Patient record not found.");
+      const appointmentDelivery = getRequestedAppointmentDeliveryFields(serviceById(serviceId)?.visit_type);
 
       const { data: created, error: apptErr } = await supabase
         .from("appointments")
@@ -1638,8 +1658,8 @@ export default function PatientHome() {
             service_id: serviceId || null,
             start_time: selectedSlotIso,
             status: "requested",
-            visit_type: "in_person",
-            telehealth_enabled: false,
+            visit_type: appointmentDelivery.visit_type,
+            telehealth_enabled: appointmentDelivery.telehealth_enabled,
             notes: notes || null,
           },
         ])
@@ -2506,12 +2526,10 @@ export default function PatientHome() {
           {!loading && (
             <>
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                <select
-                  className="input"
-                  style={{ flex: "1 1 260px" }}
+                <MarketGroupedSelect
+                  label="Location"
                   value={locationId}
-                  onChange={(e) => {
-                    const nextLocationId = e.target.value;
+                  onChange={(nextLocationId) => {
                     setLocationId(nextLocationId);
                     setSelectedSlotIso("");
 
@@ -2525,15 +2543,11 @@ export default function PatientHome() {
                       }
                     }
                   }}
-                >
-                  <option value="">Select Location</option>
-                  {locations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {formatCatalogLocationName(l)}
-                      {[l.city, l.state].filter(Boolean).join(", ") ? ` - ${[l.city, l.state].filter(Boolean).join(", ")}` : ""}
-                    </option>
-                  ))}
-                </select>
+                  groups={locationGroups}
+                  placeholder="Select Location"
+                  helperText="Live clinics are available for booking and follow-up. Coming-soon markets are visible here but remain non-operational."
+                  style={{ flex: "1 1 260px" }}
+                />
                 {selectedLocation ? (
                   <div className="muted patient-mini-note" style={{ marginTop: 6 }}>
                     {[selectedLocation.address_line1, [selectedLocation.city, selectedLocation.state, selectedLocation.zip].filter(Boolean).join(" ")]

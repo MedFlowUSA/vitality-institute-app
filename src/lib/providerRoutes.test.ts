@@ -3,6 +3,7 @@ import {
   PROVIDER_ROUTES,
   providerIvrPrintPath,
   providerMessagesPath,
+  providerProtocolReviewPath,
   providerPatientCenterLegacyPath,
   providerPatientCenterPath,
   providerVisitBuilderAppointmentPath,
@@ -36,5 +37,6 @@ describe("providerRoutes", () => {
     expect(providerMessagesPath()).toBe("/provider/chat");
     expect(providerMessagesPath("conv 42")).toBe("/provider/chat?conversationId=conv%2042");
     expect(providerVitalAiProfilePath("profile_9")).toBe("/provider/vital-ai/profile/profile_9");
+    expect(providerProtocolReviewPath("assessment 2")).toBe("/provider/protocol-review/assessment 2");
   });
 });

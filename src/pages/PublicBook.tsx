@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth, type AppRole } from "../auth/AuthProvider";
+import MarketGroupedSelect from "../components/locations/MarketGroupedSelect";
 import { trackFunnelEvent } from "../lib/analytics";
 import { resolveCanonicalOffer } from "../lib/canonicalOfferRegistry";
 import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
@@ -15,8 +16,8 @@ import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath, sanitizeI
 import { LAW_ENFORCEMENT_DISCOUNT_CODE, LAW_ENFORCEMENT_DISCOUNT_PERCENT } from "../lib/lawEnforcementDiscount";
 import {
   formatCatalogLocationDetails,
-  formatCatalogLocationLabel,
   formatCatalogLocationName,
+  getCatalogLocationSelectGroups,
   getIntakeOnlyPathwayForService,
   getPublicVitalAiPathwayParam,
   loadCatalogLocations,
@@ -26,6 +27,7 @@ import {
   type CatalogLocation,
   type CatalogService,
 } from "../lib/services/catalog";
+import { isPlaceholderMarket } from "../lib/locationMarkets";
 
 function getHomeRouteForRole(role: AppRole | null) {
   if (role === "super_admin" || role === "location_admin") return "/admin";
@@ -96,6 +98,7 @@ export default function PublicBook() {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [interestMessage, setInterestMessage] = useState<string | null>(null);
+  const [expansionRequestId, setExpansionRequestId] = useState<string | null>(null);
   const [locations, setLocations] = useState<CatalogLocation[]>([]);
   const [services, setServices] = useState<CatalogService[]>([]);
 
@@ -192,6 +195,27 @@ export default function PublicBook() {
   const selectedLocationName = useMemo(() => {
     return selectedLocation ? formatCatalogLocationName(selectedLocation) : null;
   }, [selectedLocation]);
+  const locationGroups = useMemo(
+    () => getCatalogLocationSelectGroups(locations, { includeComingSoon: true }),
+    [locations]
+  );
+  const liveLocations = useMemo(
+    () => locations.filter((location) => !isPlaceholderMarket(location)),
+    [locations]
+  );
+  const comingSoonLocations = useMemo(
+    () => locations.filter((location) => isPlaceholderMarket(location)),
+    [locations]
+  );
+  const featuredExpansionMarkets = useMemo(
+    () => comingSoonLocations.slice(0, 6).map((location) => formatCatalogLocationName(location)),
+    [comingSoonLocations]
+  );
+  const isComingSoonLocation = Boolean(selectedLocation && isPlaceholderMarket(selectedLocation));
+  const comingSoonLocationLabel = useMemo(() => {
+    if (!selectedLocation) return null;
+    return formatCatalogLocationName(selectedLocation);
+  }, [selectedLocation]);
 
   const selectedServiceRow = selectedBookingOption?.catalogService ?? null;
 
@@ -241,7 +265,7 @@ export default function PublicBook() {
 
   const hasValidLocation = !!renderedLocationId && !!selectedLocation;
   const hasValidService = !!renderedServiceId && !!selectedBookingOption;
-  const needsPreferredTime = !intakeOnlyPathway;
+  const needsPreferredTime = !isComingSoonLocation && !intakeOnlyPathway;
   const hasValidTime = !needsPreferredTime || (!!startTimeDate && hasCompleteStartTimeValue);
   const isFormComplete = hasValidLocation && hasValidService && hasValidTime;
 
@@ -252,6 +276,9 @@ export default function PublicBook() {
     if (!hasValidService) {
       return "Select a service to continue.";
     }
+    if (isComingSoonLocation) {
+      return null;
+    }
     if (!selectedBookingOption || bookingOptions.length === 0) {
       return "Something went wrong. Please try again.";
     }
@@ -259,7 +286,7 @@ export default function PublicBook() {
       return "Choose your preferred time to continue.";
     }
     return null;
-  }, [bookingOptions.length, hasValidLocation, hasValidService, hasValidTime, selectedBookingOption]);
+  }, [bookingOptions.length, hasValidLocation, hasValidService, hasValidTime, isComingSoonLocation, selectedBookingOption]);
 
   const matchedInterestService = useMemo(() => {
     return matchCatalogServiceFromInterest({
@@ -337,6 +364,7 @@ export default function PublicBook() {
 
   useEffect(() => {
     setSubmitError(null);
+    setExpansionRequestId(null);
   }, [discountCode, locationId, notes, serviceId, startTimeLocal]);
 
   useEffect(() => {
@@ -364,11 +392,13 @@ export default function PublicBook() {
     if (loading) return " ";
     if (catalogError) return catalogError;
     if (!hasValidLocation) return "Select the clinic location you prefer.";
+    if (isComingSoonLocation && !hasValidService) return "Choose the program or service you want so we can capture your expansion interest.";
+    if (isComingSoonLocation) return "This market is coming soon. We will save your expansion interest instead of routing you into live scheduling.";
     if (!hasValidService) return "Select the service or program you want help with.";
     if (!hasValidTime) return "Choose your preferred time before continuing.";
     if (intakeOnlyPathway) return "This option starts with guided intake before scheduling.";
     return " ";
-  }, [catalogError, hasValidLocation, hasValidService, hasValidTime, intakeOnlyPathway, loading]);
+  }, [catalogError, hasValidLocation, hasValidService, hasValidTime, intakeOnlyPathway, isComingSoonLocation, loading]);
 
   const canContinue = useMemo(() => {
     if (loading || submitting) return false;
@@ -379,13 +409,61 @@ export default function PublicBook() {
   const confirmBooking = async () => {
     if (loading || submitting || catalogError) return;
 
-    if (!hasValidLocation || !hasValidService || !hasValidTime) {
-      setSubmitError("Please select a service and time to continue");
+    if (!hasValidLocation || !hasValidService || (!isComingSoonLocation && !hasValidTime)) {
+      setSubmitError(isComingSoonLocation ? "Choose a coming soon city and the service you want." : "Please select a service and time to continue");
       return;
     }
 
     if (!selectedBookingOption) {
       setSubmitError("Something went wrong. Please try again.");
+      return;
+    }
+
+    if (isComingSoonLocation) {
+      setSubmitting(true);
+      setSubmitError(null);
+
+      try {
+        const request = await createBookingRequest({
+          locationId: renderedLocationId,
+          serviceId: null,
+          serviceLabel: selectedBookingOption.serviceLabel,
+          requestedStart: startTimeDate?.toISOString() ?? new Date().toISOString(),
+          notes: bookingNotes ? `[Expansion interest] ${bookingNotes}` : "Expansion interest",
+          source: selectedInterestSlug ? `public_expansion_interest:${selectedInterestSlug}` : "public_expansion_interest",
+          captureType: "expansion_interest",
+        });
+
+        savePublicBookingDraft({
+          locationId: renderedLocationId,
+          serviceId: renderedServiceId,
+          startTimeLocal: normalizedStartTime,
+          notes,
+          discountCode,
+          locationName: selectedLocationName ?? draft?.locationName,
+          serviceName: selectedBookingOption.serviceLabel,
+          requestId: request.id,
+        });
+
+        void trackFunnelEvent({
+          eventName: "public_expansion_interest_submitted",
+          pathway: selectedInterestSlug || null,
+          metadata: {
+            requestId: request.id,
+            serviceName: selectedBookingOption.serviceLabel,
+            locationId: renderedLocationId,
+            captureMode: "expansion_interest",
+          },
+        });
+
+        setExpansionRequestId(request.id);
+        return;
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Something went wrong. Please try again.";
+        setSubmitError(message);
+      } finally {
+        setSubmitting(false);
+      }
       return;
     }
 
@@ -457,6 +535,7 @@ export default function PublicBook() {
         requestedStart: start.toISOString(),
         notes: bookingNotes,
         source: selectedInterestSlug ? `public_booking_interest:${selectedInterestSlug}` : "public_booking_flow",
+        captureType: "live_booking",
       });
       const resolvedLead = resolveBookingRequestLead({
         serviceName: selectedBookingOption.serviceLabel,
@@ -575,22 +654,98 @@ export default function PublicBook() {
               </div>
             ) : null}
 
+            <div className="card card-pad card-light surface-light public-growth-panel" style={{ marginBottom: 14 }}>
+              <div className="public-growth-header">
+                <div>
+                  <div className="public-eyebrow">Nationwide Growth Markets</div>
+                  <div className="h2 public-section-title" style={{ marginTop: 10 }}>
+                    Choose a live clinic now or join the waitlist for a city on the way.
+                  </div>
+                </div>
+                <div className="public-growth-badge">
+                  {isComingSoonLocation ? "Waitlist path active" : "Live booking stays separate"}
+                </div>
+              </div>
+
+              <div className="surface-light-body public-growth-copy" style={{ marginTop: 12 }}>
+                Vitality Institute keeps live operational booking separate from expansion-interest
+                capture. That means you can raise your hand for a coming-soon market without being
+                dropped into provider routing, fulfillment, or appointment scheduling before that
+                city is activated.
+              </div>
+
+              <div className="public-growth-stat-grid" style={{ marginTop: 18 }}>
+                <div className="public-growth-stat">
+                  <div className="public-mini-title">Live Clinics</div>
+                  <div className="public-growth-stat-value">{liveLocations.length}</div>
+                  <div className="surface-light-helper">Ready for real scheduling and intake flow today.</div>
+                </div>
+                <div className="public-growth-stat">
+                  <div className="public-mini-title">Coming Soon Markets</div>
+                  <div className="public-growth-stat-value">{comingSoonLocations.length}</div>
+                  <div className="surface-light-helper">Selectable for expansion interest and waitlist follow-up.</div>
+                </div>
+                <div className="public-growth-stat">
+                  <div className="public-mini-title">Current Selection</div>
+                  <div className="public-growth-stat-value">
+                    {isComingSoonLocation ? "Waitlist" : selectedLocation ? "Live clinic" : "Choose a market"}
+                  </div>
+                  <div className="surface-light-helper">
+                    {isComingSoonLocation
+                      ? "You will save market demand instead of a live appointment request."
+                      : "Live clinics continue into booking, intake, and clinic review."}
+                  </div>
+                </div>
+              </div>
+
+              {featuredExpansionMarkets.length > 0 ? (
+                <div className="public-growth-market-shell" style={{ marginTop: 18 }}>
+                  <div className="public-mini-title">Featured Expansion Cities</div>
+                  <div className="public-growth-market-list" style={{ marginTop: 12 }}>
+                    {featuredExpansionMarkets.map((market) => (
+                      <span key={market} className="public-growth-market-chip">
+                        {market}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <div className="card card-pad card-light surface-light public-panel" style={{ marginBottom: 14 }}>
               <div className="h2">How this works</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                {user?.id
+                {isComingSoonLocation
+                  ? "Choose the market and service you care about now. We will save this as expansion interest instead of routing you into live scheduling."
+                  : user?.id
                   ? "Choose your service and preferred time now, then continue into a guided intake before your visit."
                   : "Choose your service and preferred time now. We will save your request first, then guide you through sign-in or account setup and intake while the clinic reviews availability."}
               </div>
               <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
                 Need the full walkthrough? <Link to="/how-to-use-the-app">Read the full step-by-step patient guide</Link>.
               </div>
+              {isComingSoonLocation ? (
+                <div style={{ marginTop: 12 }}>
+                  <span className="public-expansion-pill">Waitlist only - not live scheduling</span>
+                </div>
+              ) : null}
             </div>
+
+            {isComingSoonLocation ? (
+              <div style={{ marginBottom: 14 }}>
+                <PublicFlowStatusCard
+                  eyebrow="Coming Soon Market"
+                  title={`${comingSoonLocationLabel ?? "This market"} is not booking live visits yet`}
+                  body="You can still select this city and service to join the expansion waitlist. We will treat it as market-interest capture, not as a live operational clinic booking."
+                  detail="No provider routing, fulfillment, or appointment scheduling will start from this selection. If a nearby live clinic can help sooner, the team can redirect you there during follow-up."
+                />
+              </div>
+            ) : null}
 
             <div className="card card-pad card-light surface-light public-panel" style={{ marginBottom: 14 }}>
               <div className="h2">Law Enforcement Discount</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                Police officers and other law enforcement professionals may use code <strong>{LAW_ENFORCEMENT_DISCOUNT_CODE}</strong> for {LAW_ENFORCEMENT_DISCOUNT_PERCENT}% off eligible Touch of Vitality services.
+                Police officers and other law enforcement professionals may use code <strong>{LAW_ENFORCEMENT_DISCOUNT_CODE}</strong> for {LAW_ENFORCEMENT_DISCOUNT_PERCENT}% off eligible Vitality Institute services.
               </div>
             </div>
 
@@ -629,20 +784,20 @@ export default function PublicBook() {
             <div className="space" />
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 220px" }}>
-                <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Location</div>
-                <select className="input" value={renderedLocationId} onChange={(event) => setLocationId(event.target.value)}>
-                  <option value="">Select location...</option>
-                  {locations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {formatCatalogLocationLabel(location)}
-                    </option>
-                  ))}
-                </select>
-                {selectedLocation ? (
-                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                    {formatCatalogLocationDetails(selectedLocation)}
-                  </div>
-                ) : null}
+                <MarketGroupedSelect
+                  label="Location"
+                  value={renderedLocationId}
+                  onChange={setLocationId}
+                  groups={locationGroups}
+                  placeholder="Select location..."
+                  helperText={
+                    selectedLocation
+                      ? isComingSoonLocation
+                        ? `${comingSoonLocationLabel} is coming soon. Selecting it will join the expansion waitlist instead of creating a live clinic booking.`
+                        : formatCatalogLocationDetails(selectedLocation)
+                      : "Choose a live clinic or a coming soon expansion market."
+                  }
+                />
               </div>
 
               <div style={{ flex: "2 1 320px" }}>
@@ -672,9 +827,13 @@ export default function PublicBook() {
                   type="datetime-local"
                   value={startTimeLocal}
                   onChange={(event) => setStartTimeLocal(event.target.value)}
-                  disabled={Boolean(intakeOnlyPathway)}
+                  disabled={Boolean(intakeOnlyPathway || isComingSoonLocation)}
                 />
-                {intakeOnlyPathway ? (
+                {isComingSoonLocation ? (
+                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                    Coming soon markets use waitlist capture instead of live scheduling, so a preferred time is optional.
+                  </div>
+                ) : intakeOnlyPathway ? (
                   <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
                     This option starts with guided intake first, so a preferred time is not required yet.
                   </div>
@@ -699,7 +858,7 @@ export default function PublicBook() {
                   placeholder={LAW_ENFORCEMENT_DISCOUNT_CODE}
                 />
                 <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                  For Jane&apos;s Touch of Vitality law enforcement clients, use {LAW_ENFORCEMENT_DISCOUNT_CODE} for {LAW_ENFORCEMENT_DISCOUNT_PERCENT}% off. Verification may be requested at the time of service.
+                  Vitality Institute law enforcement clients may use {LAW_ENFORCEMENT_DISCOUNT_CODE} for {LAW_ENFORCEMENT_DISCOUNT_PERCENT}% off. Verification may be requested at the time of service.
                 </div>
               </div>
               <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Notes (optional)</div>
@@ -723,11 +882,13 @@ export default function PublicBook() {
               >
                 {submitting
                   ? "Saving Request..."
-                  : intakeOnlyPathway
-                    ? "Continue to Guided Intake"
-                    : user?.id
-                      ? "Continue to Intake"
-                      : "Save Request and Continue"}
+                  : isComingSoonLocation
+                    ? "Join Expansion Waitlist"
+                    : intakeOnlyPathway
+                     ? "Continue to Guided Intake"
+                     : user?.id
+                       ? "Continue to Intake"
+                       : "Save Request and Continue"}
               </button>
               <Link to="/contact" className="btn btn-secondary">
                 Need help first?
@@ -737,12 +898,18 @@ export default function PublicBook() {
             <div className="space" />
 
             <PublicFlowStatusCard
-              eyebrow="What Happens Next"
-              title="What Happens Next"
+              eyebrow={expansionRequestId ? "Expansion Waitlist" : "What Happens Next"}
+              title={expansionRequestId ? "You joined the waitlist for this market" : "What Happens Next"}
               body={
-                "Once you send your request, our team will review it and follow up with the right next step."
+                expansionRequestId
+                  ? "Your expansion interest is saved. Our team will reach out when this market opens or if a nearby live clinic can help sooner."
+                  : "Once you send your request, our team will review it and follow up with the right next step."
               }
-              detail="Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit. If you are not signed in yet, we will carry this request into account setup and intake for you."
+              detail={
+                expansionRequestId
+                  ? `Expansion request saved with reference ${expansionRequestId}. This does not place you into live scheduling or clinical routing until the market is activated.`
+                  : "Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit. If you are not signed in yet, we will carry this request into account setup and intake for you."
+              }
               actions={[
                 { label: "Start with Vital AI", to: returnTo ? `/vital-ai?returnTo=${encodeURIComponent(bookBackTo)}` : "/vital-ai", variant: "ghost" },
                 { label: "Explore Services", to: bookBackTo, variant: "ghost" },

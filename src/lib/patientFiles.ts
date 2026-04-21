@@ -17,6 +17,11 @@ export type UploadedPatientFile = {
   filename: string;
 };
 
+type PatientFileOwnerRow = {
+  id: string;
+  profile_id: string | null;
+};
+
 type ValidatePatientFileSelectionOptions = {
   allowPdf?: boolean;
   allowDocuments?: boolean;
@@ -147,6 +152,39 @@ export async function uploadPatientFile(args: UploadArgs): Promise<UploadedPatie
   if (insErr) throw insErr;
 
   return inserted ?? { bucket, path, filename: file.name };
+}
+
+export async function resolvePatientFileOwnerIds(candidateId: string) {
+  if (!candidateId) return [];
+
+  const ownerIds = new Set<string>([candidateId]);
+
+  const { data: byId, error: byIdError } = await supabase
+    .from("patients")
+    .select("id,profile_id")
+    .eq("id", candidateId)
+    .maybeSingle<PatientFileOwnerRow>();
+
+  if (byIdError) throw byIdError;
+
+  if (byId?.id) {
+    ownerIds.add(byId.id);
+    if (byId.profile_id) ownerIds.add(byId.profile_id);
+    return Array.from(ownerIds);
+  }
+
+  const { data: byProfile, error: byProfileError } = await supabase
+    .from("patients")
+    .select("id,profile_id")
+    .eq("profile_id", candidateId)
+    .maybeSingle<PatientFileOwnerRow>();
+
+  if (byProfileError) throw byProfileError;
+
+  if (byProfile?.id) ownerIds.add(byProfile.id);
+  if (byProfile?.profile_id) ownerIds.add(byProfile.profile_id);
+
+  return Array.from(ownerIds);
 }
 
 export async function getSignedUrl(bucket: string, path: string, expiresInSeconds = 60 * 60) {

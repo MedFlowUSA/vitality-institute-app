@@ -141,6 +141,7 @@ export default function ProviderReferrals() {
           {
             patient_id: r.patient_id,
             location_id: r.location_id,
+            referral_id: r.id,
             service_id: null,
             start_time: start.toISOString(),
             status: "requested",

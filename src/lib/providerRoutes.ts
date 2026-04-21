@@ -12,6 +12,7 @@ export const PROVIDER_ROUTES = {
   labs: "/provider/labs",
   ai: "/provider/ai",
   vitalAi: "/provider/vital-ai",
+  protocolQueue: "/provider/protocol-queue",
   referrals: "/provider/referrals",
   patients: "/provider/patients",
   patientCenterLegacy: "/provider/patient-center",
@@ -47,6 +48,10 @@ export function providerMessagesPath(conversationId?: string | null) {
 
 export function providerVitalAiProfilePath(profileId: string) {
   return `${PROVIDER_ROUTES.vitalAi}/profile/${profileId}`;
+}
+
+export function providerProtocolReviewPath(assessmentId: string) {
+  return `/provider/protocol-review/${assessmentId}`;
 }
 
 export function providerWoundTimelinePath(patientId: string) {

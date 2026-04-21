@@ -2,6 +2,7 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { AuthProvider, type AppRole, useAuth } from "./auth/AuthProvider";
+import { ClinicProvider } from "./features/clinics/context/ClinicContext";
 import { supabase } from "./lib/supabase";
 
 import AppStatusFooter from "./components/AppStatusFooter";
@@ -55,6 +56,8 @@ const ProviderVisitBuilder = lazy(() => import("./pages/ProviderVisitBuilderVirt
 const ProviderVitalAiQueue = lazy(() => import("./pages/ProviderVitalAiQueue"));
 const ProviderVitalAiProfileDetail = lazy(() => import("./pages/ProviderVitalAiProfileDetail"));
 const ProviderCommandCenter = lazy(() => import("./pages/ProviderCommandCenter"));
+const ProviderProtocolQueue = lazy(() => import("./features/protocols/pages/ProviderProtocolQueue"));
+const ProviderProtocolReview = lazy(() => import("./features/protocols/pages/ProviderProtocolReview"));
 
 const AdminHome = lazy(() => import("./pages/AdminHome"));
 const AdminStaffManagement = lazy(() => import("./pages/AdminStaffManagement"));
@@ -64,6 +67,10 @@ const ServicesPanel = lazy(() => import("./pages/ServicesPanel"));
 const AdminVitalAiQueue = lazy(() => import("./pages/AdminVitalAiQueue"));
 const AdminVitalAiLeadDetail = lazy(() => import("./pages/AdminVitalAiLeadDetail"));
 const AdminPublicVitalAiSubmissions = lazy(() => import("./pages/AdminPublicVitalAiSubmissions"));
+const ClinicListPage = lazy(() => import("./features/clinics/pages/ClinicListPage"));
+const ClinicDetailPage = lazy(() => import("./features/clinics/pages/ClinicDetailPage"));
+const ClinicUsersPage = lazy(() => import("./features/clinics/pages/ClinicUsersPage"));
+const ClinicSettingsPage = lazy(() => import("./features/clinics/pages/ClinicSettingsPage"));
 
 function FullscreenLoader({
   text = "Loading...",
@@ -98,6 +105,7 @@ function FullscreenLoader({
 }
 
 const ADMIN_ROLES = ["super_admin", "location_admin"] as const;
+const SUPER_ADMIN_ROLES = ["super_admin"] as const;
 const PROVIDER_ROLES = [
   "super_admin",
   "location_admin",
@@ -106,6 +114,7 @@ const PROVIDER_ROLES = [
   "billing",
   "front_desk",
 ] as const;
+const PHYSICIAN_REVIEW_ROLES = ["super_admin", "provider"] as const;
 const PATIENT_ROLES = ["patient"] as const;
 
 function roleTroubleshootMessage(roleError?: string | null) {
@@ -361,8 +370,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Suspense fallback={<RouteLoader />}>
-        <Routes>
+        <ClinicProvider>
+          <Suspense fallback={<RouteLoader />}>
+          <Routes>
             <Route path="/" element={<PublicEntryRoute />} />
             <Route path="/services" element={<PublicServices />} />
             <Route path="/services/:slug" element={<PublicServiceDetail />} />
@@ -390,6 +400,26 @@ export default function App() {
             <Route
               path="/admin/staff"
               element={withRole(ADMIN_ROLES, <AdminStaffManagement />)}
+            />
+            <Route
+              path="/admin/clinics"
+              element={withRole(SUPER_ADMIN_ROLES, <ClinicListPage />)}
+            />
+            <Route
+              path="/admin/clinics/new"
+              element={withRole(SUPER_ADMIN_ROLES, <ClinicListPage />)}
+            />
+            <Route
+              path="/admin/clinics/:clinicId"
+              element={withRole(SUPER_ADMIN_ROLES, <ClinicDetailPage />)}
+            />
+            <Route
+              path="/admin/clinics/:clinicId/users"
+              element={withRole(SUPER_ADMIN_ROLES, <ClinicUsersPage />)}
+            />
+            <Route
+              path="/admin/clinics/:clinicId/settings"
+              element={withRole(SUPER_ADMIN_ROLES, <ClinicSettingsPage />)}
             />
             <Route
               path="/admin/vital-ai"
@@ -506,8 +536,16 @@ export default function App() {
               element={withRole(PROVIDER_ROLES, <ProviderVitalAiQueue />)}
             />
             <Route
+              path={PROVIDER_ROUTES.protocolQueue}
+              element={withRole(PHYSICIAN_REVIEW_ROLES, <ProviderProtocolQueue />)}
+            />
+            <Route
               path="/provider/vital-ai/profile/:profileId"
               element={withRole(PROVIDER_ROLES, <ProviderVitalAiProfileDetail />)}
+            />
+            <Route
+              path="/provider/protocol-review/:assessmentId"
+              element={withRole(PHYSICIAN_REVIEW_ROLES, <ProviderProtocolReview />)}
             />
             <Route
               path={PROVIDER_ROUTES.referrals}
@@ -580,10 +618,11 @@ export default function App() {
             />
 
             <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        </Suspense>
+          </Routes>
+          </Suspense>
 
-        <AppStatusFooter />
+          <AppStatusFooter />
+        </ClinicProvider>
       </AuthProvider>
     </BrowserRouter>
   );

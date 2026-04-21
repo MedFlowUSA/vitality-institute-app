@@ -1,21 +1,15 @@
 // src/components/VisitTimelinePanel.tsx
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { formatProviderStatusLabel } from "../lib/provider/workspace";
+import {
+  buildProviderTimelineRowsFromFallback,
+  type ProviderTimelineFallbackSoap,
+  type ProviderTimelineFallbackVisit,
+  type ProviderTimelineRow,
+} from "../lib/provider/timeline";
 
-type TimelineRow = {
-  visit_id: string;
-  patient_id: string;
-  location_id: string;
-  visit_date: string;
-  visit_status: string | null;
-  summary: string | null;
-  soap_id: string | null;
-  soap_status: string | null;
-  is_signed: boolean | null;
-  is_locked: boolean | null;
-  signed_at: string | null;
-  soap_created_at: string | null;
-};
+type TimelineRow = ProviderTimelineRow;
 
 type Props = {
   patientId: string;
@@ -25,6 +19,33 @@ type Props = {
   title?: string;
   compact?: boolean;
 };
+
+async function loadTimelineRowsFallback(patientId: string, locationId: string | null) {
+  let visitQuery = supabase
+    .from("patient_visits")
+    .select("id,patient_id,location_id,visit_date,created_at,status,summary")
+    .eq("patient_id", patientId)
+    .order("visit_date", { ascending: false });
+
+  if (locationId) visitQuery = visitQuery.eq("location_id", locationId);
+
+  const { data: visitRows, error: visitError } = await visitQuery;
+  if (visitError) throw visitError;
+
+  const visits = (visitRows as ProviderTimelineFallbackVisit[] | null) ?? [];
+  if (visits.length === 0) return [] as TimelineRow[];
+
+  const visitIds = visits.map((row) => row.id);
+  const { data: soapRows, error: soapError } = await supabase
+    .from("patient_soap_notes")
+    .select("id,visit_id,created_at,is_signed,is_locked,signed_at")
+    .in("visit_id", visitIds)
+    .order("created_at", { ascending: false });
+
+  if (soapError) throw soapError;
+
+  return buildProviderTimelineRowsFromFallback(visits, (soapRows as ProviderTimelineFallbackSoap[] | null) ?? []);
+}
 
 export default function VisitTimelinePanel({
   patientId,
@@ -37,6 +58,7 @@ export default function VisitTimelinePanel({
   const [rows, setRows] = useState<TimelineRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const fmtDate = (iso: string) => {
     const d = new Date(iso);
@@ -58,6 +80,7 @@ export default function VisitTimelinePanel({
   const load = useCallback(async () => {
     if (!patientId) return;
     setErr(null);
+    setNotice(null);
     setLoading(true);
 
     try {
@@ -72,7 +95,12 @@ export default function VisitTimelinePanel({
       if (locationId) query = query.eq("location_id", locationId);
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        const fallbackRows = await loadTimelineRowsFallback(patientId, locationId);
+        setRows(fallbackRows);
+        setNotice("Showing visit history from base visit records while the shared timeline view is unavailable.");
+        return;
+      }
 
       setRows((data as TimelineRow[]) ?? []);
     } catch (error: unknown) {
@@ -135,6 +163,15 @@ export default function VisitTimelinePanel({
 
       <div className="space" />
 
+      {notice ? (
+        <>
+          <div className="muted" style={{ fontSize: 12 }}>
+            {notice}
+          </div>
+          <div className="space" />
+        </>
+      ) : null}
+
       {rows.length === 0 ? (
         <div className="muted">{emptyText}</div>
       ) : (
@@ -152,8 +189,8 @@ export default function VisitTimelinePanel({
                 <span>
                   <div style={{ fontWeight: 800 }}>{fmtDate(row.visit_date)}</div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                    {row.visit_status ?? "Visit"}
-                    {row.summary ? ` • ${row.summary}` : ""}
+                    {formatProviderStatusLabel(row.visit_status ?? "visit")}
+                    {row.summary ? ` | ${row.summary}` : ""}
                   </div>
                 </span>
                 <span

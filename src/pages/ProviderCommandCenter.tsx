@@ -9,13 +9,19 @@ import SystemStatusBar from "../components/SystemStatusBar";
 import { auditWrite } from "../lib/audit";
 import { ensureAppointmentConversation } from "../lib/messaging/conversationService";
 import {
+  formatProviderStatusLabel,
+  getProviderPatientLabel,
+  isInactiveAppointmentStatus,
+  loadProviderPatientNames,
+} from "../lib/provider/workspace";
+import {
   PROVIDER_ROUTES,
   providerMessagesPath,
   providerPatientCenterPath,
   providerVisitBuilderAppointmentPath,
   providerVisitChartPath,
 } from "../lib/providerRoutes";
-import { resolvePatientRecordId } from "../lib/provider/visitLaunch";
+import { resolvePatientRecordId, startVisitFromAppointment } from "../lib/provider/visitLaunch";
 import { analyzeWoundProgression } from "../lib/woundProgression";
 import { analyzeWoundRisk } from "../lib/woundRiskAlerts";
 
@@ -99,6 +105,7 @@ export default function ProviderCommandCenter() {
 
   const [apptsToday, setApptsToday] = useState<ApptRow[]>([]);
   const [intakesPending, setIntakesPending] = useState<IntakeRow[]>([]);
+  const [patientNames, setPatientNames] = useState<Record<string, string>>({});
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -153,6 +160,7 @@ export default function ProviderCommandCenter() {
       if (!isAdmin && !effectiveLocationId) {
         setApptsToday([]);
         setIntakesPending([]);
+        setPatientNames({});
         throw new Error("No active location found. Set Active Location in the status bar.");
       }
 
@@ -173,7 +181,8 @@ export default function ProviderCommandCenter() {
       const { data: appts, error: aErr } = await qA;
       if (aErr) throw aErr;
 
-      setApptsToday((appts as ApptRow[]) ?? []);
+      const activeAppointments = ((appts as ApptRow[]) ?? []).filter((item) => !isInactiveAppointmentStatus(item.status));
+      setApptsToday(activeAppointments);
 
       // Pending wound intakes
       let qI = supabase
@@ -209,7 +218,14 @@ export default function ProviderCommandCenter() {
       const { data: intakes, error: iErr } = await qI;
       if (iErr) throw iErr;
 
-      setIntakesPending((intakes as IntakeRow[]) ?? []);
+      const pendingIntakes = (intakes as IntakeRow[]) ?? [];
+      setIntakesPending(pendingIntakes);
+      setPatientNames(
+        await loadProviderPatientNames([
+          ...activeAppointments.map((item) => item.patient_id),
+          ...pendingIntakes.map((item) => item.patient_id).filter(Boolean),
+        ])
+      );
 
       let qW = supabase
         .from("wound_assessments")
@@ -332,6 +348,7 @@ export default function ProviderCommandCenter() {
       setAttentionItems(items.slice(0, 12));
     } catch (e: any) {
       setErr(e?.message ?? "Failed to load command center.");
+      setPatientNames({});
     } finally {
       setLoading(false);
     }
@@ -404,82 +421,33 @@ export default function ProviderCommandCenter() {
 
   const approveAndOpenVisit = async (appt: ApptRow) => {
     setErr(null);
+    setActionMessage(null);
     setBusyApptId(appt.id);
 
     try {
-      const visitPatientId = await resolvePatientRecordId(appt.patient_id);
-
-      // 1) If a visit already exists for this appointment, just open it.
-      const { data: existingVisit, error: findErr } = await supabase
-        .from("patient_visits")
-        .select("id")
-        .eq("appointment_id", appt.id)
-        .maybeSingle();
-
-      if (findErr) throw findErr;
-
-      if (existingVisit?.id) {
-        await auditWrite({
-          event_type: "appointment_opened_existing_visit",
-          location_id: appt.location_id,
-          patient_id: visitPatientId,
-          visit_id: existingVisit.id,
-          appointment_id: appt.id,
-          entity_type: "patient_visits",
-          entity_id: existingVisit.id,
-          metadata: { source: "ProviderCommandCenter" },
-        });
-        goToVisit(existingVisit.id);
-        return;
-      }
-
-      // 2) Mark appointment approved (if your workflow uses "approved")
-      const { error: updErr } = await supabase
-        .from("appointments")
-        .update({ status: "approved" })
-        .eq("id", appt.id);
-
-      if (updErr) throw updErr;
-
-      // 3) Create visit (minimal columns; adjust if your schema requires more)
-      const { data: createdVisit, error: insErr } = await supabase
-        .from("patient_visits")
-        .insert([
-          {
-            patient_id: visitPatientId,
-            location_id: appt.location_id,
-            appointment_id: appt.id,
-            visit_date: appt.start_time, // or new Date().toISOString()
-            status: "open",
-            summary: "Visit created from approved appointment",
-          },
-        ])
-        .select("id")
-        .maybeSingle();
-
-      if (insErr) throw insErr;
-
-      const visitId = createdVisit?.id;
-      if (!visitId) throw new Error("Visit was not created (missing id).");
+      const launched = await startVisitFromAppointment({
+        appointmentId: appt.id,
+        patientCandidateId: appt.patient_id,
+        locationId: appt.location_id,
+      });
+      const visitId = launched.visitId;
 
       await auditWrite({
-        event_type: "appointment_approved_visit_created",
+        event_type: launched.reusedExistingVisit ? "appointment_opened_existing_visit" : "appointment_visit_started",
         location_id: appt.location_id,
-        patient_id: visitPatientId,
+        patient_id: launched.patientId,
         visit_id: visitId,
         appointment_id: appt.id,
         entity_type: "patient_visits",
         entity_id: visitId,
-        metadata: { appointment_status_set: "approved", source: "ProviderCommandCenter" },
+        metadata: { reused_existing_visit: launched.reusedExistingVisit, source: "ProviderCommandCenter" },
       });
 
-      // Optional: refresh list so status updates immediately
+      setActionMessage(launched.reusedExistingVisit ? "Opened the existing visit for this appointment." : "Visit started.");
       await refresh();
-
-      // 4) Open chart
       goToVisit(visitId);
     } catch (e: any) {
-      setErr(e?.message ?? "Failed to approve and create visit.");
+      setErr(e?.message ?? "Failed to start visit.");
     } finally {
       setBusyApptId(null);
     }
@@ -506,8 +474,8 @@ export default function ProviderCommandCenter() {
       <div className="shell">
         <VitalityHero
           title="Command Center"
-          subtitle="One screen for today's schedule + pending wound intakes"
-          primaryCta={{ label: "Queue", to: PROVIDER_ROUTES.queue }}
+          subtitle="Schedule and intake triage for your active location"
+          primaryCta={{ label: "Open Queue", to: PROVIDER_ROUTES.queue }}
           secondaryCta={{ label: "Back to Dashboard", onClick: () => nav(PROVIDER_ROUTES.home) }}
           showKpis={false}
           rightActions={
@@ -644,11 +612,14 @@ export default function ProviderCommandCenter() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 12 }}>
           {/* Left: Today */}
-          <Card title="Today's Appointments">
+          <Card title="Today's Schedule">
             {apptsToday.length === 0 ? (
               <div className="muted">No appointments today.</div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Use Visit Builder for scheduling and setup changes. Use Start Visit Now when you are ready to open the chart immediately.
+                </div>
                 {apptsToday.map((a) => {
                   const canApprove = a.status === "requested";
                   const isBusy = busyApptId === a.id;
@@ -670,7 +641,8 @@ export default function ProviderCommandCenter() {
                             {fmtTime(a.start_time)} | {svcName(a.service_id)}
                           </div>
                           <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-                            Status: <strong>{a.status}</strong> | Patient: {a.patient_id}
+                            Status: <strong>{formatProviderStatusLabel(a.status)}</strong> | Patient:{" "}
+                            {getProviderPatientLabel(a.patient_id, patientNames)}
                           </div>
                           {a.notes ? (
                             <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
@@ -681,11 +653,12 @@ export default function ProviderCommandCenter() {
 
                         <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                           <button
-                            className="btn btn-primary"
+                            className="btn btn-secondary"
                             type="button"
                             onClick={() => nav(providerVisitBuilderAppointmentPath(a.id))}
+                            title="Open Visit Builder for appointment setup and visit preparation"
                           >
-                            Start Visit
+                            Open Visit Builder
                           </button>
 
                           <button className="btn btn-ghost" type="button" onClick={() => void openPatient(a.patient_id)}>
@@ -702,9 +675,9 @@ export default function ProviderCommandCenter() {
                               type="button"
                               disabled={isBusy || !canUseActions}
                               onClick={() => approveAndOpenVisit(a)}
-                              title="Approve appointment, create visit, and open chart"
+                              title="Approve the appointment when needed, then create or reuse the visit and open the chart"
                             >
-                              {isBusy ? "Working..." : "Approve & Open Chart"}
+                              {isBusy ? "Working..." : "Start Visit Now"}
                             </button>
                           ) : null}
 
@@ -732,7 +705,16 @@ export default function ProviderCommandCenter() {
                 {intakesPending.map((i) => (
                   <div key={i.id} className="card card-pad" style={{ background: "rgba(0,0,0,.18)" }}>
                     <div className="muted" style={{ fontSize: 12 }}>
-                      Status: <strong>{i.status ?? "-"}</strong>
+                      Patient:{" "}
+                      <strong>
+                        {i.patients?.[0]
+                          ? `${i.patients[0].first_name ?? ""} ${i.patients[0].last_name ?? ""}`.trim() ||
+                            getProviderPatientLabel(i.patient_id, patientNames)
+                          : getProviderPatientLabel(i.patient_id, patientNames)}
+                      </strong>
+                    </div>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      Status: <strong>{formatProviderStatusLabel(i.status)}</strong>
                     </div>
                     <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                       Created: {new Date(i.created_at).toLocaleString()}

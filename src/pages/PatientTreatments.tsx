@@ -349,7 +349,7 @@ export default function PatientTreatments() {
         supabase
           .from("patient_files")
           .select("id,patient_id,visit_id,appointment_id,created_at,filename,category,bucket,path,content_type")
-          .eq("patient_id", patientId)
+          .in("patient_id", Array.from(new Set([patientId, user.id])))
           .in("visit_id", visitIds)
           .order("created_at", { ascending: false }),
         12000

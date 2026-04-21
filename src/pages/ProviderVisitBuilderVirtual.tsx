@@ -8,7 +8,7 @@ import RouteHeader from "../components/RouteHeader";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import VirtualVisitFormFields from "../components/VirtualVisitFormFields";
 import { buildProviderVisitBuilderGuide } from "../lib/provider/providerGuide";
-import { resolvePatientRecordId } from "../lib/provider/visitLaunch";
+import { resolvePatientRecordId, startVisitFromAppointment } from "../lib/provider/visitLaunch";
 import { PROVIDER_ROUTES, providerVisitChartPath } from "../lib/providerRoutes";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
@@ -102,6 +102,7 @@ export default function ProviderVisitBuilderVirtual() {
   useEffect(() => {
     const load = async () => {
       setErr(null);
+      setActionMessage(null);
       setLoading(true);
 
       try {
@@ -129,6 +130,15 @@ export default function ProviderVisitBuilderVirtual() {
           setMeetingStatus(appointmentRow.meeting_status ?? "not_started");
           candidatePatientId = appointmentRow.patient_id;
 
+          const { data: existingVisit, error: existingVisitErr } = await supabase
+            .from("patient_visits")
+            .select("id,patient_id,location_id,appointment_id,visit_date,status,summary")
+            .eq("appointment_id", appointmentRow.id)
+            .maybeSingle();
+
+          if (existingVisitErr) throw existingVisitErr;
+          setVisit((existingVisit as VisitRow | null) ?? null);
+
           const local = new Date(appointmentRow.start_time);
           const yyyy = local.getFullYear();
           const mm = String(local.getMonth() + 1).padStart(2, "0");
@@ -137,6 +147,8 @@ export default function ProviderVisitBuilderVirtual() {
           const mi = String(local.getMinutes()).padStart(2, "0");
           setVisitDate(`${yyyy}-${mm}-${dd}T${hh}:${mi}`);
         } else {
+          setAppointment(null);
+          setVisit(null);
           const local = new Date();
           const yyyy = local.getFullYear();
           const mm = String(local.getMonth() + 1).padStart(2, "0");
@@ -245,29 +257,44 @@ export default function ProviderVisitBuilderVirtual() {
     setSavingVisit(true);
 
     try {
-      const { data, error } = await supabase
-        .from("patient_visits")
-        .insert([
-          {
-            patient_id: resolvedPatientId,
-            location_id: locationId,
-            appointment_id: appointment?.id ?? null,
-            visit_date: new Date(visitDate).toISOString(),
-            status: visitStatus,
-            summary: visitSummary || null,
-            referral_id: appointment?.referral_id ?? null,
-          },
-        ])
-        .select("id,patient_id,location_id,appointment_id,visit_date,status,summary")
-        .single();
-
-      if (error) throw error;
-
-      const createdVisit = data as VisitRow;
-      setVisit(createdVisit);
-
       if (appointment?.id) {
-        await supabase.from("appointments").update({ status: "in_progress" }).eq("id", appointment.id);
+        const launched = await startVisitFromAppointment({
+          appointmentId: appointment.id,
+          patientCandidateId: appointment.patient_id,
+          locationId,
+        });
+
+        const { data: launchedVisit, error: launchedVisitErr } = await supabase
+          .from("patient_visits")
+          .select("id,patient_id,location_id,appointment_id,visit_date,status,summary")
+          .eq("id", launched.visitId)
+          .single();
+
+        if (launchedVisitErr) throw launchedVisitErr;
+
+        setVisit(launchedVisit as VisitRow);
+        setActionMessage(launched.reusedExistingVisit ? "Opened the existing visit linked to this appointment." : "Visit created from appointment.");
+      } else {
+        const { data, error } = await supabase
+          .from("patient_visits")
+          .insert([
+            {
+              patient_id: resolvedPatientId,
+              location_id: locationId,
+              appointment_id: null,
+              visit_date: new Date(visitDate).toISOString(),
+              status: visitStatus,
+              summary: visitSummary || null,
+              referral_id: null,
+            },
+          ])
+          .select("id,patient_id,location_id,appointment_id,visit_date,status,summary")
+          .single();
+
+        if (error) throw error;
+
+        setVisit(data as VisitRow);
+        setActionMessage("Visit created.");
       }
     } catch (e: any) {
       setErr(e?.message ?? "Failed to create visit.");

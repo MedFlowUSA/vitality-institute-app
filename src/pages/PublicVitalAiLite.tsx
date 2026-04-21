@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth, type AppRole } from "../auth/AuthProvider";
+import MarketGroupedSelect from "../components/locations/MarketGroupedSelect";
 import { trackFunnelEvent } from "../lib/analytics";
 import PublicFlowStatusCard from "../components/public/PublicFlowStatusCard";
 import { preparePublicVitalAiOutboundPayload } from "../lib/outboundMessagePrep";
@@ -17,7 +18,14 @@ import { buildFollowUpMessage } from "../lib/publicFollowUpEngine";
 import { readPublicBookingDraft } from "../lib/publicBookingDraft";
 import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import { submitPublicVitalAiRequest } from "../lib/publicVitalAiSubmission";
-import { formatCatalogLocationDetails, formatCatalogLocationLabel, formatCatalogLocationName, loadCatalogLocations, type CatalogLocation } from "../lib/services/catalog";
+import {
+  formatCatalogLocationDetails,
+  formatCatalogLocationName,
+  getCatalogLocationSelectGroups,
+  loadCatalogLocations,
+  type CatalogLocation,
+} from "../lib/services/catalog";
+import { isPlaceholderMarket } from "../lib/locationMarkets";
 import { scoreConversionLead } from "../lib/vitalAi/conversionEngine";
 import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath, sanitizeInternalPath } from "../lib/routeFlow";
 
@@ -119,6 +127,34 @@ export default function PublicVitalAiLite() {
     () => buildFollowUpMessage(leadMetadata.leadType, leadMetadata.urgencyLevel),
     [leadMetadata.leadType, leadMetadata.urgencyLevel]
   );
+  const locationGroups = useMemo(
+    () => getCatalogLocationSelectGroups(locations, { includeComingSoon: true }),
+    [locations]
+  );
+  const liveLocations = useMemo(
+    () => locations.filter((location) => !isPlaceholderMarket(location)),
+    [locations]
+  );
+  const comingSoonLocations = useMemo(
+    () => locations.filter((location) => isPlaceholderMarket(location)),
+    [locations]
+  );
+  const featuredExpansionMarkets = useMemo(
+    () => comingSoonLocations.slice(0, 6).map((location) => formatCatalogLocationName(location)),
+    [comingSoonLocations]
+  );
+  const selectedPreferredLocation = useMemo(
+    () => locations.find((location) => location.id === preferredLocationId) ?? null,
+    [locations, preferredLocationId]
+  );
+  const isComingSoonPreferredLocation = Boolean(selectedPreferredLocation && isPlaceholderMarket(selectedPreferredLocation));
+  const preferredLocationHelper = useMemo(() => {
+    if (!selectedPreferredLocation) return "Choose the market that is most convenient for you.";
+    if (isPlaceholderMarket(selectedPreferredLocation)) {
+      return "This market is coming soon. We will treat this as expansion interest and follow up when scheduling opens there.";
+    }
+    return formatCatalogLocationDetails(selectedPreferredLocation);
+  }, [selectedPreferredLocation]);
 
   useEffect(() => {
     if (trackedStartRef.current) return;
@@ -204,6 +240,7 @@ export default function PublicVitalAiLite() {
         preferredContactMethod,
         preferredLocationId,
         summary,
+        captureType: isComingSoonPreferredLocation ? "expansion_interest" : "standard_intake",
       });
       const outboundPayload = preparePublicVitalAiOutboundPayload({
         submissionId: data.id ?? null,
@@ -328,6 +365,65 @@ export default function PublicVitalAiLite() {
           <div className="space" />
         </>
       ) : null}
+
+      <div className="card card-pad card-light surface-light public-growth-panel">
+        <div className="public-growth-header">
+          <div>
+            <div className="public-eyebrow">Nationwide Growth Markets</div>
+            <div className="h2 public-section-title" style={{ marginTop: 10 }}>
+              Start guided intake for a live clinic or raise your hand for a city still opening.
+            </div>
+          </div>
+          <div className="public-growth-badge">
+            {isComingSoonPreferredLocation ? "Expansion-interest path" : "Live clinics stay primary"}
+          </div>
+        </div>
+
+        <div className="surface-light-body public-growth-copy" style={{ marginTop: 12 }}>
+          Vital AI Lite keeps public guidance clear across both paths. Live clinics can move toward
+          scheduling and provider review, while coming-soon cities stay in a separate expansion-interest
+          lane so market demand is captured without acting like an operational clinic.
+        </div>
+
+        <div className="public-growth-stat-grid" style={{ marginTop: 18 }}>
+          <div className="public-growth-stat">
+            <div className="public-mini-title">Live Clinics</div>
+            <div className="public-growth-stat-value">{liveLocations.length}</div>
+            <div className="surface-light-helper">Available now for real intake review and follow-up.</div>
+          </div>
+          <div className="public-growth-stat">
+            <div className="public-mini-title">Coming Soon Markets</div>
+            <div className="public-growth-stat-value">{comingSoonLocations.length}</div>
+            <div className="surface-light-helper">Selectable for waitlist demand and expansion follow-up.</div>
+          </div>
+          <div className="public-growth-stat">
+            <div className="public-mini-title">Current Path</div>
+            <div className="public-growth-stat-value">
+              {isComingSoonPreferredLocation ? "Expansion waitlist" : "Guided intake"}
+            </div>
+            <div className="surface-light-helper">
+              {isComingSoonPreferredLocation
+                ? "Your selected market stays out of live routing until that city activates."
+                : "A live clinic can continue through intake, review, and scheduling coordination."}
+            </div>
+          </div>
+        </div>
+
+        {featuredExpansionMarkets.length > 0 ? (
+          <div className="public-growth-market-shell" style={{ marginTop: 18 }}>
+            <div className="public-mini-title">Featured Expansion Cities</div>
+            <div className="public-growth-market-list" style={{ marginTop: 12 }}>
+              {featuredExpansionMarkets.map((market) => (
+                <span key={market} className="public-growth-market-chip">
+                  {market}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="space" />
 
       <div className="card card-pad card-light surface-light">
         <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
@@ -539,26 +635,28 @@ export default function PublicVitalAiLite() {
               </select>
             </div>
             <div style={{ flex: "1 1 240px" }}>
-              <div className="surface-light-helper" style={{ fontSize: 12, marginBottom: 6 }}>
-                Preferred location
-              </div>
-              <select className="input" value={preferredLocationId} onChange={(e) => setPreferredLocationId(e.target.value)} disabled={loadingLocations}>
-                <option value="">Select...</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={location.id}>
-                    {formatCatalogLocationLabel(location)}
-                  </option>
-                ))}
-              </select>
-              {preferredLocationId ? (
-                <div className="surface-light-helper" style={{ fontSize: 12, marginTop: 6 }}>
-                  {formatCatalogLocationDetails(
-                    locations.find((location) => location.id === preferredLocationId) ?? { id: preferredLocationId, name: preferredLocationId }
-                  )}
-                </div>
-              ) : null}
+              <MarketGroupedSelect
+                label="Preferred location"
+                value={preferredLocationId}
+                onChange={setPreferredLocationId}
+                groups={locationGroups}
+                placeholder="Select..."
+                disabled={loadingLocations}
+                helperText={preferredLocationHelper}
+              />
             </div>
           </div>
+          {isComingSoonPreferredLocation ? (
+            <>
+              <div className="space" />
+              <PublicFlowStatusCard
+                eyebrow="Coming Soon Market"
+                title="This location will be treated as expansion interest"
+                body="We will save your preferred market and concern so the team can follow up when scheduling opens there or redirect you to a nearby live clinic if that is a better fit."
+                detail="This does not place you into live scheduling for that city today. It keeps the intake lightweight while still capturing demand and care context."
+              />
+            </>
+          ) : null}
           <div className="space" />
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
             <button type="button" className="btn btn-ghost" onClick={() => setStep("questions")}>
@@ -589,6 +687,11 @@ export default function PublicVitalAiLite() {
           <div className="surface-light-helper" style={{ marginTop: 6 }}>
             Review the basics before submitting. The clinic will use this for intake guidance, follow-up, and provider prep.
           </div>
+          {isComingSoonPreferredLocation ? (
+            <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
+              Your selected location is a coming-soon market, so this submission should be treated as expansion demand and follow-up context rather than a live clinic scheduling request.
+            </div>
+          ) : null}
           {!user?.id ? (
             <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
               After you submit, you can still create your account and continue into the fuller portal intake without losing the care direction you selected here.
@@ -651,10 +754,18 @@ export default function PublicVitalAiLite() {
       {step === "success" ? (
         <PublicFlowStatusCard
           tone="success"
-          eyebrow="Request Received"
-          title="Thank you - our team will review your request"
-          body={`${followUp.patientMessage} ${pathwayDef.successNote}`}
-          detail={`${followUp.supportingLine} A coordinator may follow up by ${preferredContactMethod === "either" ? "phone or email" : preferredContactMethod} to confirm scheduling and next steps.${bookingDraft?.requestId ? ` Linked visit request: ${bookingDraft.requestId}.` : ""} Reference: ${submissionId ?? "submitted"}. Final recommendations and treatment decisions are always determined by medical evaluation.`}
+          eyebrow={isComingSoonPreferredLocation ? "Expansion Interest Received" : "Request Received"}
+          title={isComingSoonPreferredLocation ? "Thank you - we saved your interest for this coming-soon market" : "Thank you - our team will review your request"}
+          body={
+            isComingSoonPreferredLocation
+              ? `We saved your preferred market and care request. ${followUp.patientMessage}`
+              : `${followUp.patientMessage} ${pathwayDef.successNote}`
+          }
+          detail={
+            isComingSoonPreferredLocation
+              ? `${followUp.supportingLine} A coordinator may follow up by ${preferredContactMethod === "either" ? "phone or email" : preferredContactMethod} when this market opens or if a nearby live clinic is a better immediate fit.${bookingDraft?.requestId ? ` Linked visit request: ${bookingDraft.requestId}.` : ""} Reference: ${submissionId ?? "submitted"}.`
+              : `${followUp.supportingLine} A coordinator may follow up by ${preferredContactMethod === "either" ? "phone or email" : preferredContactMethod} to confirm scheduling and next steps.${bookingDraft?.requestId ? ` Linked visit request: ${bookingDraft.requestId}.` : ""} Reference: ${submissionId ?? "submitted"}. Final recommendations and treatment decisions are always determined by medical evaluation.`
+          }
           actions={[
             { label: "Explore Services", to: "/services" },
             { label: "Request Booking", to: returnTo && returnTo !== "/" ? `/book?returnTo=${encodeURIComponent(returnTo)}` : "/book", variant: "ghost" },
@@ -684,8 +795,14 @@ export default function PublicVitalAiLite() {
 
       <PublicFlowStatusCard
         title="What Happens Next"
-        body="Once you send your request, our team will review it and follow up with the right next step."
-        detail={pathway === "wound_care"
+        body={
+          isComingSoonPreferredLocation
+            ? "Once you send your request, our team will treat it as expansion-market follow-up and care-interest capture."
+            : "Once you send your request, our team will review it and follow up with the right next step."
+        }
+        detail={isComingSoonPreferredLocation
+          ? "This market preference does not act like a live clinic booking. We may contact you when the market opens or help redirect you to a currently active location if appropriate."
+          : pathway === "wound_care"
           ? "Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit. For wound-care concerns, your answers also help us understand urgency and whether faster follow-up is needed."
           : "Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit."}
       />

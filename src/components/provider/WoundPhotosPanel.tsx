@@ -7,6 +7,7 @@ import {
   formatPatientFileSize,
   getSignedUrl,
   MAX_IMAGE_UPLOAD_BYTES,
+  resolvePatientFileOwnerIds,
   uploadPatientFile,
   validatePatientFileSelection,
 } from "../../lib/patientFiles";
@@ -56,12 +57,13 @@ export default function WoundPhotosPanel({ patientId, locationId, visitId, onRet
     setLoading(true);
 
     try {
+      const patientFileOwnerIds = await resolvePatientFileOwnerIds(patientId);
       const { data, error } = await supabase
         .from("patient_files")
         .select(
           "id,created_at,patient_id,location_id,visit_id,uploaded_by,bucket,path,filename,content_type,size_bytes,category,is_internal,notes"
         )
-        .eq("patient_id", patientId)
+        .in("patient_id", patientFileOwnerIds)
         .eq("visit_id", visitId)
         .eq("category", "wound_photo")
         .order("created_at", { ascending: false });

@@ -1,7 +1,8 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import InlineNotice from "../InlineNotice";
 import { supabase } from "../../lib/supabase";
-import { getSignedUrl } from "../../lib/patientFiles";
+import { getSignedUrl, resolvePatientFileOwnerIds } from "../../lib/patientFiles";
+import { formatProviderStatusLabel } from "../../lib/provider/workspace";
 import { analyzeWoundRisk } from "../../lib/woundRiskAlerts";
 import { analyzeWoundImage } from "../../lib/woundImageAnalysis";
 
@@ -105,6 +106,8 @@ type PlanRow = {
 
 type FileRow = {
   id: string;
+  patient_id: string;
+  visit_id: string | null;
   created_at: string;
   filename: string;
   category: string | null;
@@ -505,9 +508,11 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
         if (tpErr) throw tpErr;
         setPlan((tp?.[0] as PlanRow) ?? null);
 
+        const patientFileOwnerIds = await resolvePatientFileOwnerIds(patientId);
         const { data: f, error: fErr } = await supabase
           .from("patient_files")
-          .select("id,created_at,filename,category,bucket,path,content_type,size_bytes")
+          .select("id,patient_id,visit_id,created_at,filename,category,bucket,path,content_type,size_bytes")
+          .in("patient_id", patientFileOwnerIds)
           .eq("visit_id", visitId)
           .order("created_at", { ascending: false })
           .limit(100);
@@ -830,7 +835,7 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
 
               <div className="space" />
               <div className="muted">Status</div>
-              <div>{visit?.status ?? "-"}</div>
+              <div>{formatProviderStatusLabel(visit?.status)}</div>
 
               <div className="space" />
               <div className="muted">Visit Summary</div>
@@ -1204,7 +1209,7 @@ export default function WoundPacketPreview({ visitId, patientId, locationId }: P
 
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                 <div className="v-chip">{plan ? "On File" : "Missing"}</div>
-                {plan?.status ? <div className="v-chip">{plan.status}</div> : null}
+                {plan?.status ? <div className="v-chip">{formatProviderStatusLabel(plan.status)}</div> : null}
               </div>
 
               <div className="space" />

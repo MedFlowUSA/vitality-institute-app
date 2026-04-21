@@ -135,6 +135,8 @@ export default function VitalAiSession() {
     try {
       const uploaded = await uploadVitalAiFile({
         sessionId: session.id,
+        clinicId: session.clinic_id,
+        locationId: session.location_id,
         patient,
         profileId: user.id,
         category: question.category,

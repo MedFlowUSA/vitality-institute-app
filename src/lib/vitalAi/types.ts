@@ -56,6 +56,8 @@ export type PathwayDefinition = {
 export type VitalAiSessionRow = {
   id: string;
   pathway_id: string;
+  clinic_id: string | null;
+  location_id: string | null;
   patient_id: string | null;
   profile_id: string | null;
   status: "draft" | "submitted" | "cancelled";
@@ -72,6 +74,8 @@ export type VitalAiSessionRow = {
 export type VitalAiResponseRow = {
   id: string;
   session_id: string;
+  clinic_id?: string | null;
+  location_id?: string | null;
   question_key: string;
   value_json: unknown;
   updated_at: string;
@@ -80,6 +84,8 @@ export type VitalAiResponseRow = {
 export type VitalAiFileRow = {
   id: string;
   session_id: string;
+  clinic_id: string | null;
+  location_id: string | null;
   patient_id: string | null;
   profile_id: string | null;
   bucket: string;
@@ -94,6 +100,8 @@ export type VitalAiProfileRow = {
   id: string;
   session_id: string;
   pathway_id: string;
+  clinic_id: string | null;
+  location_id: string | null;
   patient_id: string | null;
   profile_id: string | null;
   summary: string | null;
@@ -109,6 +117,8 @@ export type VitalAiLeadRow = {
   id: string;
   session_id: string;
   pathway_id: string;
+  clinic_id: string | null;
+  location_id: string | null;
   patient_id: string | null;
   profile_id: string | null;
   appointment_id?: string | null;
@@ -124,6 +134,8 @@ export type VitalAiLeadRow = {
 export type VitalAiReviewTaskRow = {
   id: string;
   session_id: string;
+  clinic_id?: string | null;
+  location_id?: string | null;
   profile_id: string | null;
   lead_id: string | null;
   task_type: "staff_follow_up" | "provider_review";
@@ -136,6 +148,8 @@ export type VitalAiReviewTaskRow = {
 export type PatientRecord = {
   id: string;
   profile_id: string;
+  clinic_id: string | null;
+  location_id: string | null;
   first_name: string | null;
   last_name: string | null;
   phone: string | null;

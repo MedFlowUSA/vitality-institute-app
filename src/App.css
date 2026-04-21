@@ -25,3 +25,186 @@
   box-shadow: 0 18px 36px rgba(7, 10, 24, 0.28);
   border-color: rgba(200, 182, 255, 0.32);
 }
+
+.market-select-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(184, 164, 255, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,243,255,0.94)),
+    rgba(255,255,255,0.92);
+  box-shadow: 0 16px 34px rgba(111, 76, 181, 0.08);
+}
+
+.market-select-shell-live {
+  border-color: rgba(124, 58, 237, 0.24);
+  box-shadow: 0 18px 36px rgba(111, 76, 181, 0.10);
+}
+
+.market-select-shell-coming-soon {
+  border-color: rgba(191, 90, 36, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255,250,244,0.98), rgba(255,245,238,0.94)),
+    rgba(255,255,255,0.92);
+  box-shadow: 0 18px 38px rgba(191, 90, 36, 0.10);
+}
+
+.market-select-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.market-select-title-block {
+  display: grid;
+  gap: 6px;
+}
+
+.market-select-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(69, 40, 109, 0.82);
+}
+
+.market-select-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.market-select-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.market-select-status-badge-live {
+  background: rgba(124, 58, 237, 0.12);
+  color: #5b2ca3;
+  border: 1px solid rgba(124, 58, 237, 0.22);
+}
+
+.market-select-status-badge-coming-soon {
+  background: rgba(191, 90, 36, 0.12);
+  color: #a64e20;
+  border: 1px solid rgba(191, 90, 36, 0.22);
+}
+
+.market-select-status-meta {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(104, 81, 146, 0.74);
+}
+
+.market-select-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.market-select-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.market-select-chip-live {
+  background: rgba(124, 58, 237, 0.12);
+  color: #5b2ca3;
+  border: 1px solid rgba(124, 58, 237, 0.18);
+}
+
+.market-select-chip-coming-soon {
+  background: rgba(191, 90, 36, 0.12);
+  color: #a64e20;
+  border: 1px solid rgba(191, 90, 36, 0.18);
+}
+
+.market-select-input-wrap {
+  position: relative;
+}
+
+.market-select-input {
+  min-height: 52px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,243,255,0.96)),
+    rgba(255,255,255,0.94);
+  border: 1px solid rgba(186, 169, 226, 0.62);
+  box-shadow: 0 12px 28px rgba(111, 76, 181, 0.08);
+  padding-right: 122px;
+}
+
+.market-select-shell-coming-soon .market-select-input {
+  border-color: rgba(191, 90, 36, 0.28);
+  box-shadow: 0 12px 28px rgba(191, 90, 36, 0.10);
+}
+
+.market-select-corner-mark {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(124, 58, 237, 0.12);
+  color: #5b2ca3;
+  border: 1px solid rgba(124, 58, 237, 0.20);
+}
+
+.market-select-shell-coming-soon .market-select-corner-mark {
+  background: rgba(191, 90, 36, 0.12);
+  color: #a64e20;
+  border-color: rgba(191, 90, 36, 0.20);
+}
+
+.market-select-helper {
+  font-size: 12px;
+  line-height: 1.65;
+  color: rgba(76, 46, 119, 0.78);
+}
+
+@media (max-width: 640px) {
+  .market-select-shell {
+    padding: 12px;
+  }
+
+  .market-select-input {
+    padding-right: 110px;
+  }
+
+  .market-select-corner-mark {
+    right: 10px;
+    min-height: 26px;
+    padding: 4px 9px;
+  }
+}

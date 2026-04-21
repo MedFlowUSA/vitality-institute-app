@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
+import { buildMarketOptionGroups, type MarketStatus } from "../lib/locationMarkets";
+import MarketGroupedSelect from "./locations/MarketGroupedSelect";
 
-type LocationRow = { id: string; name: string };
+type LocationRow = {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+  is_placeholder: boolean;
+  market_status: MarketStatus;
+  display_priority: number | null;
+};
 
 type Status = "online" | "slow" | "offline";
 
@@ -27,6 +37,20 @@ export default function SystemStatusBar() {
     if (!activeLocationId) return null;
     return locations.find((location) => location.id === activeLocationId)?.name ?? null;
   }, [activeLocationId, locations]);
+
+  const locationGroups = useMemo(
+    () =>
+      buildMarketOptionGroups(locations, {
+        valueOf: (location) => location.id,
+        labelOf: (location) => {
+          const place = [location.city, location.state].filter(Boolean).join(", ");
+          return place ? `${location.name} - ${place}` : location.name;
+        },
+        includeComingSoon: true,
+        disableComingSoon: true,
+      }),
+    [locations]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +89,8 @@ export default function SystemStatusBar() {
     (async () => {
       const { data: locationRows, error: locationError } = await supabase
         .from("locations")
-        .select("id,name")
+        .select("id,name,city,state,is_placeholder,market_status,display_priority")
+        .order("display_priority")
         .order("name", { ascending: true });
 
       if (cancelled) return;
@@ -105,7 +130,7 @@ export default function SystemStatusBar() {
       <div className="v-status-left">
         <span className={pillClass}>
           {status.toUpperCase()}
-          {ms !== null ? ` • ${ms}ms` : ""}
+          {ms !== null ? ` - ${ms}ms` : ""}
         </span>
 
         <span className="v-pill v-pill-neutral">
@@ -120,26 +145,18 @@ export default function SystemStatusBar() {
       </div>
 
       <div className="v-status-right">
-        <select
-          className="input"
-          style={{ width: 260 }}
+        <MarketGroupedSelect
+          label="Active location"
           value={activeLocationId ?? ""}
-          onChange={(e) => saveActiveLocation(e.target.value)}
+          onChange={saveActiveLocation}
+          groups={locationGroups}
+          placeholder="Select active location..."
           disabled={saving || locations.length === 0}
-        >
-          <option value="" disabled>
-            Select active location...
-          </option>
-          {locations.map((location) => (
-            <option key={location.id} value={location.id}>
-              {location.name}
-            </option>
-          ))}
-        </select>
+          helperText="Coming-soon markets are visible here but cannot be set as an active operational location."
+          style={{ width: 320 }}
+          selectStyle={{ width: "100%" }}
+        />
       </div>
     </div>
   );
 }
-
-
-

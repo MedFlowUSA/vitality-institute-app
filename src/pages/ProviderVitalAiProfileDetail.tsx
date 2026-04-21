@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import ProfileSummaryCard from "../components/vital-ai/ProfileSummaryCard";
 import { useAuth } from "../auth/AuthProvider";
-import { PROVIDER_ROUTES } from "../lib/providerRoutes";
+import { PROVIDER_ROUTES, providerProtocolReviewPath } from "../lib/providerRoutes";
 import { supabase } from "../lib/supabase";
 import { buildProviderVitalAiProfileGuide } from "../lib/provider/providerGuide";
 import VitalAI from "../lib/vital-ai/vitalAiService";
+import { loadProtocolAssessmentForSession } from "../features/protocols/ProtocolEngineService";
+import { formatProtocolRecommendationTypeLabel, formatProtocolServiceLineLabel } from "../features/protocols/display";
+import type { AiProtocolAssessmentRow } from "../features/protocols/types";
 import type { VitalAiFileRow, VitalAiPathwayRow, VitalAiProfileRow, VitalAiResponseRow, VitalAiSessionRow } from "../lib/vitalAi/types";
 
 type WoundMetricsSnapshot = Awaited<ReturnType<typeof VitalAI.generateWoundMetrics>>;
@@ -36,7 +39,8 @@ const bodyStyle = {
 
 export default function ProviderVitalAiProfileDetail() {
   const { profileId = "" } = useParams();
-  const { resumeKey } = useAuth();
+  const navigate = useNavigate();
+  const { resumeKey, role } = useAuth();
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [profile, setProfile] = useState<VitalAiProfileRow | null>(null);
@@ -44,13 +48,20 @@ export default function ProviderVitalAiProfileDetail() {
   const [files, setFiles] = useState<VitalAiFileRow[]>([]);
   const [insights, setInsights] = useState<ReturnType<typeof VitalAI.generateInsights> | null>(null);
   const [woundMetrics, setWoundMetrics] = useState<WoundMetricsSnapshot | null>(null);
+  const [protocolAssessment, setProtocolAssessment] = useState<AiProtocolAssessmentRow | null>(null);
+  const [protocolEnabled, setProtocolEnabled] = useState<boolean | null>(null);
+  const [protocolError, setProtocolError] = useState<string | null>(null);
   const guide = buildProviderVitalAiProfileGuide(!!insights);
+  const canOpenProtocolReview = ["super_admin", "provider"].includes(role ?? "");
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setErr(null);
       setWoundMetrics(null);
+      setProtocolAssessment(null);
+      setProtocolEnabled(null);
+      setProtocolError(null);
       try {
         const { data: profileRow, error: profileError } = await supabase.from("vital_ai_profiles").select("*").eq("id", profileId).maybeSingle();
         if (profileError) throw profileError;
@@ -83,19 +94,29 @@ export default function ProviderVitalAiProfileDetail() {
         setSession(nextSession);
         setFiles(nextFiles);
 
-        if (nextSession) {
-          const sessionWithPathway = {
-            ...nextSession,
-            current_step_key: nextPathway?.slug ?? nextSession.current_step_key,
+          if (nextSession) {
+            const sessionWithPathway = {
+              ...nextSession,
+              current_step_key: nextPathway?.slug ?? nextSession.current_step_key,
           };
           setInsights(VitalAI.generateInsights(sessionWithPathway, nextResponses, nextFiles));
           setWoundMetrics(await VitalAI.generateWoundMetrics(sessionWithPathway, nextResponses, nextFiles));
+
+          if (nextPathway) {
+            try {
+              const assessment = await loadProtocolAssessmentForSession(nextSession.id);
+              setProtocolEnabled(Boolean(assessment));
+              setProtocolAssessment(assessment);
+            } catch (protocolLoadError: unknown) {
+              setProtocolError(protocolLoadError instanceof Error ? protocolLoadError.message : "Failed to load AI-assisted protocol suggestion.");
+            }
+          }
         } else {
           setInsights(null);
           setWoundMetrics(null);
         }
-      } catch (e: any) {
-        setErr(e?.message ?? "Failed to load provider profile.");
+      } catch (e: unknown) {
+        setErr(e instanceof Error ? e.message : "Failed to load provider profile.");
       } finally {
         setLoading(false);
       }
@@ -127,6 +148,11 @@ export default function ProviderVitalAiProfileDetail() {
           nextAction={guide.nextAction}
           actions={[
             { label: "Back to Queue", to: PROVIDER_ROUTES.vitalAi, tone: "primary" },
+            canOpenProtocolReview
+              ? protocolAssessment
+                ? { label: "Open Protocol Review", onClick: () => navigate(providerProtocolReviewPath(protocolAssessment.id)) }
+                : { label: "Protocol Queue", to: PROVIDER_ROUTES.protocolQueue }
+              : { label: "Provider Queue", to: PROVIDER_ROUTES.queue },
           ]}
         />
 
@@ -142,6 +168,180 @@ export default function ProviderVitalAiProfileDetail() {
           <>
             {insights ? (
               <>
+                {protocolAssessment ? (
+                  <>
+                    <div className="card card-pad card-light surface-light" style={lightCardStyle}>
+                      <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <div className="h2">AI-Assisted Protocol Suggestion</div>
+                        <div className="muted" style={labelStyle}>{formatProtocolRecommendationTypeLabel(protocolAssessment.recommendation_type)}</div>
+                      </div>
+                      <div className="space" />
+
+                      <div style={{ display: "grid", gap: 12 }}>
+                        <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+                          <div style={{ minWidth: 180 }}>
+                            <div className="muted" style={labelStyle}>Service line</div>
+                            <div style={{ marginTop: 4, fontWeight: 800, textTransform: "capitalize" }}>
+                              {formatProtocolServiceLineLabel(protocolAssessment.service_line)}
+                            </div>
+                          </div>
+                          <div style={{ minWidth: 180 }}>
+                            <div className="muted" style={labelStyle}>Model</div>
+                            <div style={{ marginTop: 4, fontWeight: 800 }}>{protocolAssessment.model_key}</div>
+                          </div>
+                          <div style={{ minWidth: 180 }}>
+                            <div className="muted" style={labelStyle}>Generated</div>
+                            <div style={{ marginTop: 4, fontWeight: 800 }}>{new Date(protocolAssessment.created_at).toLocaleString()}</div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="muted" style={labelStyle}>Program summary</div>
+                          <div style={{ marginTop: 4, fontWeight: 800 }}>
+                            {protocolAssessment.structured_output_json.suggested_program ?? "Physician review needed to determine program fit"}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="muted" style={labelStyle}>Clinical rationale</div>
+                          <div style={{ marginTop: 6, lineHeight: 1.6, ...bodyStyle }}>
+                            {protocolAssessment.structured_output_json.rationale_summary}
+                          </div>
+                        </div>
+
+                        <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+                          <div style={{ minWidth: 180 }}>
+                            <div className="muted" style={labelStyle}>Suggested dosage</div>
+                            <div style={{ marginTop: 4, fontWeight: 800 }}>
+                              {protocolAssessment.structured_output_json.suggested_dosage ?? "Provider to determine"}
+                            </div>
+                          </div>
+                          <div style={{ minWidth: 180 }}>
+                            <div className="muted" style={labelStyle}>Suggested frequency</div>
+                            <div style={{ marginTop: 4, fontWeight: 800 }}>
+                              {protocolAssessment.structured_output_json.suggested_frequency ?? "Provider to determine"}
+                            </div>
+                          </div>
+                          <div style={{ minWidth: 180 }}>
+                            <div className="muted" style={labelStyle}>Suggested duration</div>
+                            <div style={{ marginTop: 4, fontWeight: 800 }}>
+                              {protocolAssessment.structured_output_json.suggested_duration ?? "Provider to determine"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="muted" style={labelStyle}>Suggested medications / pathway</div>
+                          <div style={{ marginTop: 6 }}>
+                            {protocolAssessment.structured_output_json.suggested_medications.length === 0 ? (
+                              <div className="muted" style={bodyStyle}>No medication suggestion was generated before physician review.</div>
+                            ) : (
+                              protocolAssessment.structured_output_json.suggested_medications.map((item) => (
+                                <div key={item} style={{ marginBottom: 4 }}>
+                                  - {item}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="muted" style={labelStyle}>Risk flags</div>
+                          <div style={{ marginTop: 6 }}>
+                            {protocolAssessment.structured_output_json.risk_flags.length === 0 ? (
+                              <div className="muted" style={bodyStyle}>No additional risk flags were generated beyond the intake summary.</div>
+                            ) : (
+                              protocolAssessment.structured_output_json.risk_flags.map((item) => (
+                                <div key={item} style={{ marginBottom: 4 }}>
+                                  - {item}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="muted" style={labelStyle}>Contraindications / caution items</div>
+                          <div style={{ marginTop: 6 }}>
+                            {protocolAssessment.structured_output_json.contraindications.length === 0 ? (
+                              <div className="muted" style={bodyStyle}>No explicit contraindications were flagged by the current CDS rules.</div>
+                            ) : (
+                              protocolAssessment.structured_output_json.contraindications.map((item) => (
+                                <div key={item} style={{ marginBottom: 4 }}>
+                                  - {item}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="muted" style={labelStyle}>Missing required labs / items</div>
+                          <div style={{ marginTop: 6 }}>
+                            {protocolAssessment.structured_output_json.missing_required_labs.length === 0 ? (
+                              <div className="muted" style={bodyStyle}>No missing baseline items were detected from the submitted intake and file set.</div>
+                            ) : (
+                              protocolAssessment.structured_output_json.missing_required_labs.map((item) => (
+                                <div key={item} style={{ marginBottom: 4 }}>
+                                  - {item}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="muted" style={labelStyle}>Follow-up recommendations</div>
+                          <div style={{ marginTop: 6 }}>
+                            {protocolAssessment.structured_output_json.followup_recommendations.map((item) => (
+                              <div key={item} style={{ marginBottom: 4 }}>
+                                - {item}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="card card-pad card-light surface-light" style={{ background: "rgba(255,255,255,0.55)", color: "#241B3D" }}>
+                          <div style={{ fontWeight: 800 }}>Provider approval required</div>
+                          <div style={{ marginTop: 8, lineHeight: 1.6 }}>
+                            {protocolAssessment.structured_output_json.advisory_note}
+                          </div>
+                          <div className="muted" style={{ marginTop: 8, ...labelStyle }}>
+                            {protocolAssessment.structured_output_json.confidence_notes}
+                          </div>
+                          <div className="space" />
+                          {canOpenProtocolReview ? (
+                            <button className="btn btn-primary" type="button" onClick={() => navigate(providerProtocolReviewPath(protocolAssessment.id))}>
+                              Open Protocol Review
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space" />
+                  </>
+                ) : protocolError ? (
+                  <>
+                    <div className="card card-pad card-light surface-light" style={lightCardStyle}>
+                      <div className="h2">AI-Assisted Protocol Suggestion</div>
+                      <div className="space" />
+                      <div style={{ color: "crimson" }}>{protocolError}</div>
+                    </div>
+                    <div className="space" />
+                  </>
+                ) : protocolEnabled === false ? (
+                  <>
+                    <div className="card card-pad card-light surface-light" style={lightCardStyle}>
+                      <div className="h2">AI-Assisted Protocol Suggestion</div>
+                      <div className="space" />
+                      <div style={bodyStyle}>
+                        This clinic has AI-assisted protocol suggestions turned off. Intake review remains available, and the clinical decision stays with the licensed physician.
+                      </div>
+                    </div>
+                    <div className="space" />
+                  </>
+                ) : null}
+
                 <div className="card card-pad card-light surface-light" style={lightCardStyle}>
                   <div className="h2">Provider Visit Summary</div>
                   <div className="space" />

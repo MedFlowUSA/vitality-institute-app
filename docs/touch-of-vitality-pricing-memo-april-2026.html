@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Touch of Vitality Pricing Memo - April 2026</title>
+    <style>
+      :root {
+        --bg: #f6f1fb;
+        --paper: #ffffff;
+        --ink: #23182c;
+        --muted: #6f617a;
+        --line: #e9def2;
+        --lavender: #b799d1;
+        --lavender-deep: #7d5c99;
+        --lavender-soft: #efe5f8;
+        --rose: #d9b7c8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(183, 153, 209, 0.22), transparent 30%),
+          radial-gradient(circle at top right, rgba(217, 183, 200, 0.18), transparent 28%),
+          linear-gradient(180deg, #faf7fd 0%, var(--bg) 100%);
+      }
+
+      .page {
+        max-width: 980px;
+        margin: 32px auto;
+        padding: 28px;
+      }
+
+      .sheet {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        overflow: hidden;
+        box-shadow: 0 30px 60px rgba(62, 38, 82, 0.1);
+      }
+
+      .hero {
+        padding: 36px 40px 28px;
+        background:
+          linear-gradient(135deg, rgba(183, 153, 209, 0.18), rgba(255, 255, 255, 0.92)),
+          linear-gradient(180deg, #fff 0%, #fbf8fd 100%);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--lavender-deep);
+        margin-bottom: 10px;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 40px;
+        line-height: 1.05;
+        font-weight: 700;
+      }
+
+      .subtitle {
+        margin-top: 12px;
+        font-size: 16px;
+        line-height: 1.7;
+        color: var(--muted);
+        max-width: 760px;
+      }
+
+      .meta {
+        margin-top: 18px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      .chip {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--lavender-soft);
+        border: 1px solid var(--line);
+        font-size: 12px;
+        color: var(--lavender-deep);
+      }
+
+      .content {
+        padding: 32px 40px 40px;
+      }
+
+      .section {
+        margin-bottom: 28px;
+      }
+
+      h2 {
+        margin: 0 0 10px;
+        font-size: 22px;
+      }
+
+      p,
+      li {
+        font-size: 15px;
+        line-height: 1.7;
+      }
+
+      ul {
+        margin: 10px 0 0 18px;
+        padding: 0;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, #fff, #fdfaff);
+        border-radius: 18px;
+        padding: 18px;
+      }
+
+      .card h3 {
+        margin: 0 0 8px;
+        font-size: 16px;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        overflow: hidden;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+      }
+
+      thead th {
+        background: var(--lavender-soft);
+        color: var(--lavender-deep);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .price {
+        white-space: nowrap;
+        font-weight: 700;
+        color: var(--lavender-deep);
+      }
+
+      .footer {
+        margin-top: 18px;
+        padding: 18px 22px;
+        background: #fbf8fd;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.7;
+      }
+
+      .print-note {
+        max-width: 980px;
+        margin: 0 auto 28px;
+        padding: 0 28px;
+        color: var(--muted);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 13px;
+      }
+
+      @media print {
+        body {
+          background: #fff;
+        }
+
+        .page {
+          margin: 0;
+          max-width: none;
+          padding: 0;
+        }
+
+        .sheet {
+          box-shadow: none;
+          border: 0;
+          border-radius: 0;
+        }
+
+        .print-note {
+          display: none;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .hero,
+        .content {
+          padding: 24px;
+        }
+
+        h1 {
+          font-size: 30px;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        table,
+        thead,
+        tbody,
+        th,
+        td,
+        tr {
+          display: block;
+        }
+
+        thead {
+          display: none;
+        }
+
+        tbody tr {
+          border-bottom: 1px solid var(--line);
+          padding: 10px 0;
+        }
+
+        td {
+          border: 0;
+          padding: 6px 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="sheet">
+        <section class="hero">
+          <div class="eyebrow">Internal Pricing Memo</div>
+          <h1>Touch of Vitality Pricing Strategy</h1>
+          <div class="subtitle">
+            April 2026 pricing guidance for Jane, designed to keep Touch of Vitality aligned with fair Los Angeles market pricing while preserving a premium, provider-guided brand position.
+          </div>
+          <div class="meta">
+            <div class="chip">Prepared for Jane</div>
+            <div class="chip">Los Angeles Positioning</div>
+            <div class="chip">Premium but Competitive</div>
+          </div>
+        </section>
+
+        <section class="content">
+          <section class="section">
+            <h2>Pricing Position</h2>
+            <p>
+              Touch of Vitality should sit above discount med spa pricing and below ultra-premium Beverly Hills luxury pricing. The goal is to feel credible, current, and clinically grounded without looking inexpensive or overinflated.
+            </p>
+          </section>
+
+          <section class="section">
+            <h2>Recommended Pricing</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Service</th>
+                  <th>Price</th>
+                  <th>Positioning</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>GLP-1 Weight Optimization Consultation</td><td class="price">$149</td><td>Accessible provider-led entry consult</td></tr>
+                <tr><td>Testosterone Optimization Consultation</td><td class="price">$199</td><td>Premium but fair LA consult price</td></tr>
+                <tr><td>Women's Hormone Balance Consultation</td><td class="price">$199</td><td>Strong hormone consult anchor</td></tr>
+                <tr><td>Peptide Therapy Consultation</td><td class="price">$149</td><td>Competitive first-step consult</td></tr>
+                <tr><td>Botox Consultation</td><td class="price">Complimentary</td><td>Best when paired with same-day treatment</td></tr>
+                <tr><td>GLP-1 Essential</td><td class="price">$399/month</td><td>Starter monthly tier</td></tr>
+                <tr><td>GLP-1 Plus</td><td class="price">$499/month</td><td>Mid-tier support</td></tr>
+                <tr><td>GLP-1 Advanced</td><td class="price">$649/month</td><td>Premium monthly tier</td></tr>
+                <tr><td>TRT Basic</td><td class="price">$249/month</td><td>Entry TRT plan</td></tr>
+                <tr><td>TRT Performance</td><td class="price">$329/month</td><td>Elevated TRT plan</td></tr>
+                <tr><td>HRT Balance Plan</td><td class="price">$279/month</td><td>Women's monthly hormone plan</td></tr>
+                <tr><td>Pellet Therapy</td><td class="price">$500-$700</td><td>Per insertion, conservative LA range</td></tr>
+                <tr><td>Vitality Core</td><td class="price">$599/month</td><td>Foundational bundle</td></tr>
+                <tr><td>Vitality Performance (Men)</td><td class="price">$649/month</td><td>Premium men's bundle</td></tr>
+                <tr><td>Vitality Balance (Women)</td><td class="price">$599/month</td><td>Premium women's bundle</td></tr>
+                <tr><td>Vitality Elite</td><td class="price">$899-$1,199/month</td><td>Highest-touch bundle tier</td></tr>
+                <tr><td>BPC-157</td><td class="price">$279/month</td><td>Competitive peptide price</td></tr>
+                <tr><td>CJC-1295 / Ipamorelin</td><td class="price">$379/month</td><td>Premium peptide support tier</td></tr>
+                <tr><td>Metabolic Support Stack</td><td class="price">$449/month</td><td>Bundled metabolic support</td></tr>
+                <tr><td>NAD+ Infusion</td><td class="price">$395-$495/session</td><td>Competitive in-clinic LA range</td></tr>
+                <tr><td>Botox Pricing</td><td class="price">$14/unit</td><td>Strong public pricing anchor</td></tr>
+                <tr><td>Body Composition Scan</td><td class="price">$29</td><td>Easy conversion add-on</td></tr>
+                <tr><td>Expanded Lab Panel</td><td class="price">$199</td><td>Fair clinical add-on</td></tr>
+                <tr><td>Priority Scheduling Upgrade</td><td class="price">$29/month</td><td>Convenience add-on</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="section grid">
+            <div class="card">
+              <h3>How To Position It</h3>
+              <p>"Touch of Vitality pricing is designed to be competitive for Los Angeles while still reflecting a premium, provider-guided experience."</p>
+              <p>"We are not positioning the brand as bargain med spa pricing. We are positioning it as fair, credible, and high-quality."</p>
+            </div>
+            <div class="card">
+              <h3>Why This Works</h3>
+              <ul>
+                <li>Consults feel professional and medically guided.</li>
+                <li>GLP-1 stays competitive without looking cheap.</li>
+                <li>Hormone and peptide pricing remains premium but accessible.</li>
+                <li>Add-ons support conversion and bundle growth.</li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Suggested Public Positioning</h2>
+            <ul>
+              <li>Personalized provider-led care</li>
+              <li>Premium wellness without luxury-clinic overpricing</li>
+              <li>Fair Los Angeles pricing for optimization and aesthetics</li>
+              <li>Clear entry points with stronger premium tiers for high-touch support</li>
+            </ul>
+          </section>
+
+          <section class="section">
+            <h2>Operational Notes</h2>
+            <ul>
+              <li>Public marketing prices and internal service prices were updated together.</li>
+              <li>This pricing should be reviewed again after conversion and retention data accumulates.</li>
+              <li>Monthly hormone pricing remains partly inferred because many clinics publish consultations and procedures more clearly than memberships.</li>
+            </ul>
+          </section>
+
+          <div class="footer">
+            Internal use only. This memo is intended to support pricing consistency, team communication, and easy PDF export for Touch of Vitality.
+          </div>
+        </section>
+      </div>
+    </div>
+    <div class="print-note">
+      Open this file in a browser and use <strong>Print</strong> then <strong>Save as PDF</strong> for a polished handout.
+    </div>
+  </body>
+</html>

@@ -8,6 +8,14 @@ import SystemStatusBar from "../components/SystemStatusBar";
 import ProviderPrerequisiteCard from "../components/provider/ProviderPrerequisiteCard";
 import { getErrorMessage } from "../lib/patientRecords";
 import { getProviderQueueRecommendation } from "../lib/provider/providerWorkflow";
+import {
+  formatProviderShortId,
+  formatProviderStatusLabel,
+  getProviderPatientLabel,
+  isInactiveAppointmentStatus,
+  isVisitClosedStatus,
+  loadProviderPatientNames,
+} from "../lib/provider/workspace";
 import { PROVIDER_ROUTES, providerPatientCenterPath } from "../lib/providerRoutes";
 import { resolvePatientRecordId, startVisitFromAppointment } from "../lib/provider/visitLaunch";
 import type { ProviderVisitSummary } from "../lib/provider/types";
@@ -50,6 +58,7 @@ export default function ProviderQueue() {
 
   const [visits, setVisits] = useState<VisitRow[]>([]);
   const [appointments, setAppointments] = useState<AppointmentRow[]>([]);
+  const [patientNames, setPatientNames] = useState<Record<string, string>>({});
   const [soapByVisit, setSoapByVisit] = useState<Record<string, SoapMini>>({});
   const [labsByVisit, setLabsByVisit] = useState<Record<string, LabMini[]>>({});
 
@@ -65,6 +74,7 @@ export default function ProviderQueue() {
     if (!activeLocationId) {
       setVisits([]);
       setAppointments([]);
+      setPatientNames({});
       setSoapByVisit({});
       setLabsByVisit({});
       return;
@@ -98,8 +108,15 @@ export default function ProviderQueue() {
 
       if (appointmentsErr) throw appointmentsErr;
 
-      setAppointments(
-        ((appointmentsData as AppointmentRow[]) ?? []).filter((item) => !appointmentIdsWithVisits.has(item.id))
+      const pendingAppointments = ((appointmentsData as AppointmentRow[]) ?? []).filter(
+        (item) => !appointmentIdsWithVisits.has(item.id) && !isInactiveAppointmentStatus(item.status)
+      );
+      setAppointments(pendingAppointments);
+      setPatientNames(
+        await loadProviderPatientNames([
+          ...visitRows.map((item) => item.patient_id),
+          ...pendingAppointments.map((item) => item.patient_id),
+        ])
       );
 
       // SOAP minis
@@ -160,6 +177,7 @@ export default function ProviderQueue() {
       }
     } catch (error: unknown) {
       setErr(getErrorMessage(error, "Failed to load provider queue."));
+      setPatientNames({});
     } finally {
       setLoading(false);
     }
@@ -189,7 +207,7 @@ export default function ProviderQueue() {
     const now = new Date();
     const todayKey = now.toLocaleDateString();
 
-    const openVisits = visits.filter((v) => (v.status ?? "").toLowerCase() !== "closed").length;
+    const openVisits = visits.filter((v) => !isVisitClosedStatus(v.status)).length;
 
     const needsSoap = visits.filter((v) => {
       const s = soapByVisit[v.id];
@@ -213,7 +231,7 @@ export default function ProviderQueue() {
     if (!soap?.id) return "Open the visit and start the SOAP note.";
     if (!(soap.is_locked || soap.is_signed || soap.signed_at)) return "Finish and sign the SOAP note.";
     if (labs.length === 0) return "Review whether labs need to be added or ordered.";
-    if ((visit.status ?? "").toLowerCase() !== "closed") return "Review the chart and close the visit when ready.";
+    if (!isVisitClosedStatus(visit.status)) return "Review the chart and close the visit when ready.";
     return "Visit is complete. Reopen only if follow-up work is needed.";
   };
 
@@ -274,7 +292,7 @@ export default function ProviderQueue() {
       <div className="shell">
         <VitalityHero
           title="Provider Queue"
-          subtitle="Live operational dashboard filtered by your active location"
+          subtitle="Active encounter worklist filtered by your active location"
           secondaryCta={{ label: "Back", to: PROVIDER_ROUTES.home }}
           primaryCta={{ label: "AI Plan Builder", to: PROVIDER_ROUTES.ai }}
           rightActions={
@@ -342,7 +360,7 @@ export default function ProviderQueue() {
                 </button>
 
                 <button className="btn btn-secondary" type="button" onClick={() => nav(PROVIDER_ROUTES.command)}>
-                  Command Center
+                  Intake Triage
                 </button>
               </div>
             </div>
@@ -353,9 +371,9 @@ export default function ProviderQueue() {
             <div className="card card-pad">
               <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                 <div>
-                  <div className="h2">Queue</div>
+                  <div className="h2">Encounter Queue</div>
                   <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-                    Visits and appointments that need provider action at this location.
+                    Use this screen for active visits, chart follow-through, and appointment-to-visit launch at this location.
                   </div>
                 </div>
               </div>
@@ -372,7 +390,7 @@ export default function ProviderQueue() {
                   message="There are no visits for this location yet. Start a visit from today’s appointments or open the patient list to launch the next encounter."
                   actionLabel="Open Patients List"
                   onAction={() => nav(PROVIDER_ROUTES.patients)}
-                  secondaryLabel="Open Command Center"
+                  secondaryLabel="Open Intake Triage"
                   onSecondaryAction={() => nav(PROVIDER_ROUTES.command)}
                 />
               ) : (
@@ -396,10 +414,11 @@ export default function ProviderQueue() {
                           <div style={{ flex: "1 1 320px" }}>
                             <div style={{ fontWeight: 800 }}>{fmtDate(item.appointment.start_time)}</div>
                             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                              Appointment: {item.appointment.id.slice(0, 8)} • Patient: {item.appointment.patient_id.slice(0, 8)}
+                              Appointment: {formatProviderShortId(item.appointment.id)} • Patient:{" "}
+                              {getProviderPatientLabel(item.appointment.patient_id, patientNames)}
                             </div>
                             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                              Status: <strong>{item.appointment.status ?? "-"}</strong>
+                              Status: <strong>{formatProviderStatusLabel(item.appointment.status)}</strong>
                               {item.appointment.notes ? ` - ${item.appointment.notes}` : ""}
                             </div>
                             <div className="muted" style={{ fontSize: 12, marginTop: 6, opacity: 0.9 }}>
@@ -442,7 +461,7 @@ export default function ProviderQueue() {
                     hasAppointment: !!visit.appointment_id,
                     hasSoap: !!soap?.id,
                     isSoapSigned: !!(soap?.is_locked || soap?.is_signed || soap?.signed_at),
-                    isVisitClosed: (visit.status ?? "").toLowerCase() === "closed" || (visit.status ?? "").toLowerCase() === "completed",
+                    isVisitClosed: isVisitClosedStatus(visit.status),
                   });
 
                   return (
@@ -455,10 +474,10 @@ export default function ProviderQueue() {
                         <div style={{ flex: "1 1 320px" }}>
                           <div style={{ fontWeight: 800 }}>{fmtDate(visit.visit_date)}</div>
                           <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                              Visit: {visit.id.slice(0, 8)} • Patient: {visit.patient_id.slice(0, 8)}
-                          </div>
-                          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                            Status: <strong>{visit.status ?? "-"}</strong>
+                              Visit: {formatProviderShortId(visit.id)} • Patient: {getProviderPatientLabel(visit.patient_id, patientNames)}
+                           </div>
+                           <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                            Status: <strong>{formatProviderStatusLabel(visit.status)}</strong>
                             {" - "}
                             SOAP: <strong>{soapLabel}</strong>
                             {" - "}

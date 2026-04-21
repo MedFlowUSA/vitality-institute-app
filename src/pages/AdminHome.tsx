@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import InlineNotice from "../components/InlineNotice";
+import { isOperationalMarket, type MarketStatus } from "../lib/locationMarkets";
 import { supabase } from "../lib/supabase";
 import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import logo from "../assets/vitality-logo.png";
 import SystemStatusBar from "../components/SystemStatusBar";
 import LocationPicker from "../components/LocationPicker";
+import ClinicPicker from "../features/clinics/components/ClinicPicker";
 
 type LocationRow = {
   id: string;
@@ -17,6 +19,9 @@ type LocationRow = {
   state: string | null;
   zip: string | null;
   is_active: boolean | null;
+  is_placeholder: boolean;
+  market_status: MarketStatus;
+  display_priority: number;
 };
 
 type HoursRow = {
@@ -100,6 +105,14 @@ export default function AdminHome() {
     () => locations.find((l) => l.id === selectedLocationId) ?? null,
     [locations, selectedLocationId]
   );
+  const visibleAppointments = useMemo(
+    () =>
+      appointments.filter((appointment) => {
+        if (!appointment.location_id) return true;
+        return locations.some((location) => location.id === appointment.location_id);
+      }),
+    [appointments, locations]
+  );
   const locName = (id: string) => locations.find((l) => l.id === id)?.name ?? id;
 
   const analyticsSummary = useMemo(() => {
@@ -118,6 +131,7 @@ export default function AdminHome() {
 
     return {
       totalSubmissions: countBy((event) => event.event_name === "public_booking_submitted" || event.event_name === "vital_ai_submitted"),
+      expansionInterest: countBy((event) => event.event_name === "public_expansion_interest_submitted"),
       highUrgencyWounds: countBy((event) => event.lead_type === "wound" && event.urgency_level === "high"),
       highValueGlp1: countBy((event) => event.lead_type === "glp1" && event.value_level === "high"),
       hormoneConsultPaths: countBy((event) => event.lead_type === "hormone" && event.event_name === "care_summary_viewed"),
@@ -180,11 +194,12 @@ export default function AdminHome() {
 
     const { data, error } = await supabase
       .from("locations")
-      .select("id,name,address_line1,address_line2,city,state,zip,is_active")
+      .select("id,name,address_line1,address_line2,city,state,zip,is_active,is_placeholder,market_status,display_priority")
+      .order("display_priority")
       .order("name");
 
     if (error) setErr(error.message);
-    const nextLocations = (data as LocationRow[]) ?? [];
+    const nextLocations = ((data as LocationRow[]) ?? []).filter((location) => isOperationalMarket(location));
     setLocations(nextLocations);
     if (!selectedLocationId && nextLocations[0]?.id) {
       setSelectedLocationId(nextLocations[0].id);
@@ -327,6 +342,9 @@ export default function AdminHome() {
               <button className="btn btn-secondary" type="button" onClick={() => navigate("/admin/staff")}>
                 Staff Management
               </button>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/admin/clinics")}>
+                Clinics
+              </button>
               <button className="btn btn-secondary" type="button" onClick={() => navigate("/admin/inquiries")}>
                 Public Inquiries
               </button>
@@ -400,6 +418,8 @@ export default function AdminHome() {
         </div>
         <SystemStatusBar />
         <div className="space" />
+        <ClinicPicker />
+        <div className="space" />
         <LocationPicker />
 
         <div className="space" />
@@ -428,6 +448,10 @@ export default function AdminHome() {
                 <div className="card card-pad card-light surface-light" style={{ flex: "1 1 180px" }}>
                   <div className="muted" style={{ fontSize: 12 }}>New submissions</div>
                   <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.totalSubmissions}</div>
+                </div>
+                <div className="card card-pad card-light surface-light" style={{ flex: "1 1 180px" }}>
+                  <div className="muted" style={{ fontSize: 12 }}>Expansion interest</div>
+                  <div className="h2" style={{ marginTop: 8 }}>{analyticsSummary.expansionInterest}</div>
                 </div>
                 <div className="card card-pad card-light surface-light" style={{ flex: "1 1 180px" }}>
                   <div className="muted" style={{ fontSize: 12 }}>High urgency wound leads</div>
@@ -518,6 +542,9 @@ export default function AdminHome() {
                           state: state || null,
                           zip: zip || null,
                           is_active: true,
+                          is_placeholder: false,
+                          market_status: "live",
+                          display_priority: 100,
                         },
                       ]);
 
@@ -705,9 +732,11 @@ export default function AdminHome() {
 
           {!apptsLoading && !apptsErr && (
             <div>
-              {appointments.length === 0 && <div className="muted">No appointments found.</div>}
+              {visibleAppointments.length === 0 && (
+                <div className="muted">No live-clinic appointments found.</div>
+              )}
 
-              {appointments.map((a) => (
+              {visibleAppointments.map((a) => (
                 <div key={a.id} className="card card-pad" style={{ marginBottom: 12 }}>
                   <div className="h2">{fmtLocal(a.start_time)}</div>
                   <div className="muted">Location: {locName(a.location_id)}</div>

@@ -6,6 +6,7 @@ import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
 import ProfileSummaryCard from "../components/vital-ai/ProfileSummaryCard";
 import { useAuth } from "../auth/AuthProvider";
+import { useClinicContext } from "../features/clinics/hooks/useClinicContext";
 import InlineNotice from "../components/InlineNotice";
 import { supabase } from "../lib/supabase";
 import { buildProviderVitalAiQueueGuide } from "../lib/provider/providerGuide";
@@ -15,7 +16,7 @@ import {
   providerVisitBuilderAppointmentPath,
   providerVitalAiProfilePath,
 } from "../lib/providerRoutes";
-import { fromDateTimeLocalValue, getDefaultJoinWindowOpensAt } from "../lib/virtualVisits";
+import { fromDateTimeLocalValue, getDefaultJoinWindowOpensAt, toDateTimeLocalValue } from "../lib/virtualVisits";
 import type { VitalAiLeadRow, VitalAiPathwayRow, VitalAiProfileRow } from "../lib/vitalAi/types";
 
 type ProviderLite = {
@@ -38,6 +39,7 @@ type AppointmentLite = {
   telehealth_enabled: boolean | null;
   meeting_url: string | null;
   meeting_status: string | null;
+  join_window_opens_at: string | null;
   virtual_instructions: string | null;
 };
 
@@ -69,7 +71,7 @@ const LEAD_SELECT_FIELDS =
 const PATHWAY_SELECT_FIELDS = "id,slug,name,description,is_active,version,definition_json";
 const PATIENT_SELECT_FIELDS = "id,first_name,last_name";
 const APPOINTMENT_SELECT_FIELDS =
-  "id,patient_id,location_id,provider_user_id,start_time,end_time,status,visit_type,telehealth_enabled,meeting_url,meeting_status,virtual_instructions";
+  "id,patient_id,location_id,provider_user_id,start_time,end_time,status,visit_type,telehealth_enabled,meeting_url,meeting_status,join_window_opens_at,virtual_instructions";
 const PROVIDER_SELECT_FIELDS = "id,first_name,last_name,role,active_location_id";
 
 const LEAD_STATUS_LABELS: Record<string, string> = {
@@ -93,6 +95,7 @@ function patientNameFromProfile(profile: ProfileQueueRow, patient?: QueuePatient
 export default function ProviderVitalAiQueue() {
   const navigate = useNavigate();
   const { activeLocationId, role, user, resumeKey } = useAuth();
+  const { activeClinicId } = useClinicContext();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -116,7 +119,7 @@ export default function ProviderVitalAiQueue() {
       profiles.map((profile) => ({
         profile,
         lead: leadsBySession[profile.session_id] ?? null,
-      })),
+      })).filter((item) => !["closed", "no_visit_needed"].includes(item.lead?.lead_status ?? "")),
     [leadsBySession, profiles]
   );
 
@@ -126,6 +129,7 @@ export default function ProviderVitalAiQueue() {
     () => buildProviderVitalAiQueueGuide(!!selected, !!selectedAppointment),
     [selected, selectedAppointment]
   );
+  const canOpenProtocolQueue = ["super_admin", "provider"].includes(role ?? "");
   const locationScopedProviders = useMemo(
     () => providers.filter((provider) => !activeLocationId || !provider.active_location_id || provider.active_location_id === activeLocationId),
     [activeLocationId, providers]
@@ -137,8 +141,18 @@ export default function ProviderVitalAiQueue() {
     try {
       const [{ data: profileRows, error: profileError }, { data: leadRows, error: leadError }, { data: providerRows, error: providerError }] =
         await Promise.all([
-          supabase.from("vital_ai_profiles").select(PROFILE_SELECT_FIELDS).order("created_at", { ascending: false }),
-          supabase.from("vital_ai_leads").select(LEAD_SELECT_FIELDS).order("created_at", { ascending: false }),
+          (() => {
+            let query = supabase.from("vital_ai_profiles").select(PROFILE_SELECT_FIELDS);
+            if (activeClinicId) query = query.eq("clinic_id", activeClinicId);
+            if (activeLocationId) query = query.eq("location_id", activeLocationId);
+            return query.order("created_at", { ascending: false });
+          })(),
+          (() => {
+            let query = supabase.from("vital_ai_leads").select(LEAD_SELECT_FIELDS);
+            if (activeClinicId) query = query.eq("clinic_id", activeClinicId);
+            if (activeLocationId) query = query.eq("location_id", activeLocationId);
+            return query.order("created_at", { ascending: false });
+          })(),
           supabase.from("profiles").select(PROVIDER_SELECT_FIELDS).in("role", ["provider", "location_admin"]).order("first_name"),
         ]);
 
@@ -195,7 +209,7 @@ export default function ProviderVitalAiQueue() {
   useEffect(() => {
     void loadQueue();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resumeKey]);
+  }, [activeClinicId, activeLocationId, resumeKey]);
 
   useEffect(() => {
     if (!selected) {
@@ -215,10 +229,10 @@ export default function ProviderVitalAiQueue() {
 
     if (selectedAppointment) {
       setScheduleVisitType(selectedAppointment.visit_type === "virtual" || selectedAppointment.telehealth_enabled ? "virtual" : "in_person");
-      setScheduleDateTime(new Date(selectedAppointment.start_time).toISOString().slice(0, 16));
+      setScheduleDateTime(toDateTimeLocalValue(selectedAppointment.start_time));
       setMeetingUrl(selectedAppointment.meeting_url ?? "");
       setVirtualInstructions(selectedAppointment.virtual_instructions ?? "");
-      setJoinWindowLocal(new Date(selectedAppointment.start_time).toISOString().slice(0, 16));
+      setJoinWindowLocal(toDateTimeLocalValue(selectedAppointment.join_window_opens_at));
       return;
     }
 
@@ -377,17 +391,20 @@ export default function ProviderVitalAiQueue() {
           description={guide.description}
           workflowState={guide.workflowState}
           nextAction={guide.nextAction}
-          actions={[
-            { label: "Review Intake", to: selected ? providerVitalAiProfilePath(selected.profile.id) : PROVIDER_ROUTES.vitalAi, tone: "primary" },
-            {
-              label: "Schedule Virtual Visit",
-              onClick: () => setScheduleVisitType("virtual"),
-            },
-            {
-              label: "Schedule In-Person Visit",
-              onClick: () => setScheduleVisitType("in_person"),
-            },
-          ]}
+          actions={
+            [
+              { label: "Review Intake", to: selected ? providerVitalAiProfilePath(selected.profile.id) : PROVIDER_ROUTES.vitalAi, tone: "primary" as const },
+              canOpenProtocolQueue ? { label: "Protocol Queue", to: PROVIDER_ROUTES.protocolQueue } : null,
+              {
+                label: "Schedule Virtual Visit",
+                onClick: () => setScheduleVisitType("virtual"),
+              },
+              {
+                label: "Schedule In-Person Visit",
+                onClick: () => setScheduleVisitType("in_person"),
+              },
+            ].filter(Boolean) as Array<{ label: string; to?: string; onClick?: () => void; tone?: "primary" }>
+          }
         />
 
         <div className="space" />

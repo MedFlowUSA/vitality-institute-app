@@ -31,7 +31,7 @@ function getErrorMessage(error: unknown, fallback: string) {
 }
 
 export default function ProviderConversationCenter() {
-  const { user, role, signOut, resumeKey } = useAuth();
+  const { user, role, signOut, resumeKey, activeLocationId } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
 
@@ -54,6 +54,7 @@ export default function ProviderConversationCenter() {
   const [closing, setClosing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const effectiveLocationId = activeLocationId ?? locationId;
   const activeConversation = conversations.find((item) => item.id === activeConversationId) ?? null;
 
   const filteredConversations = useMemo(() => {
@@ -89,12 +90,16 @@ export default function ProviderConversationCenter() {
 
     const ids = ((data as Array<{ location_id: string; is_primary: boolean }>) ?? []).map((item) => item.location_id);
     setAllowedLocationIds(ids);
-    if (!locationId) setLocationId(ids[0] ?? "");
-  }, [isAdmin, locationId, user?.id]);
+    if (!locationId && !activeLocationId) setLocationId(ids[0] ?? "");
+  }, [activeLocationId, isAdmin, locationId, user?.id]);
 
   const loadConversations = useCallback(async () => {
     if (!user?.id) return;
-    const items = await loadProviderConversationList({ userId: user.id, locationIds: allowedLocationIds, activeLocationId: locationId || undefined });
+    const items = await loadProviderConversationList({
+      userId: user.id,
+      locationIds: allowedLocationIds,
+      activeLocationId: effectiveLocationId || undefined,
+    });
     setConversations(items);
 
     if (preselectConversationId) {
@@ -103,7 +108,7 @@ export default function ProviderConversationCenter() {
     }
 
     if (!activeConversationId && items.length > 0) setActiveConversationId(items[0].id);
-  }, [activeConversationId, allowedLocationIds, locationId, preselectConversationId, user?.id]);
+  }, [activeConversationId, allowedLocationIds, effectiveLocationId, preselectConversationId, user?.id]);
 
   const loadMessages = useCallback(async (conversationId: string) => {
     if (!user?.id) return;
@@ -114,9 +119,9 @@ export default function ProviderConversationCenter() {
   }, [role, user?.id]);
 
   const loadStaff = useCallback(async () => {
-    const items = await loadStaffDirectory(locationId || undefined);
+    const items = await loadStaffDirectory(effectiveLocationId || undefined);
     setStaffDirectory(items);
-  }, [locationId]);
+  }, [effectiveLocationId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -233,7 +238,7 @@ export default function ProviderConversationCenter() {
             Role: <strong>{role ?? "-"}</strong>
           </div>
           <div className="v-chip">
-            Active location: <strong>{locationId || "All"}</strong>
+            Active location: <strong>{effectiveLocationId || "All"}</strong>
           </div>
         </>
       }
@@ -256,9 +261,9 @@ export default function ProviderConversationCenter() {
                 <div className="space" />
                 <select
                   className="input"
-                  value={locationId}
+                  value={effectiveLocationId}
                   onChange={(event) => setLocationId(event.target.value)}
-                  disabled={!isAdmin && allowedLocationIds.length <= 1}
+                  disabled={!!activeLocationId || (!isAdmin && allowedLocationIds.length <= 1)}
                 >
                   <option value="">{isAdmin ? "All locations" : "My locations"}</option>
                   {locations

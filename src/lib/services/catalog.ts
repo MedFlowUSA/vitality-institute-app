@@ -1,5 +1,11 @@
 import { supabase } from "../supabase";
 import { getCanonicalServiceTypeKey, resolveCanonicalOffer } from "../canonicalOfferRegistry";
+import {
+  buildMarketOptionGroups,
+  isPlaceholderMarket,
+  marketStatusLabel,
+  type MarketStatus,
+} from "../locationMarkets";
 
 export type CatalogService = {
   id: string;
@@ -25,6 +31,10 @@ export type CatalogLocation = {
   city?: string | null;
   state?: string | null;
   zip?: string | null;
+  is_placeholder?: boolean | null;
+  market_status?: MarketStatus | null;
+  display_priority?: number | null;
+  is_active?: boolean | null;
 };
 
 export type IntakeOnlyPathway = "glp1" | "peptides" | "wellness";
@@ -42,12 +52,13 @@ export function formatCatalogLocationName(location: Pick<CatalogLocation, "id" |
   const normalizedCity = (location.city ?? "").trim().toLowerCase();
   const normalizedState = (location.state ?? "").trim().toLowerCase();
 
-  if (
-    normalizedName === "touch of vitality - los angeles" ||
-    normalizedName === "touch of vitality los angeles" ||
-    (normalizedName === "touch of vitality" && normalizedCity === "los angeles" && normalizedState === "ca")
-  ) {
-    return "Touch of Vitality - Los Angeles";
+  const looksLikeLegacyLosAngelesBrand =
+    normalizedName.includes("touch") &&
+    normalizedName.includes("vitality") &&
+    (normalizedName.includes("los angeles") || (normalizedCity === "los angeles" && normalizedState === "ca"));
+
+  if (looksLikeLegacyLosAngelesBrand) {
+    return "Vitality Institute of Los Angeles";
   }
 
   return rawName;
@@ -331,13 +342,39 @@ export function serviceOverview(service: CatalogService) {
 export function formatCatalogLocationLabel(location: CatalogLocation) {
   const name = formatCatalogLocationName(location);
   const place = [location.city, location.state].filter(Boolean).join(", ");
-  return place ? `${name} - ${place}` : name;
+  const base = place ? `${name} - ${place}` : name;
+  return isPlaceholderMarket(location) ? `${base} - ${marketStatusLabel(location)}` : base;
 }
 
 export function formatCatalogLocationDetails(location: CatalogLocation) {
+  if (isPlaceholderMarket(location)) {
+    return [[location.city, location.state].filter(Boolean).join(", "), marketStatusLabel(location)]
+      .filter(Boolean)
+      .join(" • ");
+  }
+
   return [location.address_line1, location.address_line2, [location.city, location.state, location.zip].filter(Boolean).join(" ")]
     .filter(Boolean)
     .join(", ");
+}
+
+export function getCatalogLocationSelectGroups(
+  locations: CatalogLocation[],
+  options?: {
+    includeComingSoon?: boolean;
+    disableComingSoon?: boolean;
+    liveLabel?: string;
+    comingSoonLabel?: string;
+  }
+) {
+  return buildMarketOptionGroups(locations, {
+    valueOf: (location) => location.id,
+    labelOf: (location) => formatCatalogLocationLabel(location),
+    includeComingSoon: options?.includeComingSoon,
+    disableComingSoon: options?.disableComingSoon,
+    liveLabel: options?.liveLabel,
+    comingSoonLabel: options?.comingSoonLabel,
+  });
 }
 
 export function serviceDetails(service: CatalogService) {
@@ -413,7 +450,8 @@ export async function loadCatalogServices() {
 export async function loadCatalogLocations() {
   const { data, error } = await supabase
     .from("locations")
-    .select("id,name,address_line1,address_line2,city,state,zip")
+    .select("id,name,address_line1,address_line2,city,state,zip,is_placeholder,market_status,display_priority,is_active")
+    .order("display_priority")
     .order("name");
   if (error) throw error;
   return (data as CatalogLocation[]) ?? [];

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { useClinicContext } from "../features/clinics/hooks/useClinicContext";
 import { getSignedUrl } from "../lib/patientFiles";
 import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import { supabase } from "../lib/supabase";
@@ -15,6 +16,7 @@ type PanelRow = { id: string; name: string };
 type LabRow = {
   id: string;
   created_at: string;
+  clinic_id: string | null;
   location_id: string;
   patient_id: string;
   appointment_id: string | null;
@@ -40,6 +42,7 @@ type LabPdfFileRow = {
 
 export default function ProviderLabs() {
   const { user, role, signOut, activeLocationId } = useAuth();
+  const { activeClinicId, activeClinicLocations } = useClinicContext();
   const nav = useNavigate();
   const [params] = useSearchParams();
 
@@ -85,7 +88,10 @@ export default function ProviderLabs() {
   const loadLocations = async () => {
     const { data, error } = await supabase.from("locations").select("id,name").order("name");
     if (error) throw new Error(error.message);
-    setLocations((data as LocationRow[]) ?? []);
+    const nextLocations = ((data as LocationRow[]) ?? []).filter(
+      (location) => activeClinicLocations.length === 0 || activeClinicLocations.some((entry) => entry.location_id === location.id)
+    );
+    setLocations(nextLocations);
   };
 
   const loadAllowed = async () => {
@@ -126,13 +132,14 @@ export default function ProviderLabs() {
     let q = supabase
       .from("lab_results")
       .select(
-        "id,created_at,location_id,patient_id,appointment_id,intake_submission_id,panel_id,lab_source,lab_source_other,status,collected_on,values,provider_notes,reviewed_by,reviewed_at"
+        "id,created_at,clinic_id,location_id,patient_id,appointment_id,intake_submission_id,panel_id,lab_source,lab_source_other,status,collected_on,values,provider_notes,reviewed_by,reviewed_at"
       )
       .order("created_at", { ascending: false })
       .limit(250);
 
     // If coming from intake review, show matching labs first by filtering intake id
     if (prefillIntakeId) q = q.eq("intake_submission_id", prefillIntakeId);
+    if (activeClinicId) q = q.eq("clinic_id", activeClinicId);
 
     if (activeLocationId) {
       q = q.eq("location_id", activeLocationId);
@@ -172,7 +179,7 @@ export default function ProviderLabs() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, isAdmin]);
+  }, [activeClinicLocations, user?.id, isAdmin]);
 
   useEffect(() => {
     if (activeLocationId) setLocationId(activeLocationId);
@@ -187,7 +194,7 @@ export default function ProviderLabs() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationId, allowedLocationIds.join(","), isAdmin, activeLocationId]);
+  }, [activeClinicId, locationId, allowedLocationIds.join(","), isAdmin, activeLocationId]);
 
   const active = rows.find((r) => r.id === activeId) ?? null;
 

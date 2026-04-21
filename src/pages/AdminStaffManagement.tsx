@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
+import MarketGroupedSelect from "../components/locations/MarketGroupedSelect";
+import { buildMarketOptionGroups, type MarketStatus } from "../lib/locationMarkets";
 import { supabase } from "../lib/supabase";
 import VitalityHero from "../components/VitalityHero";
 
 type LocationRow = {
   id: string;
   name: string;
+  is_placeholder: boolean;
+  market_status: MarketStatus;
+  display_priority: number;
 };
 
 type StaffRow = {
@@ -43,6 +48,12 @@ export default function AdminStaffManagement() {
 
   const locationName = (id: string | null) =>
     locations.find((l) => l.id === id)?.name ?? "-";
+  const locationGroups = buildMarketOptionGroups(locations, {
+    valueOf: (location) => location.id,
+    labelOf: (location) => location.name,
+    includeComingSoon: true,
+    disableComingSoon: true,
+  });
 
   const loadBase = async () => {
     setLoadingBase(true);
@@ -51,7 +62,7 @@ export default function AdminStaffManagement() {
     try {
       const [{ data: locs, error: locErr }, { data: profiles, error: profErr }] =
         await Promise.all([
-          supabase.from("locations").select("id,name").order("name"),
+          supabase.from("locations").select("id,name,is_placeholder,market_status,display_priority").order("display_priority").order("name"),
           supabase
             .from("profiles")
             .select("id,first_name,last_name,role,active_location_id")
@@ -201,19 +212,15 @@ export default function AdminStaffManagement() {
                   ))}
                 </select>
 
-                <select
-                  className="input"
-                  style={{ flex: "1 1 220px" }}
+                <MarketGroupedSelect
+                  label="Primary location"
                   value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
-                >
-                  <option value="">Select location</option>
-                  {locations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setLocationId}
+                  groups={locationGroups}
+                  placeholder="Select location"
+                  helperText="Live clinic locations can be assigned to staff. Coming-soon markets are visible here but remain disabled."
+                  style={{ flex: "1 1 220px" }}
+                />
               </div>
 
               <div className="space" />

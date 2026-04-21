@@ -7,9 +7,12 @@ import { buildFollowUpMessage, compareLeadPriority, getUrgencyIndicatorStyle, ge
 import {
   describeBookingSource,
   describePublicSubmissionOrigin,
+  getBookingCaptureTypeLabel,
   getBookingNextStep,
   getBookingRequestStatusLabel,
+  isExpansionBookingRequest,
   isWoundRelated,
+  type BookingRequestCaptureType,
   type BookingRequestStatus,
 } from "../lib/publicSubmissionOps";
 import { supabase } from "../lib/supabase";
@@ -24,6 +27,7 @@ type BookingRequestRow = {
   requested_start: string;
   notes: string | null;
   source: string;
+  capture_type: BookingRequestCaptureType | null;
   status: BookingRequestStatus;
   patient_id: string | null;
   email: string | null;
@@ -65,10 +69,10 @@ type ServiceOption = {
   name: string | null;
 };
 
-type QueueFilter = "open" | "wound" | "linked" | "all";
+type QueueFilter = "open" | "wound" | "linked" | "expansion" | "all";
 
 const BOOKING_REQUEST_SELECT =
-  "id,location_id,service_id,service_label,requested_start,notes,source,status,patient_id,email,phone,internal_notes,assigned_to,contacted_at,resolved_at,created_at,updated_at";
+  "id,location_id,service_id,service_label,requested_start,notes,source,capture_type,status,patient_id,email,phone,internal_notes,assigned_to,contacted_at,resolved_at,created_at,updated_at";
 
 const LINKED_VITAL_AI_SELECT = "id,booking_request_id,pathway,status,summary,answers_json,lead_type,urgency_level,value_level,created_at";
 
@@ -137,6 +141,10 @@ export default function AdminBookingRequests() {
         revenueRecommendation,
         serviceName,
         isWound,
+        isExpansionInterest: isExpansionBookingRequest({
+          captureType: request.capture_type,
+          source: request.source,
+        }),
         originLabel: describePublicSubmissionOrigin({
           bookingSource: request.source,
           hasBookingRequest: true,
@@ -152,6 +160,8 @@ export default function AdminBookingRequests() {
         ? enrichedRequests
         : filter === "wound"
         ? enrichedRequests.filter((request) => request.isWound)
+        : filter === "expansion"
+        ? enrichedRequests.filter((request) => request.isExpansionInterest)
         : filter === "linked"
         ? enrichedRequests.filter((request) => !!request.linkedSubmission)
         : enrichedRequests.filter((request) => request.status !== "closed");
@@ -301,6 +311,7 @@ export default function AdminBookingRequests() {
       open: enrichedRequests.filter((request) => request.status !== "closed").length,
       wound: enrichedRequests.filter((request) => request.isWound).length,
       linked: enrichedRequests.filter((request) => !!request.linkedSubmission).length,
+      expansion: enrichedRequests.filter((request) => request.isExpansionInterest).length,
       all: enrichedRequests.length,
     };
   }, [enrichedRequests]);
@@ -333,7 +344,7 @@ export default function AdminBookingRequests() {
                 <div>
                   <div className="h2">Queue Filters</div>
                   <div className="surface-light-helper" style={{ marginTop: 4 }}>
-                    Public submissions can begin as booking only, Vital AI only, or a linked combination.
+                    Public submissions can begin as live booking, expansion-interest capture, Vital AI only, or a linked combination.
                   </div>
                 </div>
                 <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -345,6 +356,9 @@ export default function AdminBookingRequests() {
                   </button>
                     <button className={filter === "linked" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("linked")}>
                     Linked Vital AI ({filterSummary.linked})
+                  </button>
+                    <button className={filter === "expansion" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("expansion")}>
+                    Expansion Interest ({filterSummary.expansion})
                   </button>
                     <button className={filter === "all" ? "btn btn-primary" : "btn btn-secondary"} type="button" onClick={() => setFilter("all")}>
                     All ({filterSummary.all})
@@ -362,7 +376,9 @@ export default function AdminBookingRequests() {
                 <div className="space" />
                 {visibleRequests.length === 0 ? (
                   <div className="surface-light-helper">
-                    No requests match this filter. Public booking requests will appear here once guests start the booking funnel.
+                    {filter === "expansion"
+                      ? "No expansion-interest requests are in the queue right now. Coming-soon market demand will appear here once guests submit it."
+                      : "No requests match this filter. Public booking requests will appear here once guests start the booking funnel."}
                   </div>
                 ) : (
                   visibleRequests.map((request) => (
@@ -381,12 +397,18 @@ export default function AdminBookingRequests() {
                         <div style={{ fontSize: 12, marginTop: 4 }}>
                           {getBookingRequestStatusLabel(request.status)} | {request.originLabel} | {new Date(request.requested_start).toLocaleString()}
                         </div>
+                        {request.isExpansionInterest ? (
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#8a4b14" }}>
+                            Expansion waitlist only - do not route into live scheduling
+                          </div>
+                        ) : null}
                         <div style={{ fontSize: 12, opacity: 0.85 }}>
                           Next step: {getBookingNextStep({
                             status: request.status,
                             hasVitalAiSubmission: !!request.linkedSubmission,
                             patientLinked: !!request.patient_id,
                             isWound: request.isWound,
+                            source: request.source,
                           })}
                         </div>
                       </span>
@@ -401,6 +423,25 @@ export default function AdminBookingRequests() {
                   <div className="surface-light-helper">Select a booking request.</div>
                 ) : (
                   <>
+                    {selected.isExpansionInterest ? (
+                      <>
+                        <div
+                          className="card card-pad card-light surface-light"
+                          style={{
+                            marginBottom: 12,
+                            border: "1px solid rgba(191,90,36,0.22)",
+                            background: "linear-gradient(180deg, rgba(255,249,243,0.98), rgba(255,245,238,0.96))",
+                          }}
+                        >
+                          <div className="public-eyebrow" style={{ color: "#a64e20" }}>Expansion Interest</div>
+                          <div className="h2" style={{ marginTop: 10 }}>This request is market demand, not a live booking</div>
+                          <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
+                            Keep this request in waitlist follow-up, market validation, or redirect-to-live-clinic work. Do not convert it into standard live scheduling unless the market is activated or the patient is moved to a real clinic.
+                          </div>
+                        </div>
+                      </>
+                    ) : null}
+
                     <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
                       <div>
                         <div className="h2">{selected.serviceName || "Public visit request"}</div>
@@ -415,6 +456,7 @@ export default function AdminBookingRequests() {
                           {selected.scoredLead ? <div className="v-chip" style={getUrgencyIndicatorStyle(selected.scoredLead.urgencyLevel)}>Urgency: <strong>{selected.scoredLead.urgencyLevel}</strong></div> : null}
                           {selected.scoredLead ? <div className="v-chip" style={getValueIndicatorStyle(selected.scoredLead.valueLevel)}>Value: <strong>{selected.scoredLead.valueLevel}</strong></div> : null}
                           {selected.isWound ? <div className="v-chip">Priority: <strong>Wound review</strong></div> : null}
+                          {selected.isExpansionInterest ? <div className="v-chip">Market: <strong>Coming Soon</strong></div> : null}
                         </div>
                     </div>
 
@@ -427,6 +469,7 @@ export default function AdminBookingRequests() {
                         <div style={{ lineHeight: 1.8 }}>
                           <div><strong>Location:</strong> {selected.location_id ? locationNameById.get(selected.location_id) ?? selected.location_id : "Not provided"}</div>
                           <div><strong>Service:</strong> {selected.serviceName || "Not provided"}</div>
+                          <div><strong>Capture type:</strong> {getBookingCaptureTypeLabel(selected.isExpansionInterest ? "expansion_interest" : "live_booking")}</div>
                           <div><strong>Email:</strong> {selected.email || "-"}</div>
                           <div><strong>Phone:</strong> {selected.phone || "-"}</div>
                           <div><strong>Patient linked:</strong> {selected.patient_id ? "Yes" : "No"}</div>
@@ -498,10 +541,13 @@ export default function AdminBookingRequests() {
                             hasVitalAiSubmission: !!selected.linkedSubmission,
                             patientLinked: !!selected.patient_id,
                             isWound: selected.isWound,
+                            source: selected.source,
                           })}
                         </div>
                         <div className="surface-light-helper" style={{ marginTop: 10 }}>
-                          {selected.isWound
+                          {selected.isExpansionInterest
+                            ? "Keep these out of live scheduling counts and treat them as market demand until the location is activated."
+                            : selected.isWound
                             ? "Keep wound-care notes and urgency context visible early so provider review is not delayed."
                             : "Use this queue to decide whether the next step is intake completion, account setup, coordinator outreach, or scheduling."}
                         </div>
@@ -525,7 +571,7 @@ export default function AdminBookingRequests() {
                             <option value="intake_started">Intake Started</option>
                             <option value="account_created">Account Created</option>
                             <option value="reviewed">Needs Follow-up</option>
-                            <option value="scheduled">Converted to Scheduling</option>
+                            {!selected.isExpansionInterest ? <option value="scheduled">Converted to Scheduling</option> : null}
                             <option value="closed">Closed</option>
                           </select>
                         </div>

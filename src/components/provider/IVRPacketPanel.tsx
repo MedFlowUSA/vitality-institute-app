@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import InlineNotice from "../InlineNotice";
 import { supabase } from "../../lib/supabase";
-import { getSignedUrl } from "../../lib/patientFiles";
+import { getSignedUrl, resolvePatientFileOwnerIds } from "../../lib/patientFiles";
 import { providerIvrPrintPath } from "../../lib/providerRoutes";
 
 type Props = {
@@ -228,10 +228,11 @@ export default function IVRPacketPanel({ patientId, locationId, visitId }: Props
       setWounds(woundRows);
 
       // Last wound photos (prefer this visit; fallback patient)
+      const patientFileOwnerIds = await resolvePatientFileOwnerIds(patientId);
       const { data: f, error: fErr } = await supabase
         .from("patient_files")
         .select("id,bucket,path,filename,content_type,category,created_at,visit_id")
-        .eq("patient_id", patientId)
+        .in("patient_id", patientFileOwnerIds)
         .order("created_at", { ascending: false });
 
       if (fErr) throw fErr;

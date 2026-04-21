@@ -2,6 +2,7 @@
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../auth/AuthProvider";
 import { auditWrite } from "../../lib/audit";
+import { resolvePatientFileOwnerIds } from "../../lib/patientFiles";
 
 type Props = {
   patientId: string;
@@ -271,10 +272,11 @@ export default function WoundAssessmentPanel({ patientId, locationId, visitId }:
         return labels[0] ?? "";
       });
 
+      const patientFileOwnerIds = await resolvePatientFileOwnerIds(patientId);
       const { data: fileRows, error: fErr } = await supabase
         .from("patient_files")
         .select("id,filename,content_type,created_at,visit_id,category")
-        .eq("patient_id", patientId)
+        .in("patient_id", patientFileOwnerIds)
         .order("created_at", { ascending: false });
 
       if (fErr) throw fErr;
