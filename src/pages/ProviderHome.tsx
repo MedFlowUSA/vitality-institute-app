@@ -2,11 +2,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import MarketGroupedSelect from "../components/locations/MarketGroupedSelect";
 import { supabase } from "../lib/supabase";
 import VirtualVisitBadge from "../components/VirtualVisitBadge";
 import JoinVirtualVisitButton from "../components/JoinVirtualVisitButton";
 import ProviderGuidePanel from "../components/provider/ProviderGuidePanel";
 import ProviderWorkspaceNav from "../components/provider/ProviderWorkspaceNav";
+import { buildMarketOptionGroups, type MarketStatus } from "../lib/locationMarkets";
 import { ensureAppointmentConversation } from "../lib/messaging/conversationService";
 import { getErrorMessage } from "../lib/patientRecords";
 import { buildProviderHomeGuide } from "../lib/provider/providerGuide";
@@ -22,10 +24,19 @@ import {
   providerVisitBuilderAppointmentPath,
   providerVisitBuilderPath,
 } from "../lib/providerRoutes";
+import { formatCatalogLocationName } from "../lib/services/catalog";
 import { resolvePatientRecordId, startVisitFromAppointment } from "../lib/provider/visitLaunch";
 import { getVirtualVisitState } from "../lib/virtualVisits";
 
-type LocationRow = { id: string; name: string };
+type LocationRow = {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+  is_placeholder: boolean;
+  market_status: MarketStatus;
+  display_priority?: number | null;
+};
 type ServiceRow = { id: string; name: string; location_id: string };
 type UserLocationRow = { location_id: string; is_primary: boolean };
 type AppointmentStatusRow = { status: string | null };
@@ -91,6 +102,20 @@ export default function ProviderHome() {
       return map.get(id) ?? id;
     };
   }, [locations]);
+  const providerLocationGroups = useMemo(
+    () =>
+      buildMarketOptionGroups(locations, {
+        valueOf: (location) => location.id,
+        labelOf: (location) => {
+          const place = [location.city, location.state].filter(Boolean).join(", ");
+          const base = formatCatalogLocationName(location);
+          return place ? `${base} - ${place}` : base;
+        },
+        includeComingSoon: true,
+        disableComingSoon: true,
+      }),
+    [locations]
+  );
 
   const svcName = useMemo(() => {
     const map = new Map(services.map((item) => [item.id, item.name]));
@@ -144,7 +169,11 @@ export default function ProviderHome() {
     setErr(null);
 
     if (isAdmin) {
-      const { data, error } = await supabase.from("locations").select("id,name").order("name");
+      const { data, error } = await supabase
+        .from("locations")
+        .select("id,name,city,state,is_placeholder,market_status,display_priority")
+        .order("display_priority")
+        .order("name");
       if (error) throw error;
       setLocations((data as LocationRow[]) ?? []);
     } else {
@@ -163,15 +192,30 @@ export default function ProviderHome() {
         throw new Error("No location access found for your user. Add a row in user_locations.");
       }
 
-      const { data: locationRows, error: locationErr } = await supabase
-        .from("locations")
-        .select("id,name")
-        .in("id", ids)
-        .order("name");
+      const [{ data: locationRows, error: locationErr }, { data: placeholderRows, error: placeholderErr }] =
+        await Promise.all([
+          supabase
+            .from("locations")
+            .select("id,name,city,state,is_placeholder,market_status,display_priority")
+            .in("id", ids)
+            .order("name"),
+          supabase
+            .from("locations")
+            .select("id,name,city,state,is_placeholder,market_status,display_priority")
+            .eq("market_status", "coming_soon")
+            .order("display_priority")
+            .order("name"),
+        ]);
 
       if (locationErr) throw locationErr;
+      if (placeholderErr) throw placeholderErr;
 
-      setLocations((locationRows as LocationRow[]) ?? []);
+      const uniqueLocations = new Map<string, LocationRow>();
+      for (const location of [...((locationRows as LocationRow[]) ?? []), ...((placeholderRows as LocationRow[]) ?? [])]) {
+        uniqueLocations.set(location.id, location);
+      }
+
+      setLocations(Array.from(uniqueLocations.values()));
 
       const fallbackLocationId = rows.find((item) => item.is_primary)?.location_id ?? rows[0]?.location_id ?? null;
       if (!activeLocationId && fallbackLocationId) {
@@ -508,31 +552,24 @@ export default function ProviderHome() {
             }}
           >
             <div style={{ flex: "1 1 280px", minWidth: 260 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(216,204,255,.76)", marginBottom: 6 }}>Active Location</div>
-              <select
-                className="input"
-                style={{ width: "100%" }}
+              <MarketGroupedSelect
+                label="Active Location"
                 value={activeLocationId ?? ""}
-                onChange={(e) => updateActiveLocation(e.target.value)}
+                onChange={updateActiveLocation}
+                groups={providerLocationGroups}
+                placeholder="Select location..."
                 disabled={locationSaving || locations.length === 0}
-                title="Set the location context for the provider portal"
-              >
-                <option value="" disabled>
-                  Select location...
-                </option>
-                {locations.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-              <div style={{ marginTop: 8, color: "rgba(233,226,255,.72)", fontSize: 12 }}>
-                {activeLocationId
-                  ? `Current scope: ${locName(activeLocationId)}`
-                  : isAdmin
-                  ? "Choose a location to scope the provider portal."
-                  : "Your location context is required to load provider work."}
-              </div>
+                helperText={
+                  activeLocationId
+                    ? `Current scope: ${locName(activeLocationId)}`
+                    : isAdmin
+                    ? "Choose a location to scope the provider portal. Coming-soon markets are shown for network visibility but stay non-operational."
+                    : "Your live location context is required to load provider work. Coming-soon markets are visible but not selectable."
+                }
+                ariaLabel="Set the location context for the provider portal"
+                style={{ width: "100%" }}
+                selectStyle={{ width: "100%" }}
+              />
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", flex: "1 1 320px", minWidth: 280 }}>

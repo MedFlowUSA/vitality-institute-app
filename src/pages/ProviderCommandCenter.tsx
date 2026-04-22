@@ -4,10 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../auth/AuthProvider";
 import InlineNotice from "../components/InlineNotice";
+import MarketGroupedSelect from "../components/locations/MarketGroupedSelect";
 import VitalityHero from "../components/VitalityHero";
 import SystemStatusBar from "../components/SystemStatusBar";
 import { auditWrite } from "../lib/audit";
 import { ensureAppointmentConversation } from "../lib/messaging/conversationService";
+import { buildMarketOptionGroups, type MarketStatus } from "../lib/locationMarkets";
 import {
   formatProviderStatusLabel,
   getProviderPatientLabel,
@@ -21,6 +23,7 @@ import {
   providerVisitBuilderAppointmentPath,
   providerVisitChartPath,
 } from "../lib/providerRoutes";
+import { formatCatalogLocationName } from "../lib/services/catalog";
 import { resolvePatientRecordId, startVisitFromAppointment } from "../lib/provider/visitLaunch";
 import { analyzeWoundProgression } from "../lib/woundProgression";
 import { analyzeWoundRisk } from "../lib/woundRiskAlerts";
@@ -59,7 +62,15 @@ type IntakeRow = {
     | null;
 };
 
-type LocationRow = { id: string; name: string };
+type LocationRow = {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+  is_placeholder: boolean;
+  market_status: MarketStatus;
+  display_priority?: number | null;
+};
 type ServiceRow = { id: string; name: string };
 
 type WoundAssessmentLite = {
@@ -122,6 +133,20 @@ export default function ProviderCommandCenter() {
     const m = new Map(locations.map((l) => [l.id, l.name]));
     return (id: string) => m.get(id) ?? id;
   }, [locations]);
+  const locationGroups = useMemo(
+    () =>
+      buildMarketOptionGroups(locations, {
+        valueOf: (location) => location.id,
+        labelOf: (location) => {
+          const place = [location.city, location.state].filter(Boolean).join(", ");
+          const base = formatCatalogLocationName(location);
+          return place ? `${base} - ${place}` : base;
+        },
+        includeComingSoon: true,
+        disableComingSoon: true,
+      }),
+    [locations]
+  );
 
   const svcName = useMemo(() => {
     const m = new Map(services.map((s) => [s.id, s.name]));
@@ -136,7 +161,11 @@ export default function ProviderCommandCenter() {
   const loadBase = async () => {
     // locations (admin can see all; non-admin normally uses activeLocationId already)
     if (isAdmin) {
-      const { data, error } = await supabase.from("locations").select("id,name").order("name");
+      const { data, error } = await supabase
+        .from("locations")
+        .select("id,name,city,state,is_placeholder,market_status,display_priority")
+        .order("display_priority")
+        .order("name");
       if (error) throw error;
       setLocations((data as LocationRow[]) ?? []);
     }
@@ -513,20 +542,22 @@ export default function ProviderCommandCenter() {
               </div>
 
               <div style={{ minWidth: 320 }}>
-                <select
-                  className="input"
+                <MarketGroupedSelect
+                  label="Location Scope"
                   value={localLocationId}
-                  onChange={(e) => setLocalLocationId(e.target.value)}
+                  onChange={setLocalLocationId}
+                  groups={locationGroups}
+                  placeholder="All locations"
                   disabled={!!activeLocationId}
-                  title={activeLocationId ? "Active Location is set in the status bar." : "Filter by location (admin only)"}
-                >
-                  <option value="">All Locations</option>
-                  {locations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
+                  ariaLabel={activeLocationId ? "Active Location is set in the status bar." : "Filter by location in command center"}
+                  helperText={
+                    activeLocationId
+                      ? "Active Location in the status bar currently overrides this admin filter."
+                      : "Live clinics are filterable here. Coming-soon markets are shown for network visibility but remain non-operational."
+                  }
+                  style={{ width: "100%" }}
+                  selectStyle={{ width: "100%" }}
+                />
                 {activeLocationId ? (
                   <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
                     Note: Active Location currently overrides this filter.
