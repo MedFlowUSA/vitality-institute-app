@@ -83,6 +83,22 @@ export type ClinicMemberSummary = ClinicMembershipRow & {
   active_location_id: string | null;
 };
 
+export type ClinicProviderProfileRow = {
+  id: string;
+  clinic_id: string;
+  user_id: string;
+  specialty: string | null;
+  credentials: string | null;
+  npi: string | null;
+  license_number: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  bio: string | null;
+  accepting_new_patients: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ClinicWorkspaceState = {
   available: boolean;
   clinics: ClinicRow[];

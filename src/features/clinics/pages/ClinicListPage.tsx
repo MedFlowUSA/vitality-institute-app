@@ -4,21 +4,34 @@ import { useAuth } from "../../../auth/AuthProvider";
 import InlineNotice from "../../../components/InlineNotice";
 import LocationPicker from "../../../components/LocationPicker";
 import VitalityHero from "../../../components/VitalityHero";
-import { createClinic, listAllLocations } from "../api/clinicQueries";
+import { createClinic, createLocationIntake, listAllLocations } from "../api/clinicQueries";
 import ClinicPicker from "../components/ClinicPicker";
 import { useClinicContext } from "../hooks/useClinicContext";
 
 type LocationRow = {
   id: string;
   name: string;
+  address_line1: string | null;
+  address_line2?: string | null;
   city: string | null;
   state: string | null;
+  zip?: string | null;
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === "string" && error.trim()) return error;
   return fallback;
+}
+
+function formatLocationMeta(row: LocationRow) {
+  return [
+    row.address_line1,
+    row.address_line2,
+    [row.city, row.state, row.zip].filter(Boolean).join(" "),
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 export default function ClinicListPage() {
@@ -30,6 +43,7 @@ export default function ClinicListPage() {
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [locationSaving, setLocationSaving] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [brandName, setBrandName] = useState("Vitality Institute");
@@ -38,6 +52,12 @@ export default function ClinicListPage() {
   const [defaultTimezone, setDefaultTimezone] = useState("America/Los_Angeles");
   const [primaryLocationId, setPrimaryLocationId] = useState("");
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
+  const [locationName, setLocationName] = useState("");
+  const [locationAddressLine1, setLocationAddressLine1] = useState("");
+  const [locationAddressLine2, setLocationAddressLine2] = useState("");
+  const [locationCity, setLocationCity] = useState("");
+  const [locationState, setLocationState] = useState("");
+  const [locationZip, setLocationZip] = useState("");
 
   const showCreateForm = useMemo(() => location.pathname.endsWith("/new"), [location.pathname]);
 
@@ -93,6 +113,41 @@ export default function ClinicListPage() {
       setErr(getErrorMessage(createError, "Failed to create clinic."));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateLocation = async () => {
+    setLocationSaving(true);
+    setErr(null);
+    setMsg(null);
+
+    try {
+      if (!locationName.trim()) throw new Error("Location name is required.");
+
+      const createdLocation = await createLocationIntake({
+        name: locationName,
+        addressLine1: locationAddressLine1,
+        addressLine2: locationAddressLine2,
+        city: locationCity,
+        state: locationState,
+        zip: locationZip,
+      });
+
+      const refreshedLocations = await listAllLocations();
+      setAllLocations(refreshedLocations);
+      setSelectedLocationIds((current) => Array.from(new Set([...current, createdLocation.id])));
+      setPrimaryLocationId((current) => current || createdLocation.id);
+      setLocationName("");
+      setLocationAddressLine1("");
+      setLocationAddressLine2("");
+      setLocationCity("");
+      setLocationState("");
+      setLocationZip("");
+      setMsg("Location intake saved. You can keep it as the clinic primary location or map additional sites.");
+    } catch (createError: unknown) {
+      setErr(getErrorMessage(createError, "Failed to save clinic location intake."));
+    } finally {
+      setLocationSaving(false);
     }
   };
 
@@ -186,9 +241,71 @@ export default function ClinicListPage() {
 
               <div className="space" />
 
+              <div className="h2">Location Intake</div>
+              <div className="muted" style={{ marginTop: 6 }}>
+                Add a live clinic location before mapping it to this clinic. This keeps location onboarding and clinic onboarding in one place.
+              </div>
+
+              <div className="space" />
+
+              <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                <input
+                  className="input"
+                  style={{ flex: "1 1 220px" }}
+                  placeholder="Location name"
+                  value={locationName}
+                  onChange={(event) => setLocationName(event.target.value)}
+                />
+                <input
+                  className="input"
+                  style={{ flex: "2 1 260px" }}
+                  placeholder="Street address"
+                  value={locationAddressLine1}
+                  onChange={(event) => setLocationAddressLine1(event.target.value)}
+                />
+                <input
+                  className="input"
+                  style={{ flex: "1 1 180px" }}
+                  placeholder="Suite / unit"
+                  value={locationAddressLine2}
+                  onChange={(event) => setLocationAddressLine2(event.target.value)}
+                />
+              </div>
+
+              <div className="space" />
+
+              <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                <input
+                  className="input"
+                  style={{ flex: "1 1 160px" }}
+                  placeholder="City"
+                  value={locationCity}
+                  onChange={(event) => setLocationCity(event.target.value)}
+                />
+                <input
+                  className="input"
+                  style={{ flex: "1 1 110px" }}
+                  placeholder="State"
+                  value={locationState}
+                  onChange={(event) => setLocationState(event.target.value)}
+                />
+                <input
+                  className="input"
+                  style={{ flex: "1 1 120px" }}
+                  placeholder="ZIP"
+                  value={locationZip}
+                  onChange={(event) => setLocationZip(event.target.value)}
+                />
+                <button className="btn btn-secondary" type="button" onClick={handleCreateLocation} disabled={locationSaving}>
+                  {locationSaving ? "Saving location..." : "Save Location Intake"}
+                </button>
+              </div>
+
+              <div className="space" />
+
               <div className="h2" style={{ marginBottom: 10 }}>Map Existing Locations</div>
               <div className="muted" style={{ marginBottom: 12 }}>
-                Reuse the existing location model. One clinic can own one or many operational locations.
+                Reuse the existing location model. One clinic can own one or many operational locations, and the saved intake above will appear here immediately.
               </div>
 
               {allLocations.length === 0 ? (
@@ -206,7 +323,7 @@ export default function ClinicListPage() {
                         <div>
                           <div style={{ fontWeight: 700 }}>{row.name}</div>
                           <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
-                            {[row.city, row.state].filter(Boolean).join(", ") || "Location available"}
+                            {formatLocationMeta(row) || "Location available"}
                           </div>
                         </div>
 

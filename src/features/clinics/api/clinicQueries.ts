@@ -5,6 +5,7 @@ import type {
   ClinicLocationSummary,
   ClinicMemberSummary,
   ClinicMembershipRow,
+  ClinicProviderProfileRow,
   ClinicRow,
   ClinicServiceCatalogRow,
   ClinicSettingsRow,
@@ -23,8 +24,12 @@ type ProfileRow = {
 type LocationRow = {
   id: string;
   name: string;
+  address_line1: string | null;
+  address_line2?: string | null;
   city: string | null;
   state: string | null;
+  zip?: string | null;
+  is_active?: boolean | null;
   is_placeholder: boolean;
   market_status: MarketStatus;
   display_priority: number;
@@ -40,7 +45,7 @@ type ServiceRow = {
 
 const STAFF_ROLE_OPTIONS = ["super_admin", "location_admin", "provider", "clinical_staff", "billing", "front_desk"] as const;
 const CLINIC_SELECT = "id,name,slug,status,brand_name,support_email,support_phone,default_timezone,is_placeholder,market_status,display_priority,created_at,updated_at";
-const LOCATION_SELECT = "id,name,city,state,is_placeholder,market_status,display_priority";
+const LOCATION_SELECT = "id,name,address_line1,address_line2,city,state,zip,is_active,is_placeholder,market_status,display_priority";
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
@@ -353,6 +358,35 @@ export async function listAllLocations(options?: { includePlaceholders?: boolean
   return options?.includePlaceholders ? rows : rows.filter((row) => isOperationalMarket(row));
 }
 
+export async function createLocationIntake(input: {
+  name: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+}) {
+  const { data, error } = await supabase
+    .from("locations")
+    .insert({
+      name: input.name.trim(),
+      address_line1: input.addressLine1?.trim() || null,
+      address_line2: input.addressLine2?.trim() || null,
+      city: input.city?.trim() || null,
+      state: input.state?.trim() || null,
+      zip: input.zip?.trim() || null,
+      is_active: true,
+      is_placeholder: false,
+      market_status: "live",
+      display_priority: 100,
+    })
+    .select(LOCATION_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data as LocationRow;
+}
+
 export async function listClinics(options?: { includePlaceholders?: boolean }) {
   const { data, error } = await supabase
     .from("clinics")
@@ -549,6 +583,65 @@ export async function listClinicMembers(clinicId: string) {
       active_location_id: profile?.active_location_id ?? null,
     };
   });
+}
+
+export async function listClinicProviderProfiles(clinicId: string) {
+  const { data, error } = await supabase
+    .from("clinic_provider_profiles")
+    .select("id,clinic_id,user_id,specialty,credentials,npi,license_number,contact_phone,contact_email,bio,accepting_new_patients,created_at,updated_at")
+    .eq("clinic_id", clinicId)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    const message = getErrorMessage(error, "").toLowerCase();
+    if (message.includes("clinic_provider_profiles") || message.includes("does not exist") || message.includes("schema cache")) {
+      return [] as ClinicProviderProfileRow[];
+    }
+    throw error;
+  }
+  return (data as ClinicProviderProfileRow[] | null) ?? [];
+}
+
+export async function saveClinicProviderProfile(input: {
+  clinicId: string;
+  userId: string;
+  specialty?: string;
+  credentials?: string;
+  npi?: string;
+  licenseNumber?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  bio?: string;
+  acceptingNewPatients?: boolean;
+}) {
+  const { data, error } = await supabase
+    .from("clinic_provider_profiles")
+    .upsert(
+      {
+        clinic_id: input.clinicId,
+        user_id: input.userId,
+        specialty: input.specialty?.trim() || null,
+        credentials: input.credentials?.trim() || null,
+        npi: input.npi?.trim() || null,
+        license_number: input.licenseNumber?.trim() || null,
+        contact_phone: input.contactPhone?.trim() || null,
+        contact_email: input.contactEmail?.trim() || null,
+        bio: input.bio?.trim() || null,
+        accepting_new_patients: input.acceptingNewPatients ?? true,
+      },
+      { onConflict: "clinic_id,user_id" }
+    )
+    .select("id,clinic_id,user_id,specialty,credentials,npi,license_number,contact_phone,contact_email,bio,accepting_new_patients,created_at,updated_at")
+    .single();
+
+  if (error) {
+    const message = getErrorMessage(error, "").toLowerCase();
+    if (message.includes("clinic_provider_profiles") || message.includes("does not exist") || message.includes("schema cache")) {
+      throw new Error("Apply the clinic provider profile migration before saving doctor details.");
+    }
+    throw error;
+  }
+  return data as ClinicProviderProfileRow;
 }
 
 export async function listAssignableProfiles() {
