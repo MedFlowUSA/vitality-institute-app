@@ -372,13 +372,22 @@ export default function PatientServices() {
                 </div>
               </div>
 
-            <button
-              type="button"
-              className={showAllLocations ? "btn btn-secondary" : "btn btn-primary"}
-              onClick={() => setShowAllLocations((v) => !v)}
-            >
-              {showAllLocations ? "Show My Location" : "Show All Locations"}
-            </button>
+            <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => navigate("/patient/billing")}
+              >
+                Basket & Payments
+              </button>
+              <button
+                type="button"
+                className={showAllLocations ? "btn btn-secondary" : "btn btn-primary"}
+                onClick={() => setShowAllLocations((v) => !v)}
+              >
+                {showAllLocations ? "Show My Location" : "Show All Locations"}
+              </button>
+            </div>
           </div>
 
           <div className="space" />
@@ -721,6 +730,17 @@ export default function PatientServices() {
                   }}
                 >
                   Book Visit
+                </button>
+
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={() => {
+                    setSelectedService(null);
+                    navigate("/patient/billing");
+                  }}
+                >
+                  Basket & Payments
                 </button>
 
                 <button

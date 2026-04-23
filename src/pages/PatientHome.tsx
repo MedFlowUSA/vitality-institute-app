@@ -2284,6 +2284,21 @@ export default function PatientHome() {
               </div>
 
             <div style={primaryActionCardStyle}>
+              <div style={sectionEyebrowStyle}>Basket & Payments</div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>Review Basket Placeholder</div>
+                <div className="patient-helper-text" style={{ color: "#4B5563", lineHeight: 1.6 }}>
+                  Preview where future checkout and saved payment methods will live inside your portal.
+                </div>
+              </div>
+              <div>
+                <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/billing")}>
+                  Open Basket & Payments
+                </button>
+              </div>
+            </div>
+
+            <div style={primaryActionCardStyle}>
               <div style={sectionEyebrowStyle}>Messages</div>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>Message Clinic</div>
@@ -2327,6 +2342,9 @@ export default function PatientHome() {
               </button>
               <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/services")}>
                 Browse Services
+              </button>
+              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/billing")}>
+                Basket & Payments
               </button>
             </div>
           </div>

@@ -30,6 +30,7 @@ const PatientConversationCenter = lazy(() => import("./pages/PatientConversation
 const PatientTreatments = lazy(() => import("./pages/PatientTreatments"));
 const PatientTreatmentDetail = lazy(() => import("./pages/PatientTreatmentDetail"));
 const PatientServices = lazy(() => import("./pages/PatientServices"));
+const PatientBilling = lazy(() => import("./pages/PatientBilling"));
 const PatientBookAppointment = lazy(() => import("./pages/PatientBookAppointment"));
 const PatientAssessment = lazy(() => import("./pages/PatientAssessment"));
 const PatientVisitChart = lazy(() => import("./pages/PatientVisitChart"));
@@ -565,6 +566,7 @@ export default function App() {
             <Route path="/patient/auth" element={<LegacyPathRedirect to="/access" />} />
             <Route path="/patient/onboarding" element={withRole(PATIENT_ROLES, <PatientOnboarding />)} />
             <Route path="/patient/services" element={withPatientProfile(<PatientServices />)} />
+            <Route path="/patient/billing" element={withPatientProfile(<PatientBilling />)} />
             <Route path="/patient/book" element={withPatientProfile(<PatientBookAppointment />)} />
             <Route path="/patient/assessment" element={withPatientProfile(<PatientAssessment />)} />
             <Route path="/patient/visits" element={withPatientProfile(<PatientVisitChart />)} />
