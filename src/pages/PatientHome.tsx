@@ -2312,6 +2312,21 @@ export default function PatientHome() {
                 </button>
               </div>
             </div>
+
+            <div style={primaryActionCardStyle}>
+              <div style={sectionEyebrowStyle}>User Guide</div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>Patient And Provider Guide</div>
+                <div className="patient-helper-text" style={{ color: "#4B5563", lineHeight: 1.6 }}>
+                  Review the step-by-step guide for booking, intake, messaging, labs, treatments, provider review, and physician sign-off.
+                </div>
+              </div>
+              <div>
+                <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/how-to-use-the-app")}>
+                  Open User Guide
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="space" />
@@ -2345,6 +2360,9 @@ export default function PatientHome() {
               </button>
               <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/billing")}>
                 Basket & Payments
+              </button>
+              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/how-to-use-the-app")}>
+                User Guide
               </button>
             </div>
           </div>

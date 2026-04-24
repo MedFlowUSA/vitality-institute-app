@@ -524,6 +524,9 @@ export default function ProviderHome() {
             </div>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/how-to-use-the-app")}>
+                User Guide
+              </button>
               <button className="btn btn-secondary" type="button" onClick={() => navigate(PROVIDER_ROUTES.command)}>
                 Intake Triage
               </button>
@@ -598,6 +601,7 @@ export default function ProviderHome() {
           actions={[
             { label: "Open Queue", to: PROVIDER_ROUTES.queue, tone: "primary" },
             { label: "Open Intake Triage", to: PROVIDER_ROUTES.command },
+            { label: "Open Full User Guide", to: "/how-to-use-the-app" },
           ]}
         />
 
