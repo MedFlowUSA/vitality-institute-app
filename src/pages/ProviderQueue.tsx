@@ -346,7 +346,21 @@ export default function ProviderQueue() {
                 </div>
               </div>
 
-              {err ? <div style={{ color: "crimson", marginTop: 12 }}>{err}</div> : null}
+              {err ? (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: "12px 14px",
+                    borderRadius: 14,
+                    background: "rgba(245, 158, 11, 0.10)",
+                    border: "1px solid rgba(245, 158, 11, 0.22)",
+                    color: "#8A5A00",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Queue data could not be fully refreshed. Existing visit actions may be incomplete until the next successful load.
+                </div>
+              ) : null}
 
               <div className="space" />
 
@@ -386,8 +400,8 @@ export default function ProviderQueue() {
                 </div>
               ) : queueItems.length === 0 ? (
                 <ProviderPrerequisiteCard
-                  title="No Active Visits Yet"
-                  message="There are no visits for this location yet. Start a visit from today’s appointments or open the patient list to launch the next encounter."
+                  title="No Active Queue Items"
+                  message="There are no open visits or unlaunched appointments at this live location right now. Start from today's appointments, intake triage, or the patient list when new work arrives."
                   actionLabel="Open Patients List"
                   onAction={() => nav(PROVIDER_ROUTES.patients)}
                   secondaryLabel="Open Intake Triage"

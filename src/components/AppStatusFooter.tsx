@@ -2,8 +2,11 @@ import { useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 
 export default function AppStatusFooter() {
+  const showFooter = import.meta.env.DEV || import.meta.env.VITE_SHOW_APP_STATUS_FOOTER === "true";
   const { user, role, activeLocationId } = useAuth();
   const location = useLocation();
+
+  if (!showFooter) return null;
 
   const userLabel = user?.email ?? user?.id?.slice(0, 8) ?? "guest";
 

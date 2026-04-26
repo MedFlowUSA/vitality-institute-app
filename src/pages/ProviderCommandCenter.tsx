@@ -645,7 +645,9 @@ export default function ProviderCommandCenter() {
           {/* Left: Today */}
           <Card title="Today's Schedule">
             {apptsToday.length === 0 ? (
-              <div className="muted">No appointments today.</div>
+              <div className="muted">
+                No live appointments are scheduled for this location today. Use Queue or Patient Center to continue work from existing encounters.
+              </div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 <div className="muted" style={{ fontSize: 12 }}>
@@ -730,7 +732,9 @@ export default function ProviderCommandCenter() {
           {/* Right: Intake queue */}
           <Card title="Pending Wound Intakes">
             {intakesPending.length === 0 ? (
-              <div className="muted">No pending wound intakes.</div>
+              <div className="muted">
+                No new wound intakes are waiting at this location right now. Submitted and needs-info cases will appear here automatically.
+              </div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {intakesPending.map((i) => (

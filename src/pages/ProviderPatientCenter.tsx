@@ -1549,7 +1549,22 @@ export default function ProviderPatientCenter() {
                 </>
               )}
 
-              {err && <div style={{ color: "crimson", marginTop: 12 }}>{err}</div>}
+              {err ? (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: "12px 14px",
+                    borderRadius: 14,
+                    background: "rgba(245, 158, 11, 0.10)",
+                    border: "1px solid rgba(245, 158, 11, 0.22)",
+                    color: "#8A5A00",
+                    lineHeight: 1.6,
+                    maxWidth: 760,
+                  }}
+                >
+                  Patient center data did not load completely. Refresh the page or return to Queue if chart details appear incomplete.
+                </div>
+              ) : null}
 
               {!activeVisit && recommendedAppointment ? (
                 <>
@@ -1582,7 +1597,7 @@ export default function ProviderPatientCenter() {
                     {!hasIntakeOnFile ? (
                       <ProviderPrerequisiteCard
                         title="No Intake On File"
-                        message="This patient does not have a completed intake on file yet. Review intake history or gather the missing background before finalizing the encounter."
+                        message="This patient does not have a completed intake on file yet. Review intake history or gather the missing clinical background before finalizing the encounter."
                         actionLabel="Review Intake"
                         onAction={() => setTab("wound")}
                       />

@@ -24,6 +24,16 @@ function endOfTodayLocalISO() {
   return d.toISOString();
 }
 
+function isMissingRelationError(message: string | undefined) {
+  const text = (message ?? "").toLowerCase();
+  return text.includes("does not exist") || text.includes("could not find the table") || text.includes("relation");
+}
+
+function isPermissionLikeError(message: string | undefined) {
+  const text = (message ?? "").toLowerCase();
+  return text.includes("permission") || text.includes("not allowed") || text.includes("rls") || text.includes("policy");
+}
+
 function getDefaultHome(role: ReturnType<typeof useAuth>["role"]) {
   if (role === "patient") return "/patient/home";
   if (role === "super_admin" || role === "location_admin") return "/admin";
@@ -48,7 +58,7 @@ export default function VitalityHero({
   activityItems?: { t: string; m: string; s: string }[];
 }) {
   const nav = useNavigate();
-  const { user, role, signOut } = useAuth();
+  const { user, role, signOut, activeLocationId } = useAuth();
   const useLightPanels = role === "patient";
   const resolvedHome = useMemo(() => getDefaultHome(role), [role]);
 
@@ -61,63 +71,97 @@ export default function VitalityHero({
   const [kpiErr, setKpiErr] = useState<string | null>(null);
 
   const canSeeKpis = useMemo(() => !!user && !!role && showKpis, [user, role, showKpis]);
+  const shouldScopeByLocation = useMemo(
+    () => !!activeLocationId && role !== "patient",
+    [activeLocationId, role]
+  );
 
   const loadKpis = useCallback(async () => {
     if (!user) return;
     setKpiErr(null);
 
     try {
-      // --- APPOINTMENTS TODAY (count)
-      const { count: apptsToday, error: apptErr } = await supabase
-        .from("appointments")
-        .select("id", { count: "exact", head: true })
-        .gte("start_time", startOfTodayLocalISO())
-        .lte("start_time", endOfTodayLocalISO());
+      let hadMetricFallback = false;
 
-      if (apptErr) throw apptErr;
+      const safeCount = async (
+        label: string,
+        queryFactory: () => Promise<{ count: number | null; error: { message?: string } | null }>
+      ) => {
+        const { count, error } = await queryFactory();
+        if (!error) return count ?? 0;
 
-      // --- OPEN THREADS (count)
-      const { count: openThreads, error: threadErr } = await supabase
-        .from("conversations")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "open");
+        if (isMissingRelationError(error.message) || isPermissionLikeError(error.message)) {
+          hadMetricFallback = true;
+          return 0;
+        }
 
-      if (threadErr) throw threadErr;
+        throw new Error(`${label}: ${error.message ?? "Unknown error"}`);
+      };
 
-      // --- PENDING INTAKES (count)
-      const { count: pendingIntakes, error: intakeErr } = await supabase
-        .from("intake_submissions")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "submitted");
+      const apptsToday = await safeCount("appointments", async () => {
+        let query = supabase
+          .from("appointments")
+          .select("id", { count: "exact", head: true })
+          .gte("start_time", startOfTodayLocalISO())
+          .lte("start_time", endOfTodayLocalISO());
 
-      if (intakeErr && intakeErr.message?.toLowerCase().includes("does not exist")) {
-        // ignore
-      } else if (intakeErr) {
-        throw intakeErr;
-      }
+        if (shouldScopeByLocation && activeLocationId) {
+          query = query.eq("location_id", activeLocationId);
+        }
 
-      // --- LABS PENDING (count)
-      const { count: labsPending, error: labErr } = await supabase
-        .from("lab_uploads")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "pending_review");
+        return query;
+      });
 
-      if (labErr && labErr.message?.toLowerCase().includes("does not exist")) {
-        // ignore
-      } else if (labErr) {
-        throw labErr;
-      }
+      const openThreads = await safeCount("conversations", async () => {
+        let query = supabase
+          .from("conversations")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "open");
+
+        if (shouldScopeByLocation && activeLocationId) {
+          query = query.eq("location_id", activeLocationId);
+        }
+
+        return query;
+      });
+
+      const pendingIntakes = await safeCount("patient_intakes", async () => {
+        let query = supabase
+          .from("patient_intakes")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["submitted", "needs_info"]);
+
+        if (shouldScopeByLocation && activeLocationId) {
+          query = query.eq("location_id", activeLocationId);
+        }
+
+        return query;
+      });
+
+      const labsPending = await safeCount("lab_results", async () => {
+        let query = supabase
+          .from("lab_results")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["ordered", "collected", "resulted"]);
+
+        if (shouldScopeByLocation && activeLocationId) {
+          query = query.eq("location_id", activeLocationId);
+        }
+
+        return query;
+      });
 
       setKpis({
-        apptsToday: apptsToday ?? 0,
-        openThreads: openThreads ?? 0,
-        pendingIntakes: pendingIntakes ?? 0,
-        labsPending: labsPending ?? 0,
+        apptsToday,
+        openThreads,
+        pendingIntakes,
+        labsPending,
       });
+      setKpiErr(hadMetricFallback ? "Some dashboard metrics are temporarily unavailable." : null);
     } catch (error: unknown) {
-      setKpiErr(error instanceof Error ? error.message : "Failed to load KPIs.");
+      setKpiErr("Some dashboard metrics are temporarily unavailable.");
     }
-  }, [user]);
+  }, [activeLocationId, shouldScopeByLocation, user]);
 
   useEffect(() => {
     if (!canSeeKpis) return;
