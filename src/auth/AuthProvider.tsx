@@ -121,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [activeLocationId, setActiveLocationIdState] = useState<string | null>(null);
   const [resumeKey, setResumeKey] = useState(0);
   const lastResumeAtRef = useRef(0);
+  const hiddenAtRef = useRef<number | null>(null);
 
   const loadRole = useCallback(async (uid: string) => {
     setRole(null);
@@ -253,8 +254,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (now - lastResumeAtRef.current < 1500) return;
       lastResumeAtRef.current = now;
 
-      setLoading(true);
-
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
@@ -262,13 +261,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const sessionUser = data.session?.user ?? null;
         if (!mounted) return;
 
-        setUser(sessionUser);
-        setRole(null);
-        setAccountStatus(sessionUser ? "pending" : "restricted");
-        setRoleError(null);
-        setActiveLocationIdState(null);
+        if (!sessionUser) {
+          setUser(null);
+          setRole(null);
+          setAccountStatus("restricted");
+          setRoleError(null);
+          setActiveLocationIdState(null);
+          return;
+        }
 
-        if (sessionUser?.id) {
+        const sameUser = user?.id === sessionUser.id;
+        setUser(sessionUser);
+
+        if (!sameUser) {
+          setRole(null);
+          setAccountStatus("pending");
+          setRoleError(null);
+          setActiveLocationIdState(null);
+          await loadRole(sessionUser.id);
+          if (mounted) setResumeKey((current) => current + 1);
+          return;
+        }
+
+        const shouldRefreshRole = !role || !activeLocationId;
+        if (shouldRefreshRole) {
           await loadRole(sessionUser.id);
         }
 
@@ -278,33 +294,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {
         if (!mounted) return;
         console.error("[Auth resume] failed to recover session", e);
-        setRole(null);
-        setAccountStatus(user ? "restricted" : "pending");
-        setRoleError(getErrorMessage(e, "Failed to recover your session after returning to the app."));
-      } finally {
-        if (mounted) setLoading(false);
+        setRoleError(getErrorMessage(e, "Failed to refresh your session after returning to the app."));
       }
     };
 
     const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAtRef.current = Date.now();
+        return;
+      }
+
       if (document.visibilityState === "visible") {
+        const hiddenFor = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : 0;
+        hiddenAtRef.current = null;
+        if (hiddenFor < 15000) return;
         void resumeApp();
       }
     };
 
-    const handleFocus = () => {
+    const handleOnline = () => {
       void resumeApp();
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleFocus);
+    window.addEventListener("online", handleOnline);
 
     return () => {
       mounted = false;
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("online", handleOnline);
     };
-  }, [loadRole, user]);
+  }, [activeLocationId, loadRole, role, user]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });

@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import VitalityHero from "../components/VitalityHero";
 import RouteHeader from "../components/RouteHeader";
-import VitalAiAvatarAssistant from "../components/vital-ai/VitalAiAvatarAssistant";
 import IntakeFlowShell from "../components/vital-ai/IntakeFlowShell";
 import IntakeStepRenderer from "../components/vital-ai/IntakeStepRenderer";
 import { useAuth } from "../auth/AuthProvider";
@@ -205,18 +203,9 @@ export default function VitalAiSession() {
       <div className="shell">
         <RouteHeader
           title={pathway?.name ?? "Vital AI Session"}
-          subtitle="Complete each step and your draft saves automatically."
+          subtitle="Complete one section at a time. Your draft saves automatically."
           backTo="/intake"
           homeTo="/patient/home"
-        />
-
-        <div className="space" />
-
-        <VitalityHero
-          title={pathway?.name ?? "Vital AI Intake"}
-          subtitle="Work through the intake step by step."
-          secondaryCta={{ label: "Back to Intake Home", to: "/intake" }}
-          showKpis={false}
         />
 
         <div className="space" />
@@ -256,24 +245,21 @@ export default function VitalAiSession() {
               isLastStep={activeIndex === visibleSteps.length - 1}
               saveStateLabel={saving ? "Saving draft..." : session.last_saved_at ? `Last saved ${new Date(session.last_saved_at).toLocaleString()}` : undefined}
               headerAside={
-                <div style={{ display: "grid", gap: 10 }}>
-                  <VitalAiAvatarAssistant stepKey={activeStep.key} pathwaySlug={pathway.slug} answers={answers} />
-                  <div
-                    className="card card-pad"
-                    style={{
-                      background: "rgba(255,255,255,0.06)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                    }}
-                  >
-                    <div className="muted" style={{ fontSize: 12, color: "rgba(226,232,240,0.82)" }}>
-                      Session Status
-                    </div>
-                    <div style={{ marginTop: 6, fontWeight: 800, color: "#F8FAFC" }}>
-                      {session.status.toUpperCase()}
-                    </div>
-                    <div className="muted" style={{ marginTop: 8, fontSize: 12, color: "rgba(226,232,240,0.78)" }}>
-                      Uploaded files: {files.length}
-                    </div>
+                <div
+                  className="card card-pad"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                  }}
+                >
+                  <div className="muted" style={{ fontSize: 12, color: "rgba(226,232,240,0.82)" }}>
+                    Session Status
+                  </div>
+                  <div style={{ marginTop: 6, fontWeight: 800, color: "#F8FAFC" }}>
+                    {session.status.toUpperCase()}
+                  </div>
+                  <div className="muted" style={{ marginTop: 8, fontSize: 12, color: "rgba(226,232,240,0.78)" }}>
+                    Uploaded files: {files.length}
                   </div>
                 </div>
               }
