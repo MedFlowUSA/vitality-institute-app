@@ -2006,11 +2006,8 @@ export default function PatientHome() {
                   {action.label}
                 </button>
               ))}
-              <button className="btn btn-secondary" type="button" onClick={scrollToBooking}>
-                Book Visit
-              </button>
-              <button className="btn btn-secondary" type="button" onClick={() => navigate("/patient/chat")}>
-                Messages
+              <button className="btn btn-secondary" type="button" onClick={scrollToAppointments}>
+                View Appointments
               </button>
             </div>
           </VitalAiAvatarAssistant>
@@ -2235,10 +2232,10 @@ export default function PatientHome() {
         <div id="my-appointments" className="card card-pad">
           <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
-              <div style={darkSectionEyebrowStyle}>Quick Access</div>
+              <div style={darkSectionEyebrowStyle}>Main Actions</div>
               <div className="h1">Choose Your Next Step</div>
               <div className="muted" style={{ ...darkMutedBodyStyle, marginTop: 6 }}>
-                Use the main actions below to keep your care moving without extra clicks.
+                Use these three actions most often: book, continue intake, or message the clinic.
               </div>
             </div>
           </div>
@@ -2284,21 +2281,6 @@ export default function PatientHome() {
               </div>
 
             <div style={primaryActionCardStyle}>
-              <div style={sectionEyebrowStyle}>Basket & Payments</div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>Review Basket Placeholder</div>
-                <div className="patient-helper-text" style={{ color: "#4B5563", lineHeight: 1.6 }}>
-                  Preview where future checkout and saved payment methods will live inside your portal.
-                </div>
-              </div>
-              <div>
-                <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/billing")}>
-                  Open Basket & Payments
-                </button>
-              </div>
-            </div>
-
-            <div style={primaryActionCardStyle}>
               <div style={sectionEyebrowStyle}>Messages</div>
               <div>
                 <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>Message Clinic</div>
@@ -2313,17 +2295,38 @@ export default function PatientHome() {
               </div>
             </div>
 
-            <div style={primaryActionCardStyle}>
-              <div style={sectionEyebrowStyle}>User Guide</div>
+          </div>
+
+          <div className="space" />
+
+          <div
+            className="card card-pad"
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.10)",
+            }}
+          >
+            <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>Patient And Provider Guide</div>
-                <div className="patient-helper-text" style={{ color: "#4B5563", lineHeight: 1.6 }}>
-                  Review the step-by-step guide for booking, intake, messaging, labs, treatments, provider review, and physician sign-off.
+                <div style={darkSectionEyebrowStyle}>More Tools</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC", marginTop: 8 }}>Open the rest of your portal</div>
+                <div className="muted" style={{ ...darkMutedBodyStyle, marginTop: 6, lineHeight: 1.6 }}>
+                  Treatments, labs, basket placeholder, and the user guide live here when you need them.
                 </div>
               </div>
-              <div>
+
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/treatments")}>
+                  Treatments
+                </button>
+                <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/labs")}>
+                  Labs
+                </button>
+                <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/billing")}>
+                  Basket & Payments
+                </button>
                 <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/how-to-use-the-app")}>
-                  Open User Guide
+                  User Guide
                 </button>
               </div>
             </div>
