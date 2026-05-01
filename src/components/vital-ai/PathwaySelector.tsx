@@ -27,6 +27,7 @@ export default function PathwaySelector({
         const meta = pathwayAccent(pathway.slug);
         const stepCount = pathway.definition_json.steps.length;
         const questionCount = pathway.definition_json.steps.reduce((total, step) => total + step.questions.length, 0);
+        const estimatedMinutes = Math.max(2, Math.ceil(questionCount / 4));
 
         return (
         <div
@@ -50,10 +51,14 @@ export default function PathwaySelector({
           <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 12 }}>
             <div className="v-chip">{stepCount} step{stepCount === 1 ? "" : "s"}</div>
             <div className="v-chip">{questionCount} guided item{questionCount === 1 ? "" : "s"}</div>
+            <div className="v-chip">About {estimatedMinutes} min</div>
             {pathway.slug.toLowerCase().includes("wound") ? <div className="v-chip">Photo uploads supported</div> : null}
           </div>
 
-          <div className="muted" style={{ marginTop: 12, lineHeight: 1.6, ...guidedHelperStyle }}>
+          <div className="muted" style={{ marginTop: 12, fontSize: 12, ...guidedHelperStyle }}>
+            Best for
+          </div>
+          <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, ...guidedHelperStyle }}>
             {meta.helper}
           </div>
 
@@ -69,7 +74,7 @@ export default function PathwaySelector({
               ...guidedPrimaryButtonStyle,
             }}
           >
-            {busySlug === pathway.slug ? "Starting..." : "Start Intake"}
+            {busySlug === pathway.slug ? "Starting..." : "Start this pathway"}
           </button>
         </div>
       )})}

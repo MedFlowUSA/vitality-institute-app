@@ -149,7 +149,10 @@ export default function IntakeFlowShell({
           <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <div>
               <div className="muted" style={{ fontSize: 12, ...guidedHelperStyle }}>Guided Intake</div>
-              <div style={{ marginTop: 6, fontWeight: 800 }}>Answer only what is needed for this section.</div>
+              <div style={{ marginTop: 6, fontWeight: 800 }}>Focus on this section only.</div>
+              <div className="muted" style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5, ...guidedHelperStyle }}>
+                You can move one section at a time and come back later without losing your progress.
+              </div>
             </div>
             <div className="v-chip">Current section: {steps[activeIndex]?.title ?? "Intake"}</div>
           </div>
@@ -184,7 +187,7 @@ export default function IntakeFlowShell({
                 opacity: disableNext ? 0.55 : 1,
               }}
             >
-              Review Submission
+              Review your answers
             </button>
           ) : (
             <button
@@ -197,7 +200,7 @@ export default function IntakeFlowShell({
                 opacity: disableNext ? 0.55 : 1,
               }}
             >
-              Next
+              Next section
             </button>
           )}
         </div>

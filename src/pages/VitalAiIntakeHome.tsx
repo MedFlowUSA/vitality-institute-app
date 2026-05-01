@@ -53,6 +53,9 @@ export default function VitalAiIntakeHome() {
   const requestedPathway = searchParams.get("pathway");
   const shouldAutostart = searchParams.get("autostart") === "1";
   const autoStartedPathwayRef = useRef<string | null>(null);
+  const setupSectionRef = useRef<HTMLDivElement | null>(null);
+  const pathwaySectionRef = useRef<HTMLDivElement | null>(null);
+  const draftSectionRef = useRef<HTMLDivElement | null>(null);
   const effectiveLocationId = bookingDraft?.locationId || activeLocationId || patient?.location_id || "";
   const intakeLocationOptions = useMemo<IntakeLocationOption[]>(() => {
     const clinicScoped = activeClinicLocations.map((location) => ({
@@ -248,6 +251,10 @@ export default function VitalAiIntakeHome() {
     void startPathway(matchedRequestedPathway);
   }, [busySlug, loading, matchedRequestedPathway, shouldAutostart, startPathway]);
 
+  const scrollToSection = useCallback((target: { current: HTMLDivElement | null }) => {
+    target.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   return (
     <div className="app-bg">
       <div className="shell">
@@ -284,7 +291,38 @@ export default function VitalAiIntakeHome() {
           </>
         ) : null}
 
-        <div className="card card-pad" style={guidedPanelStyle}>
+        <div
+          className="card card-pad"
+          style={{
+            ...guidedPanelStyle,
+            background: "linear-gradient(135deg, rgba(200,182,255,0.18), rgba(8,15,28,0.98) 38%)",
+          }}
+        >
+          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <div>
+              <div className="muted" style={{ fontSize: 12, ...guidedHelperStyle }}>Quick path</div>
+              <div className="h2" style={{ marginTop: 6, color: "#F8FAFC" }}>Move through intake in order</div>
+            </div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <button className="btn btn-secondary" type="button" onClick={() => scrollToSection(setupSectionRef)}>
+                1. Set up
+              </button>
+              <button className="btn btn-secondary" type="button" onClick={() => scrollToSection(pathwaySectionRef)}>
+                2. Choose pathway
+              </button>
+              <button className="btn btn-secondary" type="button" onClick={() => scrollToSection(draftSectionRef)}>
+                3. Resume draft
+              </button>
+            </div>
+          </div>
+          <div className="muted" style={{ marginTop: 8, lineHeight: 1.6, ...guidedMutedStyle }}>
+            Start with your live clinic location, then choose the pathway that best matches your concern. If you already began, jump straight to your saved draft.
+          </div>
+        </div>
+
+        <div className="space" />
+
+        <div ref={setupSectionRef} className="card card-pad" style={guidedPanelStyle}>
           <div className="muted" style={{ fontSize: 12, ...guidedHelperStyle }}>Start here</div>
           <div className="h2" style={{ marginTop: 6, color: "#F8FAFC" }}>Set up your intake</div>
           <div className="muted" style={{ marginTop: 8, lineHeight: 1.7, ...guidedMutedStyle }}>
@@ -359,7 +397,7 @@ export default function VitalAiIntakeHome() {
 
         <div className="space" />
 
-        <div className="card card-pad" style={guidedPanelStyle}>
+        <div ref={pathwaySectionRef} className="card card-pad" style={guidedPanelStyle}>
           <div className="h2" style={{ color: "#F8FAFC" }}>Choose an intake pathway</div>
           <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, ...guidedMutedStyle }}>
             Start with the pathway that best matches your current concern. You can continue a draft later if you need to stop and come back.
@@ -378,7 +416,7 @@ export default function VitalAiIntakeHome() {
 
         <div className="space" />
 
-        <div className="card card-pad" style={guidedPanelStyle}>
+        <div ref={draftSectionRef} className="card card-pad" style={guidedPanelStyle}>
           <div className="h2" style={{ color: "#F8FAFC" }}>Continue a saved draft</div>
           <div className="muted" style={{ marginTop: 6, ...guidedMutedStyle }}>
             Pick up a saved intake exactly where you left it.
@@ -387,7 +425,20 @@ export default function VitalAiIntakeHome() {
           {loading ? (
             <div className="muted" style={guidedMutedStyle}>Loading drafts...</div>
           ) : drafts.length === 0 ? (
-            <div className="muted" style={guidedMutedStyle}>No draft intakes yet.</div>
+            <div className="card card-pad" style={guidedPanelSoftStyle}>
+              <div style={{ fontWeight: 800, color: "#F8FAFC" }}>No saved drafts yet</div>
+              <div className="muted" style={{ marginTop: 6, lineHeight: 1.6, ...guidedMutedStyle }}>
+                Start with a pathway above when you are ready. Your progress will save automatically once your session begins.
+              </div>
+              <button
+                className="btn btn-primary"
+                type="button"
+                style={{ marginTop: 12 }}
+                onClick={() => scrollToSection(pathwaySectionRef)}
+              >
+                Go to pathways
+              </button>
+            </div>
           ) : (
             drafts.map((draft) => (
               <button
