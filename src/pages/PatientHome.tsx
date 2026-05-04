@@ -704,6 +704,21 @@ export default function PatientHome() {
     };
   }, [prefillServiceId, prefillServiceName, prefillCategory, prefillConsult, prefillPrice, services]);
 
+  const bookingStepState = useMemo(() => {
+    const hasLocation = Boolean(locationId);
+    const hasService = Boolean(serviceId);
+    const hasDate = Boolean(date);
+    const hasTime = Boolean(selectedSlotIso);
+
+    return {
+      hasLocation,
+      hasService,
+      hasDate,
+      hasTime,
+      readyToSubmit: hasLocation && hasService && hasDate && hasTime,
+    };
+  }, [date, locationId, selectedSlotIso, serviceId]);
+
   const patientAlerts = useMemo<PatientAlertItem[]>(() => {
     const items: PatientAlertItem[] = [];
 
@@ -2496,10 +2511,22 @@ export default function PatientHome() {
           <div style={sectionEyebrowStyle}>Book Visit</div>
           <div className="h2" style={lightPanelHeadingStyle}>Request Your Next Visit</div>
           <div className="muted" style={lightPanelMutedStyle}>
-            Choose your location, service, date, and an available time slot.
+            Move through the steps below to request your next visit.
           </div>
 
           <div className="space" />
+
+          <div className="card card-pad card-light surface-light" style={{ marginBottom: 16 }}>
+            <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+              <div className="v-chip">{bookingStepState.hasLocation ? "1. Location selected" : "1. Choose location"}</div>
+              <div className="v-chip">{bookingStepState.hasService ? "2. Service selected" : "2. Choose service"}</div>
+              <div className="v-chip">{bookingStepState.hasDate ? "3. Date selected" : "3. Choose date"}</div>
+              <div className="v-chip">{bookingStepState.hasTime ? "4. Time selected" : "4. Choose time"}</div>
+            </div>
+            <div className="muted patient-helper-text" style={{ marginTop: 10, lineHeight: 1.6 }}>
+              Notes and wound photos are optional. Once the first four steps are complete, you can submit your request.
+            </div>
+          </div>
 
           {selectedServiceSummary ? (
             <div
@@ -2564,77 +2591,81 @@ export default function PatientHome() {
 
           {!loading && (
             <>
-              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                <MarketGroupedSelect
-                  label="Location"
-                  value={locationId}
-                  onChange={(nextLocationId) => {
-                    setLocationId(nextLocationId);
-                    setSelectedSlotIso("");
+              <div className="card card-pad card-light surface-light" style={{ marginBottom: 16 }}>
+                <div className="muted patient-mini-note" style={{ marginBottom: 8 }}>Step 1</div>
+                <div style={{ fontWeight: 800, color: "#140F24", marginBottom: 10 }}>Choose your clinic location and service</div>
+                <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                  <MarketGroupedSelect
+                    label="Location"
+                    value={locationId}
+                    onChange={(nextLocationId) => {
+                      setLocationId(nextLocationId);
+                      setSelectedSlotIso("");
 
-                    if (serviceId) {
-                      const stillValid = services.some(
-                        (s) => s.id === serviceId && s.location_id === nextLocationId
-                      );
+                      if (serviceId) {
+                        const stillValid = services.some(
+                          (s) => s.id === serviceId && s.location_id === nextLocationId
+                        );
 
-                      if (!stillValid) {
-                        setServiceId("");
+                        if (!stillValid) {
+                          setServiceId("");
+                        }
                       }
-                    }
-                  }}
-                  groups={locationGroups}
-                  placeholder="Select Location"
-                  helperText="Live clinics are available for booking and follow-up. Coming-soon markets are visible here but remain non-operational."
-                  style={{ flex: "1 1 260px" }}
-                />
+                    }}
+                    groups={locationGroups}
+                    placeholder="Select Location"
+                    helperText="Live clinics are available for booking and follow-up. Coming-soon markets are visible here but remain non-operational."
+                    style={{ flex: "1 1 260px" }}
+                  />
+
+                  <select
+                    className="input"
+                    style={{ flex: "1 1 260px" }}
+                    value={serviceId}
+                    onChange={(e) => setServiceId(e.target.value)}
+                    disabled={!locationId}
+                  >
+                    <option value="">Select Service</option>
+                    {filteredServices.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 {selectedLocation ? (
-                  <div className="muted patient-mini-note" style={{ marginTop: 6 }}>
+                  <div className="muted patient-mini-note" style={{ marginTop: 10 }}>
                     {[selectedLocation.address_line1, [selectedLocation.city, selectedLocation.state, selectedLocation.zip].filter(Boolean).join(" ")]
                       .filter(Boolean)
                       .join(", ")}
                   </div>
                 ) : null}
-
-                <select
-                  className="input"
-                  style={{ flex: "1 1 260px" }}
-                  value={serviceId}
-                  onChange={(e) => setServiceId(e.target.value)}
-                  disabled={!locationId}
-                >
-                  <option value="">Select Service</option>
-                  {filteredServices.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
               </div>
 
-              <div className="space" />
+              <div className="card card-pad card-light surface-light" style={{ marginBottom: 16 }}>
+                <div className="muted patient-mini-note" style={{ marginBottom: 8 }}>Step 2</div>
+                <div style={{ fontWeight: 800, color: "#140F24", marginBottom: 10 }}>Choose your preferred day and time</div>
+                <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <input
+                    className="input"
+                    style={{ flex: "1 1 200px" }}
+                    type="date"
+                    value={date}
+                    onChange={(e) => {
+                      setDate(e.target.value);
+                      setSelectedSlotIso("");
+                    }}
+                  />
 
-              <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <input
-                  className="input"
-                  style={{ flex: "1 1 200px" }}
-                  type="date"
-                  value={date}
-                  onChange={(e) => {
-                    setDate(e.target.value);
-                    setSelectedSlotIso("");
-                  }}
-                />
+                  {hours && hours.is_closed && <div className="muted">This location is closed on that day.</div>}
 
-                {hours && hours.is_closed && <div className="muted">This location is closed on that day.</div>}
-
-                {hours && !hours.is_closed && (
-                  <div className="muted patient-mini-note">
-                    Slots every {hours.slot_minutes} min - Hours {hours.open_time.slice(0, 5)}-{hours.close_time.slice(0, 5)}
-                  </div>
-                )}
+                  {hours && !hours.is_closed && (
+                    <div className="muted patient-mini-note">
+                      Slots every {hours.slot_minutes} min - Hours {hours.open_time.slice(0, 5)}-{hours.close_time.slice(0, 5)}
+                    </div>
+                  )}
+                </div>
               </div>
-
-              <div className="space" />
 
               {locationId && date && hours && !hours.is_closed && (
                 <div className="card card-pad card-light surface-light" style={{ marginBottom: 16 }}>
@@ -2679,17 +2710,19 @@ export default function PatientHome() {
                 </div>
               )}
 
-              <textarea
-                className="input"
-                style={{ width: "100%", minHeight: 90 }}
-                placeholder="Notes (optional) - what are you coming in for?"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-
-              <div className="space" />
-
               <div className="card card-pad card-light surface-light">
+                <div className="muted patient-mini-note" style={{ marginBottom: 8 }}>Step 3</div>
+                <div style={{ fontWeight: 800, color: "#140F24", marginBottom: 10 }}>Add notes or wound photos if helpful</div>
+                <textarea
+                  className="input"
+                  style={{ width: "100%", minHeight: 90 }}
+                  placeholder="Notes (optional) - what are you coming in for?"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
+
+                <div className="space" />
+
                 <div className="h2">Optional: Upload Wound Photos</div>
                 <div className="muted patient-section-intro" style={{ fontSize: 13 }}>
                   These will be attached to your appointment request so the clinical team can review before your visit.
@@ -2761,6 +2794,7 @@ export default function PatientHome() {
               <div className="space" />
 
               <div className="card card-pad card-light surface-light">
+                <div className="muted patient-mini-note" style={{ marginBottom: 8 }}>Step 4</div>
                 <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: 800 }}>Ready to request your appointment?</div>
@@ -2788,14 +2822,14 @@ export default function PatientHome() {
                     ) : null}
                   </div>
 
-                  <button
-                    className="btn btn-primary"
-                    onClick={submit}
-                    type="button"
-                    disabled={uploadingApptFiles}
-                  >
-                    {uploadingApptFiles ? "Uploading photos..." : "Request Appointment"}
-                  </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={submit}
+                      type="button"
+                      disabled={uploadingApptFiles || !bookingStepState.readyToSubmit}
+                    >
+                      {uploadingApptFiles ? "Uploading photos..." : "Request Appointment"}
+                    </button>
                 </div>
               </div>
             </>
@@ -3242,51 +3276,50 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                <span style={appointmentStatusBadge(selectedAppointment.status)}>
-                  {(selectedAppointment.status || "unknown").replaceAll("_", " ").toUpperCase()}
-                </span>
-              </div>
-
-              <div className="space" />
-
               <div className="card card-pad card-light surface-light">
-                <div className="muted">Service</div>
-                <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>
-                  {svcName(selectedAppointment.service_id)}
-                </div>
-              </div>
-
-              <div className="space" />
-
-              <div className="card card-pad card-light surface-light">
-                <div className="muted">Location</div>
-                <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>
-                  {locName(selectedAppointment.location_id)}
-                </div>
-              </div>
-
-              <div className="space" />
-
-              <div className="card card-pad card-light surface-light">
-                <div className="muted">Date & Time</div>
-                <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>
-                  {new Date(selectedAppointment.start_time).toLocaleString()}
-                </div>
-              </div>
-
-              <div className="space" />
-
-              <div className="card card-pad card-light surface-light">
-                <div className="muted">Visit Type</div>
-                <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
-                  <div style={lightCardStrongTextStyle}>
-                    {getVirtualVisitState(selectedAppointment).isVirtual ? "Virtual" : "In Person"}
+                <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                  <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                    <span style={appointmentStatusBadge(selectedAppointment.status)}>
+                      {(selectedAppointment.status || "unknown").replaceAll("_", " ").toUpperCase()}
+                    </span>
+                    <VirtualVisitBadge appointment={selectedAppointment} />
                   </div>
-                  <VirtualVisitBadge appointment={selectedAppointment} />
+                  <div className="muted patient-mini-note">
+                    Appointment ID: {selectedAppointment.id}
+                  </div>
                 </div>
+
+                <div className="space" />
+
+                <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+                  <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
+                    <div className="muted">Service</div>
+                    <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>
+                      {svcName(selectedAppointment.service_id)}
+                    </div>
+                  </div>
+                  <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
+                    <div className="muted">Location</div>
+                    <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>
+                      {locName(selectedAppointment.location_id)}
+                    </div>
+                  </div>
+                  <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
+                    <div className="muted">Date & Time</div>
+                    <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>
+                      {new Date(selectedAppointment.start_time).toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="card card-pad card-light surface-light" style={{ flex: "1 1 220px" }}>
+                    <div className="muted">Visit Type</div>
+                    <div style={{ ...lightCardStrongTextStyle, marginTop: 6 }}>
+                      {getVirtualVisitState(selectedAppointment).isVirtual ? "Virtual" : "In Person"}
+                    </div>
+                  </div>
+                </div>
+
                 {selectedAppointment.virtual_instructions ? (
-                  <div className="muted" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                  <div className="muted" style={{ marginTop: 12, lineHeight: 1.7 }}>
                     {selectedAppointment.virtual_instructions}
                   </div>
                 ) : null}
@@ -3295,12 +3328,38 @@ export default function PatientHome() {
                     Provider assigned by clinic
                   </div>
                 ) : null}
-                {getVirtualVisitState(selectedAppointment).isVirtual ? (
-                  <>
-                    <div className="space" />
+
+                <div className="space" />
+
+                <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={() => messageFromAppointment(selectedAppointment)}
+                  >
+                    Message Clinic
+                  </button>
+
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    onClick={() => startIntakeFromAppointment(selectedAppointment)}
+                  >
+                    {getPatientAppointmentIntakeCtaLabel(appointmentIntakeStatus?.status)}
+                  </button>
+
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    onClick={() => navigate("/patient/treatments")}
+                  >
+                    View Treatments
+                  </button>
+
+                  {getVirtualVisitState(selectedAppointment).isVirtual ? (
                     <JoinVirtualVisitButton appointment={selectedAppointment} />
-                  </>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
 
               <div className="space" />
@@ -3404,15 +3463,6 @@ export default function PatientHome() {
                     A treatment visit will appear here after your appointment is completed by the clinic.
                   </div>
                 )}
-              </div>
-
-              <div className="space" />
-
-              <div className="card card-pad card-light surface-light">
-                <div style={{ fontWeight: 800 }}>What can you do next?</div>
-                <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.7 }}>
-                  You can message the clinic about this appointment, review your treatments, or continue browsing services.
-                </div>
               </div>
 
               <div className="space" />
@@ -3569,45 +3619,13 @@ export default function PatientHome() {
 
               <div className="space" />
 
-              <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  onClick={() => messageFromAppointment(selectedAppointment)}
-                >
-                  Message Clinic
-                </button>
-
-                <button
-                  className="btn btn-secondary"
-                  type="button"
-                  onClick={() => startIntakeFromAppointment(selectedAppointment)}
-                >
-                  {getPatientAppointmentIntakeCtaLabel(appointmentIntakeStatus?.status)}
-                </button>
-
-                <button
-                  className="btn btn-secondary"
-                  type="button"
-                  onClick={() => navigate("/patient/treatments")}
-                >
-                  View Treatments
-                </button>
-
-                <button
-                  className="btn btn-secondary"
-                  type="button"
-                  onClick={() => navigate("/patient/services")}
-                >
-                  Browse Services
-                </button>
-              </div>
-
-              <div className="space" />
-
-              <div className="muted patient-mini-note">
-                Appointment ID: {selectedAppointment.id}
-              </div>
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={() => navigate("/patient/services")}
+              >
+                Browse Services
+              </button>
             </div>
           </>
         ) : null}
