@@ -88,7 +88,7 @@ export default function PublicLandingSimplified() {
         <div
           className="public-hero-eyebrow public-eyebrow"
         >
-          Patient-Centered Care in Redlands and Los Angeles
+          Patient-Centered Care Across Southern California
         </div>
         <div className="h1 public-hero-heading" style={{ marginTop: 18, maxWidth: 760 }}>
           Get the care you need, with a clear and guided next step.

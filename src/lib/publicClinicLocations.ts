@@ -54,6 +54,18 @@ export const PUBLIC_CLINIC_LOCATIONS: PublicClinicLocation[] = [
     market_status: "live",
     display_priority: 2,
   },
+  {
+    name: "Vitality Institute of Sherman Oaks",
+    phone: "(818) 318-6985",
+    addressLine1: "15230 Burbank Blvd",
+    addressLine2: "Suite 109",
+    cityStateZip: "Sherman Oaks, CA 91411",
+    hoursLabel: "By appointment",
+    note: "Provider-led care now available in Sherman Oaks as part of Vitality Institute's live Southern California clinic network.",
+    is_placeholder: false,
+    market_status: "live",
+    display_priority: 3,
+  },
   ...COMING_SOON_MARKETS.map((market) => ({
     name: buildPlaceholderLocationName(market.city),
     addressLine1: "Expansion Market",
