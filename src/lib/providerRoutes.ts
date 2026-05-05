@@ -13,6 +13,7 @@ export const PROVIDER_ROUTES = {
   ai: "/provider/ai",
   vitalAi: "/provider/vital-ai",
   protocolQueue: "/provider/protocol-queue",
+  earnings: "/provider/earnings",
   referrals: "/provider/referrals",
   patients: "/provider/patients",
   patientCenterLegacy: "/provider/patient-center",

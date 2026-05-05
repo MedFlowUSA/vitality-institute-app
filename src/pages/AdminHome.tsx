@@ -354,6 +354,15 @@ export default function AdminHome() {
               <button className="btn btn-secondary" type="button" onClick={() => navigate("/admin/vital-ai-lite")}>
                 Vital AI Lite
               </button>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/admin/payments")}>
+                Payments
+              </button>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/admin/payouts")}>
+                Payouts
+              </button>
+              <button className="btn btn-secondary" type="button" onClick={() => navigate("/admin/revenue-splits")}>
+                Revenue Splits
+              </button>
               <button
                 className="btn btn-primary"
                 type="button"

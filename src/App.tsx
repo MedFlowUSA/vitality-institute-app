@@ -59,6 +59,7 @@ const ProviderVitalAiProfileDetail = lazy(() => import("./pages/ProviderVitalAiP
 const ProviderCommandCenter = lazy(() => import("./pages/ProviderCommandCenter"));
 const ProviderProtocolQueue = lazy(() => import("./features/protocols/pages/ProviderProtocolQueue"));
 const ProviderProtocolReview = lazy(() => import("./features/protocols/pages/ProviderProtocolReview"));
+const ProviderEarningsPage = lazy(() => import("./pages/ProviderEarningsPage"));
 
 const AdminHome = lazy(() => import("./pages/AdminHome"));
 const AdminStaffManagement = lazy(() => import("./pages/AdminStaffManagement"));
@@ -68,6 +69,9 @@ const ServicesPanel = lazy(() => import("./pages/ServicesPanel"));
 const AdminVitalAiQueue = lazy(() => import("./pages/AdminVitalAiQueue"));
 const AdminVitalAiLeadDetail = lazy(() => import("./pages/AdminVitalAiLeadDetail"));
 const AdminPublicVitalAiSubmissions = lazy(() => import("./pages/AdminPublicVitalAiSubmissions"));
+const AdminPaymentsPage = lazy(() => import("./pages/AdminPaymentsPage"));
+const AdminPayoutsPage = lazy(() => import("./pages/AdminPayoutsPage"));
+const RevenueSplitSettingsPage = lazy(() => import("./pages/RevenueSplitSettingsPage"));
 const ClinicListPage = lazy(() => import("./features/clinics/pages/ClinicListPage"));
 const ClinicDetailPage = lazy(() => import("./features/clinics/pages/ClinicDetailPage"));
 const ClinicUsersPage = lazy(() => import("./features/clinics/pages/ClinicUsersPage"));
@@ -439,6 +443,18 @@ export default function App() {
               element={withRole(ADMIN_ROLES, <AdminPublicVitalAiSubmissions />)}
             />
             <Route
+              path="/admin/payments"
+              element={withRole(ADMIN_ROLES, <AdminPaymentsPage />)}
+            />
+            <Route
+              path="/admin/payouts"
+              element={withRole(ADMIN_ROLES, <AdminPayoutsPage />)}
+            />
+            <Route
+              path="/admin/revenue-splits"
+              element={withRole(ADMIN_ROLES, <RevenueSplitSettingsPage />)}
+            />
+            <Route
               path="/admin/vital-ai/leads/:leadId"
               element={withRole(ADMIN_ROLES, <AdminVitalAiLeadDetail />)}
             />
@@ -535,6 +551,10 @@ export default function App() {
             <Route
               path={PROVIDER_ROUTES.vitalAi}
               element={withRole(PROVIDER_ROLES, <ProviderVitalAiQueue />)}
+            />
+            <Route
+              path={PROVIDER_ROUTES.earnings}
+              element={withRole(PROVIDER_ROLES, <ProviderEarningsPage />)}
             />
             <Route
               path={PROVIDER_ROUTES.protocolQueue}

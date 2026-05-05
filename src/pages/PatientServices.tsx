@@ -271,6 +271,10 @@ export default function PatientServices() {
     );
   };
 
+  const handoffToCheckout = (service: ServiceRow) => {
+    navigate(`/patient/billing?serviceId=${encodeURIComponent(service.id)}`);
+  };
+
   const sectionEyebrowStyle = {
     fontSize: 12,
     fontWeight: 800,
@@ -561,6 +565,19 @@ export default function PatientServices() {
                                 Book Visit
                               </button>
 
+                              {!service.requires_consult ? (
+                                <button
+                                  className="btn btn-secondary"
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handoffToCheckout(service);
+                                  }}
+                                >
+                                  Checkout
+                                </button>
+                              ) : null}
+
                               <button
                                 className="btn btn-secondary"
                                 type="button"
@@ -737,10 +754,10 @@ export default function PatientServices() {
                   type="button"
                   onClick={() => {
                     setSelectedService(null);
-                    navigate("/patient/billing");
+                    handoffToCheckout(selectedService);
                   }}
                 >
-                  Basket & Payments
+                  Checkout & Payments
                 </button>
 
                 <button

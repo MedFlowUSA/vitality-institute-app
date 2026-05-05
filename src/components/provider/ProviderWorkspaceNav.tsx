@@ -23,6 +23,7 @@ const WORKSPACE_ITEMS: WorkspaceItem[] = [
   { label: "Referrals", to: PROVIDER_ROUTES.referrals },
   { label: "Labs", to: PROVIDER_ROUTES.labs },
   { label: "Messages", to: PROVIDER_ROUTES.messages },
+  { label: "Earnings", to: PROVIDER_ROUTES.earnings },
   { label: "Patient Center", to: PROVIDER_ROUTES.patients },
   { label: "Virtual Visits", to: PROVIDER_ROUTES.virtualVisitsHash },
 ];
