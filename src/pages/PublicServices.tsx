@@ -36,6 +36,10 @@ function appendReturnTo(path: string, returnTo: string) {
   return `${path}${joiner}returnTo=${encodeURIComponent(returnTo)}`;
 }
 
+function isPrimaryPublicOffering(slug: string) {
+  return !["trt-basic", "trt-performance", "hrt-balance-plan"].includes(slug);
+}
+
 export default function PublicServices() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
@@ -102,11 +106,13 @@ export default function PublicServices() {
   const grouped = useMemo(() => {
     const map = new Map<string, typeof PUBLIC_OFFERINGS>();
     const normalizedQuery = searchTerm.trim().toLowerCase();
-    const source = (activeCategory === "all" ? PUBLIC_OFFERINGS : PUBLIC_OFFERINGS.filter((service) => service.category === activeCategory)).filter((service) => {
-      if (!normalizedQuery) return true;
-      const haystack = [service.title, service.category, service.summary, service.price, service.overview, service.idealFor].join(" ").toLowerCase();
-      return haystack.includes(normalizedQuery);
-    });
+    const source = (activeCategory === "all" ? PUBLIC_OFFERINGS : PUBLIC_OFFERINGS.filter((service) => service.category === activeCategory))
+      .filter((service) => isPrimaryPublicOffering(service.slug))
+      .filter((service) => {
+        if (!normalizedQuery) return true;
+        const haystack = [service.title, service.category, service.summary, service.price, service.overview, service.idealFor].join(" ").toLowerCase();
+        return haystack.includes(normalizedQuery);
+      });
 
     for (const service of source) {
       const key = service.category;
@@ -127,11 +133,11 @@ export default function PublicServices() {
   }, [grouped, openGroups]);
 
   const compareGroups = useMemo(() => {
-    const supportedGroups = ["GLP-1 Weight Optimization", "Hormone Optimization"];
+    const supportedGroups = ["GLP-1 Weight Optimization"];
     return supportedGroups
       .map((category) => ({
         category,
-        services: PUBLIC_OFFERINGS.filter((service) => service.category === category),
+        services: PUBLIC_OFFERINGS.filter((service) => service.category === category && isPrimaryPublicOffering(service.slug)),
       }))
       .filter((group) => group.services.length >= 2);
   }, []);

@@ -15,11 +15,11 @@ const featuredServices = [
     cta: "View Service",
   },
   {
-    title: "Hormone Optimization",
-    category: "Hormone Health",
-    summary: "Personalized hormone care for symptoms, energy, and long-term balance.",
-    to: "/services/testosterone-optimization-consultation",
-    cta: "View Service",
+    title: "Wound Review & Clinical Routing",
+    category: "Wound Care",
+    summary: "Start with guided intake when you need help deciding urgency, next steps, or the right clinical path.",
+    to: "/vital-ai",
+    cta: "Start Review",
   },
   {
     title: "IV / Advanced Therapies",
