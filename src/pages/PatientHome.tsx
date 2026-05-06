@@ -374,13 +374,6 @@ function readableStatus(v: string | null | undefined) {
   return (v || "unknown").replaceAll("_", " ");
 }
 
-function compactDescription(value: string | null | undefined, maxLength = 120) {
-  const text = (value ?? "").trim();
-  if (!text) return "";
-  if (text.length <= maxLength) return text;
-  return `${text.slice(0, maxLength).trimEnd()}...`;
-}
-
 function getFollowUpDaysFromPlan(plan: TreatmentPlanPayload | null | undefined): number | null {
   const v = plan?.follow_up_days;
   if (v == null) return null;
@@ -652,10 +645,6 @@ export default function PatientHome() {
   const serviceById = useMemo(() => {
     const m = new Map(services.map((s) => [s.id, s]));
     return (id: string | null) => (id ? m.get(id) ?? null : null);
-  }, [services]);
-
-  const featuredServices = useMemo(() => {
-    return services.slice(0, 6);
   }, [services]);
 
   const dashboardIntakeAction = useMemo(
@@ -1943,17 +1932,6 @@ export default function PatientHome() {
     color: "#4B5563",
   };
 
-  const primaryActionCardStyle = {
-    ...lightSurfaceCardStyle,
-    padding: 18,
-    borderRadius: 18,
-    display: "grid",
-    gap: 10,
-    alignContent: "space-between",
-    flex: "1 1 220px",
-    minHeight: 170,
-  };
-
   // Gate loading UI (keeps your full page intact, but prevents rendering before gate check)
   if (checkingOnboarding) {
     return (
@@ -2247,10 +2225,10 @@ export default function PatientHome() {
         <div id="my-appointments" className="card card-pad">
           <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div>
-              <div style={darkSectionEyebrowStyle}>Main Actions</div>
+              <div style={darkSectionEyebrowStyle}>Quick Actions</div>
               <div className="h1">Choose Your Next Step</div>
               <div className="muted" style={{ ...darkMutedBodyStyle, marginTop: 6 }}>
-                Use these three actions most often: book, continue intake, or message the clinic.
+                Keep the portal focused on the few actions you are most likely to use right now.
               </div>
             </div>
           </div>
@@ -2258,58 +2236,27 @@ export default function PatientHome() {
           <div className="space" />
 
           <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-            <div
-              style={{
-                ...primaryActionCardStyle,
-                background: "linear-gradient(135deg, rgba(84,60,158,0.96), rgba(54,36,112,0.98))",
-                border: "1px solid rgba(216,204,255,0.22)",
-                color: "#F8FAFC",
-              }}
+            <button
+              className="btn btn-primary"
+              type="button"
+              onClick={scrollToBooking}
             >
-              <div style={{ ...sectionEyebrowStyle, color: "rgba(232,224,255,0.86)" }}>Primary Action</div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC" }}>Book Visit</div>
-                <div className="patient-helper-text" style={{ color: "rgba(226,232,240,0.82)", lineHeight: 1.6 }}>
-                  Reserve your next visit or follow-up without leaving the dashboard.
-                </div>
-              </div>
-              <div>
-                <button className="btn btn-primary" {...quickBtnProps} onClick={scrollToBooking}>
-                  Book Visit
-                </button>
-              </div>
-            </div>
-
-            <div style={primaryActionCardStyle}>
-              <div style={sectionEyebrowStyle}>Intake</div>
-              <div>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>{dashboardIntakeAction.title}</div>
-                  <div className="patient-helper-text" style={{ color: "#4B5563", lineHeight: 1.6 }}>
-                    {dashboardIntakeAction.description}
-                  </div>
-                </div>
-                <div>
-                  <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/intake")}>
-                    {dashboardIntakeAction.ctaLabel}
-                  </button>
-                </div>
-              </div>
-
-            <div style={primaryActionCardStyle}>
-              <div style={sectionEyebrowStyle}>Messages</div>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: "#241B3D" }}>Message Clinic</div>
-                <div className="patient-helper-text" style={{ color: "#4B5563", lineHeight: 1.6 }}>
-                  Review updates, reply to your care team, and keep care coordination moving.
-                </div>
-              </div>
-              <div>
-                <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/chat")}>
-                  Open Messages
-                </button>
-              </div>
-            </div>
-
+              Book Visit
+            </button>
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => navigate("/intake")}
+            >
+              {dashboardIntakeAction.ctaLabel}
+            </button>
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => navigate("/patient/chat")}
+            >
+              Message Clinic
+            </button>
           </div>
 
           <div className="space" />
@@ -2326,7 +2273,7 @@ export default function PatientHome() {
                 <div style={darkSectionEyebrowStyle}>More Tools</div>
                 <div style={{ fontSize: 20, fontWeight: 900, color: "#F8FAFC", marginTop: 8 }}>Open the rest of your portal</div>
                 <div className="muted" style={{ ...darkMutedBodyStyle, marginTop: 6, lineHeight: 1.6 }}>
-                  Treatments, labs, basket placeholder, and the user guide live here when you need them.
+                  Treatments, labs, billing, and the user guide stay available here when you need them.
                 </div>
               </div>
 
@@ -2366,143 +2313,10 @@ export default function PatientHome() {
               ) : null}
             </div>
 
-            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-              <button className="btn btn-secondary" {...quickBtnProps} onClick={scrollToAppointments}>
-                My Appointments
-              </button>
-              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/treatments")}>
-                Open My Chart
-              </button>
-              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/services")}>
-                Browse Services
-              </button>
-              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/patient/billing")}>
-                Basket & Payments
-              </button>
-              <button className="btn btn-secondary" {...quickBtnProps} onClick={() => navigate("/how-to-use-the-app")}>
-                User Guide
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="space" />
-
-        <div className="card card-pad">
-          <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-            <div>
-              <div style={darkSectionEyebrowStyle}>Explore Treatments</div>
-              <div className="h2" style={{ marginTop: 8 }}>Browse Care Options</div>
-              <div className="muted" style={{ ...darkMutedBodyStyle, marginTop: 4 }}>
-                Review a few highlighted services, then open the full catalog when you want more detail.
-              </div>
-            </div>
-
-            <button
-              className="btn btn-secondary"
-              type="button"
-              onClick={() => navigate("/patient/services")}
-            >
-              View All Services
+            <button className="btn btn-secondary" type="button" onClick={scrollToAppointments}>
+              My Appointments
             </button>
           </div>
-
-          <div className="space" />
-
-          {featuredServices.length === 0 ? (
-            <div className="muted">No services available yet.</div>
-          ) : (
-            <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
-              {featuredServices.map((service) => {
-                const price = normalizePublicPriceLabel(
-                  service.price_marketing_cents != null
-                    ? `$${(Number(service.price_marketing_cents) / 100).toFixed(2)}`
-                    : service.price_regular_cents != null
-                    ? `$${(Number(service.price_regular_cents) / 100).toFixed(2)}`
-                    : null
-                );
-
-                return (
-                    <div
-                      key={service.id}
-                      className="card card-pad card-light surface-light"
-                      role="button"
-                    tabIndex={0}
-                    style={{
-                      flex: "1 1 300px",
-                      minWidth: 280,
-                      background: "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,241,255,0.95))",
-                      border: "1px solid rgba(184,164,255,0.22)",
-                      boxShadow: "0 16px 32px rgba(16,24,40,0.10)",
-                      cursor: "pointer",
-                    }}
-                    onClick={() => navigate("/patient/services")}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        navigate("/patient/services");
-                      }
-                    }}
-                    >
-                      <div style={lightCardMetaStyle}>
-                        {prettyCategory(service.category)}
-                      </div>
-
-                      <div className="h2" style={lightPanelHeadingStyle}>
-                        {service.name}
-                      </div>
-
-                      {service.description ? (
-                        <div className="muted" style={{ ...lightCardBodyStyle, marginTop: 8 }}>
-                          {compactDescription(service.description)}
-                        </div>
-                      ) : null}
-
-                    <div className="space" />
-
-                    {price ? (
-                        <div style={{ fontSize: 24, fontWeight: 900, color: "#241B3D" }}>
-                          {price}
-                        </div>
-                      ) : (
-                        <div className="muted" style={lightCardBodyStyle}>Consultation based pricing</div>
-                      )}
-
-                    <div className="space" />
-
-                    <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                      <button
-                        className="btn btn-primary"
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          navigate(
-                            `/patient/home?serviceId=${service.id}` +
-                              `&serviceName=${encodeURIComponent(service.name)}` +
-                              `&category=${encodeURIComponent(service.category ?? "")}` +
-                              `&price=${service.price_marketing_cents ?? service.price_regular_cents ?? ""}`
-                          );
-                        }}
-                      >
-                        Book Visit
-                      </button>
-
-                      <button
-                        className="btn btn-secondary"
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          navigate("/patient/services");
-                        }}
-                      >
-                        View Details
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         <div className="space" />

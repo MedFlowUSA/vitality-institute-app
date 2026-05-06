@@ -182,30 +182,10 @@ export default function PublicLandingSimplified() {
         </div>
       </div>
 
-      <div className="space" />
-
       <div className="card card-pad card-light surface-light public-panel">
-        <div className="h2 public-section-title">Need a full app walkthrough?</div>
+        <div className="h2 public-section-title">Start Here</div>
         <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75, maxWidth: 760 }}>
-          Read the step-by-step patient guide to understand how booking, intake, account setup, dashboard use,
-          messages, labs, and treatment instructions work together across the full app.
-        </div>
-        <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 16 }}>
-          <Link to="/how-to-use-the-app" className="btn btn-secondary">
-            View Patient Guide
-          </Link>
-          <Link to="/book" className="btn btn-primary">
-            Start Booking
-          </Link>
-        </div>
-      </div>
-
-      <div className="space" />
-
-      <div className="card card-pad card-light surface-light public-panel">
-        <div className="h2 public-section-title">Choose the clearest first step</div>
-        <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75, maxWidth: 760 }}>
-          Book directly if you already know what you need. Start with Vital AI if you want guided routing before the clinic reviews next steps.
+          Choose one clear path to begin. Book directly if you already know what you need, or start with Vital AI if you want guided routing before the clinic reviews next steps.
         </div>
 
         <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch", marginTop: 16 }}>
@@ -224,7 +204,7 @@ export default function PublicLandingSimplified() {
             </div>
             <div className="h2" style={{ marginTop: 10 }}>Start with Vital AI</div>
             <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
-              Best if you want help choosing the right path before booking or need the clinic to review urgency first.
+              Best if you want help choosing the right path before booking, including wound concerns that may need urgency review first.
             </div>
           </div>
           <div className="card card-pad card-light surface-light public-panel-nested" style={{ flex: "1 1 280px", minWidth: 240 }}>
@@ -233,29 +213,14 @@ export default function PublicLandingSimplified() {
             </div>
             <div className="h2" style={{ marginTop: 10 }}>Need a hand?</div>
             <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
-              Call the clinic or use the contact page if you want help choosing between services, intake, or follow-up.
+              Call the clinic, open the contact page, or read the patient guide if you want help choosing between services, intake, or follow-up.
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="space" />
-
-      <div
-        className="card card-pad card-light surface-light public-panel-soft"
-      >
-        <div className="public-eyebrow">
-          Wound Care Priority
-        </div>
-        <div className="h2" style={{ marginTop: 10 }}>
-          Concerned about a wound that is worsening, draining, or slow to heal?
-        </div>
-        <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75, maxWidth: 720 }}>
-          Start with wound-focused intake so the clinic can review urgency, photos, and next-step needs early.
-        </div>
         <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 16 }}>
-          <Link to="/vital-ai" className="btn btn-primary">
-            Start Wound Review
+          <Link to="/how-to-use-the-app" className="btn btn-secondary">
+            View Patient Guide
           </Link>
           <a href="tel:+12139126838" className="btn btn-secondary" style={{ textDecoration: "none" }}>
             Call the Clinic
