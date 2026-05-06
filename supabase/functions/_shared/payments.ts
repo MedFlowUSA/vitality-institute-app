@@ -9,6 +9,7 @@ type CheckoutContextArgs = {
   providerId?: string | null;
   clinicId?: string | null;
   locationId?: string | null;
+  promoCode?: string | null;
 };
 
 type CaptureBreakdown = {
@@ -31,10 +32,19 @@ type CheckoutContext = {
   clinicId: string | null;
   locationId: string | null;
   amountCents: number;
+  originalAmountCents: number;
+  discountAmountCents: number;
   currency: string;
   requiresConsult: boolean;
   blockedReason: string | null;
+  promoCode: string | null;
 };
+
+const FIRST_RESPONDER_PROMO = {
+  code: "RESPONDERS40",
+  percentOff: 40,
+  label: "First responder discount",
+} as const;
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -134,6 +144,35 @@ function centsFromPayPalAmount(value: unknown) {
   return Math.round(asNumber * 100);
 }
 
+function normalizePromoCode(value: string | null | undefined) {
+  return (value ?? "").trim().toUpperCase();
+}
+
+function resolvePromoDiscount(amountCents: number, promoCode: string | null | undefined) {
+  const normalizedCode = normalizePromoCode(promoCode);
+  const baseAmountCents = Math.max(0, Math.round(Number(amountCents) || 0));
+
+  if (!normalizedCode) {
+    return {
+      normalizedCode: null,
+      discountAmountCents: 0,
+      finalAmountCents: baseAmountCents,
+    };
+  }
+
+  if (normalizedCode !== FIRST_RESPONDER_PROMO.code) {
+    throw new Error("The promo code could not be applied. Please confirm it with the clinic.");
+  }
+
+  const discountAmountCents = Math.round((baseAmountCents * FIRST_RESPONDER_PROMO.percentOff) / 100);
+
+  return {
+    normalizedCode,
+    discountAmountCents,
+    finalAmountCents: Math.max(0, baseAmountCents - discountAmountCents),
+  };
+}
+
 export function calculateRevenueShares(args: {
   grossAmountCents: number;
   processingFeeCents?: number;
@@ -219,10 +258,12 @@ export async function loadCheckoutContext(supabase: SupabaseClient, args: Checko
     throw new Error("The appointment and selected service do not match.");
   }
 
-  const amountCents = Number(service.price_marketing_cents ?? service.price_regular_cents ?? 0);
-  if (!Number.isFinite(amountCents) || amountCents <= 0) {
+  const originalAmountCents = Number(service.price_marketing_cents ?? service.price_regular_cents ?? 0);
+  if (!Number.isFinite(originalAmountCents) || originalAmountCents <= 0) {
     throw new Error("This service is not priced for self-checkout yet.");
   }
+
+  const promoPricing = resolvePromoDiscount(originalAmountCents, args.promoCode ?? null);
 
   const locationId = appointmentRow?.location_id ?? args.locationId ?? service.location_id ?? null;
   const clinicId = args.clinicId ?? (await resolveClinicIdForLocation(supabase, locationId));
@@ -241,10 +282,13 @@ export async function loadCheckoutContext(supabase: SupabaseClient, args: Checko
     providerId,
     clinicId,
     locationId,
-    amountCents,
+    amountCents: promoPricing.finalAmountCents,
+    originalAmountCents,
+    discountAmountCents: promoPricing.discountAmountCents,
     currency: "USD",
     requiresConsult,
     blockedReason,
+    promoCode: promoPricing.normalizedCode,
   };
 }
 

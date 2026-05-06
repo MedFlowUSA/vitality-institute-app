@@ -7,6 +7,7 @@ type PayPalOrderRequest = {
   providerId?: string | null;
   clinicId?: string | null;
   locationId?: string | null;
+  promoCode?: string | null;
 };
 
 type PayoutUpdateInput = {
@@ -24,7 +25,15 @@ export async function createPayPalOrder(input: PayPalOrderRequest) {
 
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
-  return data as { orderId: string; status: string; amountCents: number; currency: string; serviceName: string };
+  return data as {
+    orderId: string;
+    status: string;
+    amountCents: number;
+    currency: string;
+    serviceName: string;
+    discountAmountCents?: number;
+    promoCode?: string | null;
+  };
 }
 
 export async function capturePayPalOrder(input: PayPalOrderRequest & { orderId: string }) {
@@ -41,6 +50,8 @@ export async function capturePayPalOrder(input: PayPalOrderRequest & { orderId: 
     currency: string;
     serviceName: string;
     alreadyCaptured?: boolean;
+    discountAmountCents?: number;
+    promoCode?: string | null;
   };
 }
 

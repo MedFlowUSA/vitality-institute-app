@@ -26,6 +26,7 @@ type Props = {
   providerId?: string | null;
   clinicId?: string | null;
   locationId?: string | null;
+  promoCode?: string | null;
   amountLabel: string;
   serviceName: string;
   onSuccess: (result: {
@@ -34,6 +35,8 @@ type Props = {
     amountCents: number;
     currency: string;
     serviceName: string;
+    discountAmountCents?: number;
+    promoCode?: string | null;
   }) => void;
 };
 
@@ -53,12 +56,13 @@ export default function PayPalCheckoutCard(props: Props) {
   const orderContext = useMemo(
     () => ({
       serviceId: props.serviceId,
-      appointmentId: props.appointmentId ?? null,
-      providerId: props.providerId ?? null,
-      clinicId: props.clinicId ?? null,
-      locationId: props.locationId ?? null,
-    }),
-    [props.appointmentId, props.clinicId, props.locationId, props.providerId, props.serviceId]
+        appointmentId: props.appointmentId ?? null,
+        providerId: props.providerId ?? null,
+        clinicId: props.clinicId ?? null,
+        locationId: props.locationId ?? null,
+        promoCode: props.promoCode ?? null,
+      }),
+    [props.appointmentId, props.clinicId, props.locationId, props.promoCode, props.providerId, props.serviceId]
   );
 
   useEffect(() => {

@@ -30,6 +30,7 @@ serve(async (req) => {
       providerId: body?.providerId ?? null,
       clinicId: body?.clinicId ?? null,
       locationId: body?.locationId ?? null,
+      promoCode: body?.promoCode ?? null,
     });
 
     if (context.blockedReason) {
@@ -60,23 +61,28 @@ serve(async (req) => {
       paymentTransactionId: null,
       eventType: "paypal_order_created",
       actorUserId: user.id,
-      eventPayload: {
-        paypal_order_id: order.id ?? null,
-        invoice_id: invoiceId,
+        eventPayload: {
+          paypal_order_id: order.id ?? null,
+          invoice_id: invoiceId,
         service_id: context.serviceId,
         appointment_id: context.appointmentId,
         provider_id: context.providerId,
         clinic_id: context.clinicId,
-        location_id: context.locationId,
-        amount_cents: context.amountCents,
-        currency: context.currency,
-      },
-    });
+          location_id: context.locationId,
+          original_amount_cents: context.originalAmountCents,
+          amount_cents: context.amountCents,
+          discount_amount_cents: context.discountAmountCents,
+          promo_code: context.promoCode,
+          currency: context.currency,
+        },
+      });
 
     return jsonResponse({
       orderId: order.id,
       status: order.status,
       amountCents: context.amountCents,
+      discountAmountCents: context.discountAmountCents,
+      promoCode: context.promoCode,
       currency: context.currency,
       serviceName: context.serviceName,
     });

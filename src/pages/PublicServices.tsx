@@ -202,6 +202,25 @@ export default function PublicServices() {
         </div>
       </div>
 
+      <div className="card card-pad card-light surface-light public-panel-soft" style={{ marginBottom: 16 }}>
+        <div className="row" style={{ justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ flex: "1 1 460px" }}>
+            <div className="h2">In-clinic IV drips start at $199</div>
+            <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
+              Base IV drips start at $199. NAD+ 1000 adds $199 and requires a minimum 2-hour visit. B12 add-on pricing starts at $49.
+            </div>
+          </div>
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            <Link to="/services/nad-infusion" className="btn btn-primary">
+              View IV Drips
+            </Link>
+            <Link to="/book" className="btn btn-secondary">
+              Book In-Clinic Visit
+            </Link>
+          </div>
+        </div>
+      </div>
+
       <div className="card card-pad card-light surface-light public-panel">
         <div className="row" style={{ justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
           <div>

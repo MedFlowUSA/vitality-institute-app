@@ -38,6 +38,7 @@ serve(async (req) => {
       providerId: body?.providerId ?? null,
       clinicId: body?.clinicId ?? null,
       locationId: body?.locationId ?? null,
+      promoCode: body?.promoCode ?? null,
     });
 
     if (context.blockedReason) {
@@ -101,15 +102,18 @@ serve(async (req) => {
       currency: breakdown.currency || context.currency,
       payment_status: "completed",
       checkout_status: "completed",
-      metadata: {
-        paypal_order_id: breakdown.orderId,
-        paypal_capture_id: breakdown.providerTransactionId,
-        split_rule_id: split.ruleId,
-        split_resolution_source: split.resolutionSource,
-        service_category: context.serviceCategory,
-        raw_capture: breakdown.rawCapture,
-      },
-    };
+        metadata: {
+          paypal_order_id: breakdown.orderId,
+          paypal_capture_id: breakdown.providerTransactionId,
+          split_rule_id: split.ruleId,
+          split_resolution_source: split.resolutionSource,
+          service_category: context.serviceCategory,
+          original_amount_cents: context.originalAmountCents,
+          discount_amount_cents: context.discountAmountCents,
+          promo_code: context.promoCode,
+          raw_capture: breakdown.rawCapture,
+        },
+      };
 
     const { data: paymentTransaction, error: paymentTransactionError } = await supabase
       .from("payment_transactions")
@@ -161,7 +165,10 @@ serve(async (req) => {
         location_id: context.locationId,
         split_rule_id: split.ruleId,
         split_resolution_source: split.resolutionSource,
+        original_amount_cents: context.originalAmountCents,
         gross_amount_cents: share.grossAmountCents,
+        discount_amount_cents: context.discountAmountCents,
+        promo_code: context.promoCode,
         processing_fee_cents: share.processingFeeCents,
         net_amount_cents: share.netAmountCents,
         physician_share_cents: share.physicianShareCents,
@@ -174,6 +181,8 @@ serve(async (req) => {
       paymentTransactionId: paymentTransaction.id,
       payoutLedgerId,
       amountCents: share.grossAmountCents,
+      discountAmountCents: context.discountAmountCents,
+      promoCode: context.promoCode,
       currency: breakdown.currency || context.currency,
       serviceName: context.serviceName,
     });

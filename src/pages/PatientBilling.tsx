@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import PayPalCheckoutCard from "../components/payments/PayPalCheckoutCard";
 import VitalityHero from "../components/VitalityHero";
+import { resolvePromoDiscount } from "../lib/payments/promo";
 import { formatCatalogLocationName, fmtMoney } from "../lib/services/catalog";
 import { supabase } from "../lib/supabase";
 
@@ -58,6 +59,12 @@ function providerLabel(provider: ProviderRow | null) {
   return [provider.first_name, provider.last_name].filter(Boolean).join(" ").trim() || provider.id;
 }
 
+function isIvDripService(service: Pick<ServiceRow, "name" | "category" | "service_group"> | null) {
+  if (!service) return false;
+  const haystack = [service.name, service.category, service.service_group].filter(Boolean).join(" ").toLowerCase();
+  return haystack.includes("iv") || haystack.includes("drip") || haystack.includes("nad");
+}
+
 export default function PatientBilling() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -70,6 +77,8 @@ export default function PatientBilling() {
     amountCents: number;
     currency: string;
     serviceName: string;
+    discountAmountCents?: number;
+    promoCode?: string | null;
   } | null>(null);
 
   const [patient, setPatient] = useState<PatientRow | null>(null);
@@ -82,6 +91,7 @@ export default function PatientBilling() {
 
   const [serviceId, setServiceId] = useState(searchParams.get("serviceId") ?? "");
   const [appointmentId, setAppointmentId] = useState(searchParams.get("appointmentId") ?? "");
+  const [promoCode, setPromoCode] = useState("");
 
   const clientId = import.meta.env.VITE_PAYPAL_CLIENT_ID as string | undefined;
 
@@ -207,8 +217,13 @@ export default function PatientBilling() {
   }, [providers, selectedAppointment?.provider_user_id]);
 
   const amountCents = selectedService?.price_marketing_cents ?? selectedService?.price_regular_cents ?? 0;
-  const amountLabel = fmtMoney(amountCents) ?? "Pricing pending";
+  const promoSummary = useMemo(() => resolvePromoDiscount(amountCents, promoCode), [amountCents, promoCode]);
+  const amountLabel = fmtMoney(promoSummary.finalAmountCents) ?? "Pricing pending";
+  const baseAmountLabel = fmtMoney(amountCents) ?? "Pricing pending";
   const requiresConsult = Boolean(selectedService?.requires_consult);
+  const isIvCheckout = isIvDripService(selectedService);
+  const hasPromoCodeEntry = promoCode.trim().length > 0;
+  const invalidPromoEntered = hasPromoCodeEntry && !promoSummary.valid;
   const blockedReason = !selectedService
     ? "Select a service to begin checkout."
     : requiresConsult && !selectedAppointment
@@ -260,6 +275,11 @@ export default function PatientBilling() {
             <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
               {success.serviceName} was paid successfully for {fmtMoney(success.amountCents) ?? success.amountCents} {success.currency}.
             </div>
+            {success.discountAmountCents ? (
+              <div className="surface-light-helper" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                A promo discount of {fmtMoney(success.discountAmountCents) ?? success.discountAmountCents} was applied before capture.
+              </div>
+            ) : null}
             <div className="muted" style={{ marginTop: 10 }}>Transaction ID: {success.paymentTransactionId}</div>
             <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 16 }}>
               <button className="btn btn-primary" type="button" onClick={() => navigate("/patient/home")}>
@@ -319,6 +339,48 @@ export default function PatientBilling() {
 
                 <div className="space" />
 
+                <label style={{ display: "grid", gap: 8 }}>
+                  <div className="public-mini-title">Promo code</div>
+                  <input
+                    className="input"
+                    type="text"
+                    value={promoCode}
+                    onChange={(event) => setPromoCode(event.target.value.toUpperCase())}
+                    placeholder="Enter promo code if provided"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                  />
+                </label>
+
+                <div className="surface-light-helper" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                  If the clinic gave you a private promo code, enter it before checkout. This field is intended for approved discounts such as first responder pricing.
+                </div>
+
+                {hasPromoCodeEntry ? (
+                  <div
+                    className="card card-pad card-light surface-light"
+                    style={{ marginTop: 12, border: `1px solid ${promoSummary.valid ? "rgba(22,163,74,0.28)" : "rgba(220,38,38,0.22)"}` }}
+                  >
+                    <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                      <strong>{promoSummary.valid ? "Promo applied" : "Promo needs review"}</strong>
+                      <span>{promoSummary.valid ? `-${fmtMoney(promoSummary.discountAmountCents) ?? promoSummary.discountAmountCents}` : "No discount applied"}</span>
+                    </div>
+                    <div className="surface-light-helper" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                      {promoSummary.valid
+                        ? `Your updated checkout total is ${amountLabel}.`
+                        : "This promo code is not recognized yet. Please confirm it with the clinic or clear the field before checkout."}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="surface-light-body" style={{ marginTop: 12, lineHeight: 1.8 }}>
+                  <strong>Base price:</strong> {baseAmountLabel}
+                  <br />
+                  <strong>Discount:</strong> {promoSummary.valid ? `-${fmtMoney(promoSummary.discountAmountCents) ?? promoSummary.discountAmountCents}` : "$0"}
+                  <br />
+                  <strong>Checkout total:</strong> {amountLabel}
+                </div>
+
                 <div className="surface-light-body" style={{ lineHeight: 1.8 }}>
                   <strong>Service:</strong> {selectedService?.name ?? "Not selected"}
                   <br />
@@ -344,6 +406,26 @@ export default function PatientBilling() {
 
             <div className="space" />
 
+            {isIvCheckout ? (
+              <>
+                <div className="card card-pad card-light surface-light" style={cardStyle}>
+                  <div style={eyebrowStyle}>In-Clinic IV Drips</div>
+                  <div className="h2" style={{ marginTop: 8 }}>Current IV drip pricing and timing</div>
+                  <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
+                    In-clinic IV drips start at $199 base. NAD+ 1000 is an additional $199 and requires a minimum 2-hour session. B12 add-on pricing is $49.
+                  </div>
+                  <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+                    <div className="v-chip">Base drip from $199</div>
+                    <div className="v-chip">NAD+ 1000 add-on +$199</div>
+                    <div className="v-chip">B12 add-on +$49</div>
+                    <div className="v-chip">NAD+ minimum 2 hours</div>
+                  </div>
+                </div>
+
+                <div className="space" />
+              </>
+            ) : null}
+
             {blockedReason ? (
               <div className="card card-pad card-light surface-light" style={cardStyle}>
                 <div style={eyebrowStyle}>Clinical Guardrail</div>
@@ -363,12 +445,13 @@ export default function PatientBilling() {
             ) : (
               <PayPalCheckoutCard
                 clientId={clientId}
-                disabled={!patient?.id || !selectedService?.id || !amountCents}
+                disabled={!patient?.id || !selectedService?.id || !amountCents || invalidPromoEntered}
                 serviceId={selectedService?.id ?? ""}
                 appointmentId={selectedAppointment?.id ?? null}
                 providerId={selectedAppointment?.provider_user_id ?? null}
                 clinicId={selectedClinic?.id ?? null}
                 locationId={selectedLocation?.id ?? null}
+                promoCode={promoSummary.valid ? promoSummary.normalizedCode : null}
                 amountLabel={amountLabel}
                 serviceName={selectedService?.name ?? "Vitality service"}
                 onSuccess={(result) => {
@@ -385,6 +468,9 @@ export default function PatientBilling() {
               <div className="h2" style={{ marginTop: 8 }}>How payments and physician payouts work right now</div>
               <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
                 PayPal is only the patient payment mechanism in V1. Vitality receives the full checkout amount. Physician revenue share is calculated internally after capture and tracked in the payout ledger for admin-controlled payout review.
+              </div>
+              <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
+                The selected service starts at {baseAmountLabel}. Eligible promo discounts adjust the final amount before PayPal capture.
               </div>
             </div>
           </>

@@ -273,6 +273,35 @@ export default function PublicLandingSimplified() {
 
       <div className="space" />
 
+      <div className="card card-pad card-light surface-light public-panel-soft">
+        <div className="public-eyebrow">In-Clinic IV Drips</div>
+        <div className="row" style={{ justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "flex-start", marginTop: 10 }}>
+          <div style={{ flex: "1 1 420px", minWidth: 280 }}>
+            <div className="h2 public-section-title">Build your IV drip visit with clear base and add-on pricing.</div>
+            <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75, maxWidth: 720 }}>
+              In-clinic IV drips start at $199 base. NAD+ 1000 is an additional $199 and requires a minimum 2-hour visit. B12 add-on pricing starts at $49.
+            </div>
+          </div>
+          <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+            <Link to="/services/nad-infusion" className="btn btn-primary">
+              View IV Drips
+            </Link>
+            <Link to="/book" className="btn btn-secondary">
+              Book In-Clinic Visit
+            </Link>
+          </div>
+        </div>
+
+        <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 16 }}>
+          <div className="v-chip">Base drip from $199</div>
+          <div className="v-chip">NAD+ 1000 add-on +$199</div>
+          <div className="v-chip">B12 add-on +$49</div>
+          <div className="v-chip">NAD+ minimum 2 hours</div>
+        </div>
+      </div>
+
+      <div className="space" />
+
       <div className="card card-pad card-light surface-light public-panel">
         <div className="h2">Visit or Contact Us</div>
         <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8, maxWidth: 760 }}>
