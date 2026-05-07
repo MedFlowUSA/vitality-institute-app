@@ -8,6 +8,39 @@ import { getAuthRedirectUrl, supabase } from "../lib/supabase";
 
 type Mode = "login" | "signup" | "magic";
 
+function normalizeAuthFeedback(message: string) {
+  const lowered = message.toLowerCase();
+
+  if (lowered.includes("email not confirmed")) {
+    return "Your account is almost ready. Please confirm your email first, then return here to sign in.";
+  }
+
+  if (
+    lowered.includes("wait") && (lowered.includes("seconds") || lowered.includes("second")) &&
+    (lowered.includes("email") || lowered.includes("verification") || lowered.includes("otp"))
+  ) {
+    return "We recently sent a verification email to this address. Please wait a moment before requesting another one, then check your inbox and spam folder.";
+  }
+
+  if (
+    lowered.includes("rate limit") ||
+    lowered.includes("too many requests") ||
+    lowered.includes("over_email_send_rate_limit")
+  ) {
+    return "We recently sent an email to this address. Please wait a moment before trying again, then check your inbox and spam folder.";
+  }
+
+  if (lowered.includes("invalid login credentials")) {
+    return "We couldn't sign you in with that email and password. Double-check your password or use the magic link tab.";
+  }
+
+  if (lowered.includes("already registered") || lowered.includes("user already registered")) {
+    return "An account already exists for this email. Sign in or use a magic link instead.";
+  }
+
+  return message;
+}
+
 function getHomeRouteForRole(role: AppRole | null) {
   if (role === "super_admin" || role === "location_admin") return "/admin";
   if (role && role !== "patient") return PROVIDER_ROUTES.home;
@@ -36,6 +69,7 @@ export default function PatientAuth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const bookingDraft = useMemo(() => readPublicBookingDraft(), []);
@@ -126,7 +160,7 @@ export default function PatientAuth() {
           return;
         }
 
-        setMsg("Account created. Check your email to confirm your access, then return here to continue.");
+        setMsg("Account created. Check your email to confirm your access, then return here to continue. If you do not see it, check spam or request another confirmation email below.");
         return;
       }
 
@@ -149,25 +183,51 @@ export default function PatientAuth() {
       });
       if (error) throw error;
 
-      setMsg("Magic link sent. Open that email from this environment to continue.");
+      setMsg("Magic link sent. Open that email from this environment to continue. If it does not appear shortly, check spam and then try again.");
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Authentication failed.";
-      if (message.toLowerCase().includes("already registered") || message.toLowerCase().includes("user already registered")) {
+      const rawMessage = e instanceof Error ? e.message : "Authentication failed.";
+      const message = normalizeAuthFeedback(rawMessage);
+      if (rawMessage.toLowerCase().includes("already registered") || rawMessage.toLowerCase().includes("user already registered")) {
         setMode("login");
         setErr("An account already exists for this email. Sign in or use a magic link instead.");
         return;
       }
-      if (message.toLowerCase().includes("email not confirmed")) {
+      if (rawMessage.toLowerCase().includes("email not confirmed")) {
         setErr("Check your email and confirm your account before signing in, or use the magic link tab to continue.");
-        return;
-      }
-      if (message.toLowerCase().includes("invalid login credentials")) {
-        setErr("We couldn't sign you in with that email and password. Double-check your password or use the magic link tab.");
         return;
       }
       setErr(message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const resendConfirmationEmail = async () => {
+    setErr(null);
+    setMsg(null);
+
+    if (!isEmailValid) {
+      setErr("Enter the email address you used for your account first.");
+      return;
+    }
+
+    setResendBusy(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: trimmedEmail,
+        options: {
+          emailRedirectTo: authRedirect,
+        },
+      });
+
+      if (error) throw error;
+      setMsg("Verification email sent. Please check your inbox and spam folder, then open the confirmation email from this environment.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Unable to resend verification email.";
+      setErr(normalizeAuthFeedback(message));
+    } finally {
+      setResendBusy(false);
     }
   };
 
@@ -337,6 +397,23 @@ export default function PatientAuth() {
 
             {err ? <div style={errorStyle}>{err}</div> : null}
             {msg ? <div style={messageStyle}>{msg}</div> : null}
+
+            {(mode === "signup" || mode === "login") && trimmedEmail ? (
+              <div style={{ marginBottom: 12 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: "100%" }}
+                  onClick={() => void resendConfirmationEmail()}
+                  disabled={resendBusy || !isEmailValid}
+                >
+                  {resendBusy ? "Sending verification email..." : "Resend verification email"}
+                </button>
+                <div style={helperStyle}>
+                  Use this if your confirmation email did not arrive. We will send it to <strong style={{ color: "#F8FAFC" }}>{trimmedEmail}</strong>.
+                </div>
+              </div>
+            ) : null}
 
             <label style={{ display: "block", marginBottom: 12 }}>
               <div style={labelStyle}>Email</div>
