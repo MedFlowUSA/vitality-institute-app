@@ -6,34 +6,79 @@ import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { getPublicAccessRoute } from "../lib/publicMarketingCatalog";
 import { buildMarketOptionGroups, isPlaceholderMarket } from "../lib/locationMarkets";
 
-const featuredServices = [
+const topCarePaths = [
   {
-    title: "GLP-1 / Weight Optimization",
+    title: "Weight Optimization",
     category: "Medical Weight Care",
-    summary: "Medical weight care with provider-led evaluation and follow-up.",
+    summary: "Start with a provider-led consultation for GLP-1, metabolic support, and structured follow-up.",
+    bestFor: "Patients who already know they want a medical weight-care path.",
     to: "/services/glp1-weight-optimization-consultation",
-    cta: "View Service",
+    cta: "Explore Weight Care",
   },
   {
-    title: "Wound Review & Clinical Routing",
+    title: "Wound Review",
     category: "Wound Care",
-    summary: "Start with guided intake when you need help deciding urgency, next steps, or the right clinical path.",
+    summary: "Use guided intake first when you need help deciding urgency, next steps, or the right clinical path.",
+    bestFor: "Patients with wound concerns, drainage, pain, or healing questions.",
     to: "/vital-ai",
-    cta: "Start Review",
+    cta: "Start Wound Review",
   },
   {
-    title: "IV / Advanced Therapies",
+    title: "In-Clinic IV Drips",
     category: "Advanced Wellness",
-    summary: "Advanced therapies designed to support recovery, performance, and vitality.",
+    summary: "Base IV drips start at $199, with optional NAD+ 1000 and B12 add-ons in clinic.",
+    bestFor: "Patients looking for hydration, recovery, energy, or higher-touch infusion support.",
     to: "/services/nad-infusion",
-    cta: "View Service",
+    cta: "View IV Drips",
   },
   {
     title: "Peptide Therapy",
     category: "Recovery & Wellness",
     summary: "Provider-guided peptide support for recovery, metabolic health, and performance goals.",
+    bestFor: "Patients who want consultation first before moving into peptide planning.",
     to: "/services/peptide-therapy-consultation",
-    cta: "View Service",
+    cta: "Explore Peptide Care",
+  },
+];
+
+const trustHighlights = [
+  {
+    label: "Physician-Led Review",
+    value: "Every case is reviewed",
+    detail: "Public requests and guided intake are reviewed before scheduling or treatment steps are finalized.",
+  },
+  {
+    label: "Live Clinics",
+    value: "Southern California now",
+    detail: "Book into live operational clinics today while expansion markets stay separate and non-operational.",
+  },
+  {
+    label: "Guided Intake",
+    value: "Clear next step",
+    detail: "Start with Vital AI when you want help choosing the right care path before booking.",
+  },
+  {
+    label: "Follow-Through",
+    value: "Account + dashboard",
+    detail: "Create your account once and continue booking, intake, messaging, and follow-up in one place.",
+  },
+];
+
+const howItWorks = [
+  {
+    step: "1",
+    title: "Choose your path",
+    detail: "Book directly if you already know what you need, or start with Vital AI if you want guided routing first.",
+  },
+  {
+    step: "2",
+    title: "Submit your request",
+    detail: "Share your service interest, intake details, or preferred market so the clinic has a clean starting point.",
+  },
+  {
+    step: "3",
+    title: "Clinic reviews next steps",
+    detail: "Vitality confirms the right follow-up, whether that means scheduling now, continuing intake, or provider review first.",
   },
 ];
 
@@ -88,14 +133,13 @@ export default function PublicLandingSimplified() {
         <div
           className="public-hero-eyebrow public-eyebrow"
         >
-          Patient-Centered Care Across Southern California
+          Physician-Led Care Across Southern California
         </div>
         <div className="h1 public-hero-heading" style={{ marginTop: 18, maxWidth: 760 }}>
-          Get the care you need, with a clear and guided next step.
+          Choose the right care path in minutes, not after a maze of pages.
         </div>
         <div className="surface-light-body public-hero-body" style={{ marginTop: 18, lineHeight: 1.75, maxWidth: 720 }}>
-          Whether you are concerned about a wound, ready to book treatment, or looking for the right starting point,
-          Vitality Institute will guide you forward.
+          Book directly when you already know what you want, or start with guided intake when you want help deciding the right next step for wound care, weight care, IV therapy, or wellness support.
         </div>
 
         <div style={{ height: 24 }} />
@@ -112,7 +156,11 @@ export default function PublicLandingSimplified() {
         <div className="space" />
 
         <div className="surface-light-helper" style={{ lineHeight: 1.7 }}>
-          Every public request is reviewed by the clinic before scheduling is finalized. Already started with us?{" "}
+          Every public request is reviewed by the clinic before scheduling is finalized. Need help now?{" "}
+          <a href="tel:+12139126838" style={{ color: "inherit", fontWeight: 700 }}>
+            Call the clinic
+          </a>
+          . Already started with us?{" "}
           <Link to={getPublicAccessRoute("signup")} style={{ color: "inherit", fontWeight: 700 }}>
             Create your account
           </Link>{" "}
@@ -126,105 +174,21 @@ export default function PublicLandingSimplified() {
 
       <div className="space" />
 
-      <div className="card card-pad card-light surface-light public-growth-panel">
-        <div className="public-growth-header">
-          <div>
-            <div className="public-eyebrow">Nationwide Growth Markets</div>
-            <div className="h2 public-section-title" style={{ marginTop: 10 }}>
-              Vitality Institute is expanding beyond our live Southern California clinics.
-            </div>
-          </div>
-          <div className="public-growth-badge">Expansion waitlist available</div>
-        </div>
-
-        <div className="surface-light-body public-growth-copy" style={{ marginTop: 12 }}>
-          Choose a live clinic if you are ready to move into scheduling now, or select a coming-soon
-          city to raise your hand for expansion interest. We keep those paths separate so the site
-          feels national without pretending every market is already operational.
-        </div>
-
-        <div className="public-growth-stat-grid" style={{ marginTop: 18 }}>
-          <div className="public-growth-stat">
-            <div className="public-mini-title">Live Clinics</div>
-            <div className="public-growth-stat-value">{liveLocations.length}</div>
-            <div className="surface-light-helper">Available now for booking, intake, and care routing.</div>
-          </div>
-          <div className="public-growth-stat">
-            <div className="public-mini-title">Coming Soon Markets</div>
-            <div className="public-growth-stat-value">{comingSoonLocations.length}</div>
-            <div className="surface-light-helper">Visible for waitlist and expansion-interest capture only.</div>
-          </div>
-          <div className="public-growth-stat">
-            <div className="public-mini-title">How It Works</div>
-            <div className="public-growth-stat-value">Live first</div>
-            <div className="surface-light-helper">Operational teams stay scoped to real clinics until a market activates.</div>
-          </div>
-        </div>
-
-        <div className="public-growth-market-shell" style={{ marginTop: 18 }}>
-          <div className="public-mini-title">Featured Expansion Cities</div>
-          <div className="public-growth-market-list" style={{ marginTop: 12 }}>
-            {featuredExpansionMarkets.map((market) => (
-              <span key={market} className="public-growth-market-chip">
-                {market}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="row public-growth-actions" style={{ gap: 10, flexWrap: "wrap", marginTop: 18 }}>
-          <Link to="/book" className="btn btn-primary">
-            Explore Markets
-          </Link>
-          <Link to="/vital-ai" className="btn btn-secondary">
-            Start with Vital AI
-          </Link>
-        </div>
-      </div>
-
       <div className="card card-pad card-light surface-light public-panel">
-        <div className="h2 public-section-title">Start Here</div>
-        <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75, maxWidth: 760 }}>
-          Choose one clear path to begin. Book directly if you already know what you need, or start with Vital AI if you want guided routing before the clinic reviews next steps.
-        </div>
-
-        <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch", marginTop: 16 }}>
-          <div className="card card-pad card-light surface-light public-panel-nested" style={{ flex: "1 1 280px", minWidth: 240 }}>
-            <div className="public-eyebrow">
-              Primary
+        <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
+          {trustHighlights.map((item) => (
+            <div
+              key={item.label}
+              className="card card-pad card-light surface-light public-panel-nested"
+              style={{ flex: "1 1 220px", minWidth: 220 }}
+            >
+              <div className="public-mini-title">{item.label}</div>
+              <div className="h2" style={{ marginTop: 10 }}>{item.value}</div>
+              <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
+                {item.detail}
+              </div>
             </div>
-            <div className="h2" style={{ marginTop: 10 }}>Book a Visit</div>
-            <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
-              Best if you already know the service, program, or consultation you want.
-            </div>
-          </div>
-          <div className="card card-pad card-light surface-light public-panel-nested" style={{ flex: "1 1 280px", minWidth: 240 }}>
-            <div className="public-eyebrow">
-              Guided
-            </div>
-            <div className="h2" style={{ marginTop: 10 }}>Start with Vital AI</div>
-            <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
-              Best if you want help choosing the right path before booking, including wound concerns that may need urgency review first.
-            </div>
-          </div>
-          <div className="card card-pad card-light surface-light public-panel-nested" style={{ flex: "1 1 280px", minWidth: 240 }}>
-            <div className="public-eyebrow">
-              Support
-            </div>
-            <div className="h2" style={{ marginTop: 10 }}>Need a hand?</div>
-            <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
-              Call the clinic, open the contact page, or read the patient guide if you want help choosing between services, intake, or follow-up.
-            </div>
-          </div>
-        </div>
-
-        <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 16 }}>
-          <Link to="/how-to-use-the-app" className="btn btn-secondary">
-            View Patient Guide
-          </Link>
-          <a href="tel:+12139126838" className="btn btn-secondary" style={{ textDecoration: "none" }}>
-            Call the Clinic
-          </a>
+          ))}
         </div>
       </div>
 
@@ -233,7 +197,8 @@ export default function PublicLandingSimplified() {
       <div className="card card-pad card-light surface-light public-panel">
         <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <div>
-            <div className="h2 public-section-title">Featured Services</div>
+            <div className="public-eyebrow">Top Care Paths</div>
+            <div className="h2 public-section-title" style={{ marginTop: 10 }}>Start with the lane that best matches your reason for visiting.</div>
           </div>
           <Link to="/services" className="btn btn-secondary">
             View All Services
@@ -243,7 +208,7 @@ export default function PublicLandingSimplified() {
         <div className="space" />
 
         <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
-          {featuredServices.map((service) => (
+          {topCarePaths.map((service) => (
             <Link
               key={service.title}
               to={service.to}
@@ -263,11 +228,46 @@ export default function PublicLandingSimplified() {
               <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
                 {service.summary}
               </div>
+              <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
+                Best for: {service.bestFor}
+              </div>
               <div style={{ marginTop: 14 }}>
                 <span className="btn btn-secondary">{service.cta}</span>
               </div>
             </Link>
           ))}
+        </div>
+      </div>
+
+      <div className="space" />
+
+      <div className="card card-pad card-light surface-light public-panel-soft">
+        <div className="public-eyebrow">How It Works</div>
+        <div className="h2 public-section-title" style={{ marginTop: 10 }}>
+          One simple path from interest to clinic-reviewed next steps.
+        </div>
+        <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch", marginTop: 16 }}>
+          {howItWorks.map((item) => (
+            <div
+              key={item.step}
+              className="card card-pad card-light surface-light public-panel-nested"
+              style={{ flex: "1 1 240px", minWidth: 220 }}
+            >
+              <div className="public-eyebrow">Step {item.step}</div>
+              <div className="h2" style={{ marginTop: 10 }}>{item.title}</div>
+              <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
+                {item.detail}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="row" style={{ gap: 10, flexWrap: "wrap", marginTop: 16 }}>
+          <Link to="/how-to-use-the-app" className="btn btn-secondary">
+            View Patient Guide
+          </Link>
+          <a href="tel:+12139126838" className="btn btn-secondary" style={{ textDecoration: "none" }}>
+            Call the Clinic
+          </a>
         </div>
       </div>
 
@@ -302,10 +302,66 @@ export default function PublicLandingSimplified() {
 
       <div className="space" />
 
+      <div className="card card-pad card-light surface-light public-growth-panel">
+        <div className="public-growth-header">
+          <div>
+            <div className="public-eyebrow">Growth Markets</div>
+            <div className="h2 public-section-title" style={{ marginTop: 10 }}>
+              Live clinics first, expansion interest second.
+            </div>
+          </div>
+          <div className="public-growth-badge">Expansion waitlist available</div>
+        </div>
+
+        <div className="surface-light-body public-growth-copy" style={{ marginTop: 12 }}>
+          Choose a live clinic if you are ready to move into scheduling now, or select a coming-soon city to join the waitlist. We keep those paths separate so patients know exactly which markets are operational today.
+        </div>
+
+        <div className="public-growth-stat-grid" style={{ marginTop: 18 }}>
+          <div className="public-growth-stat">
+            <div className="public-mini-title">Live Clinics</div>
+            <div className="public-growth-stat-value">{liveLocations.length}</div>
+            <div className="surface-light-helper">Available now for booking, intake, and care routing.</div>
+          </div>
+          <div className="public-growth-stat">
+            <div className="public-mini-title">Coming Soon Markets</div>
+            <div className="public-growth-stat-value">{comingSoonLocations.length}</div>
+            <div className="surface-light-helper">Visible for waitlist and expansion-interest capture only.</div>
+          </div>
+          <div className="public-growth-stat">
+            <div className="public-mini-title">Operating Rule</div>
+            <div className="public-growth-stat-value">Live first</div>
+            <div className="surface-light-helper">Operational teams stay scoped to real clinics until a market activates.</div>
+          </div>
+        </div>
+
+        <div className="public-growth-market-shell" style={{ marginTop: 18 }}>
+          <div className="public-mini-title">Featured Expansion Cities</div>
+          <div className="public-growth-market-list" style={{ marginTop: 12 }}>
+            {featuredExpansionMarkets.map((market) => (
+              <span key={market} className="public-growth-market-chip">
+                {market}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="row public-growth-actions" style={{ gap: 10, flexWrap: "wrap", marginTop: 18 }}>
+          <Link to="/book" className="btn btn-primary">
+            Explore Markets
+          </Link>
+          <Link to="/vital-ai" className="btn btn-secondary">
+            Start with Vital AI
+          </Link>
+        </div>
+      </div>
+
+      <div className="space" />
+
       <div className="card card-pad card-light surface-light public-panel">
         <div className="h2">Visit or Contact Us</div>
         <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.8, maxWidth: 760 }}>
-          Choose a location to see the quickest contact details without expanding the page.
+          Choose a location to see fast contact details and the clearest next step for that market.
         </div>
 
         <div className="space" />
