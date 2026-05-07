@@ -40,6 +40,27 @@ function isPrimaryPublicOffering(slug: string) {
   return !["trt-basic", "trt-performance", "hrt-balance-plan"].includes(slug);
 }
 
+const serviceEntryPaths = [
+  {
+    title: "Book a visit directly",
+    detail: "Best when you already know the consultation, IV visit, or care lane you want.",
+    cta: "Request Visit",
+    to: "/book",
+  },
+  {
+    title: "Start with Vital AI",
+    detail: "Best when you want guided intake before choosing the final service or urgency path.",
+    cta: "Start with Vital AI",
+    to: "/vital-ai",
+  },
+  {
+    title: "Contact the clinic",
+    detail: "Best when you want a human hand choosing the right next step before submitting.",
+    cta: "Contact the Clinic",
+    to: "/contact",
+  },
+] as const;
+
 export default function PublicServices() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
@@ -164,9 +185,10 @@ export default function PublicServices() {
       <div className="card card-pad card-light surface-light public-panel">
         <div className="row" style={{ gap: 16, flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div style={{ flex: "1 1 440px" }}>
-            <div className="h2">Explore Services</div>
+            <div className="public-eyebrow">Choose Your Care Path</div>
+            <div className="h2" style={{ marginTop: 10 }}>Browse the main service lanes without getting lost in program clutter.</div>
             <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75, maxWidth: 720 }}>
-              Browse by category, compare care paths, and choose the next step that fits you best.
+              Start with a direct visit request if you already know what you want, or use Vital AI when you want guided routing before deciding on a final service.
             </div>
           </div>
 
@@ -182,6 +204,28 @@ export default function PublicServices() {
       </div>
 
       <div className="space" />
+
+      <div className="card card-pad card-light surface-light public-panel-soft" style={{ marginBottom: 16 }}>
+        <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
+          {serviceEntryPaths.map((path) => (
+            <div
+              key={path.title}
+              className="card card-pad card-light surface-light public-panel-nested"
+              style={{ flex: "1 1 240px", minWidth: 220 }}
+            >
+              <div className="h2">{path.title}</div>
+              <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.75 }}>
+                {path.detail}
+              </div>
+              <div style={{ marginTop: 14 }}>
+                <Link to={path.to} className="btn btn-secondary">
+                  {path.cta}
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="card card-pad card-light surface-light public-panel-soft" style={{ marginBottom: 16 }}>
         <div className="row" style={{ justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
@@ -226,7 +270,7 @@ export default function PublicServices() {
           <div>
             <div className="h2">Browse by Category</div>
             <div className="surface-light-helper" style={{ marginTop: 4 }}>
-              Search, filter, and keep your place while you explore.
+              Keep the list focused by choosing a category or searching for one clear care path.
             </div>
           </div>
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
@@ -280,9 +324,9 @@ export default function PublicServices() {
       {compareGroups.length ? (
         <>
           <div className="card card-pad card-light surface-light public-panel">
-            <div className="h2">Compare plan tiers at a glance</div>
+            <div className="h2">Compare GLP-1 plans at a glance</div>
             <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-              If you are comparing similar plans, start here before opening each detail page.
+              This is the only place we keep plan-tier comparison up front, so similar monthly options do not crowd the rest of the catalog.
             </div>
             <div className="space" />
             <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
@@ -413,9 +457,9 @@ export default function PublicServices() {
       <div className="card card-pad card-light surface-light public-panel">
         <div className="row" style={{ justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ flex: "1 1 420px" }}>
-            <div className="h2">Not sure which service fits best?</div>
+            <div className="h2">Still not sure which service fits best?</div>
             <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-              Start with Vital AI if you want guided intake before choosing a final service.
+              Start with Vital AI if you want a guided handoff before choosing the final service, timing, or urgency path.
             </div>
           </div>
           <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
