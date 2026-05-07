@@ -55,9 +55,9 @@ function normalizeMode(value: string | null): Mode {
 }
 
 function normalizeNextPath(value: string | null, pathname: string) {
-  if (value) return normalizeRedirectTarget(value, pathname.startsWith("/patient") ? "/patient/home" : "/");
+  if (value) return normalizeRedirectTarget(value, pathname.startsWith("/patient") ? "/patient/home" : "/patient");
   if (pathname.startsWith("/patient")) return "/patient/home";
-  return "/";
+  return "/patient";
 }
 
 export default function PatientAuth() {
