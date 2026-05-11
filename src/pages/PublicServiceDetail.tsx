@@ -4,6 +4,24 @@ import PublicSiteLayout from "../components/public/PublicSiteLayout";
 import { getPublicAccessRoute, getPublicOfferingBySlug, getPublicOfferingPrimaryCta, getPublicOfferingVitalAiPath } from "../lib/publicMarketingCatalog";
 import { loadCatalogServices, matchCatalogServiceFromInterest, resolvedPublicPriceLabel, type CatalogService } from "../lib/services/catalog";
 
+const nextStepOptions = [
+  {
+    key: "direct",
+    title: "Request this service",
+    description: "Use this when you already know this is the care path you want to move forward with.",
+  },
+  {
+    key: "guided",
+    title: "Start with Vital AI",
+    description: "Use this when you want guided intake before the clinic confirms the best service or urgency path.",
+  },
+  {
+    key: "contact",
+    title: "Contact the clinic",
+    description: "Use this when you want a human hand choosing the right next step before you submit.",
+  },
+] as const;
+
 export default function PublicServiceDetail() {
   const { slug } = useParams();
   const [searchParams] = useSearchParams();
@@ -125,25 +143,48 @@ export default function PublicServiceDetail() {
             <div className="space" />
 
             <div className="card card-pad card-light surface-light public-panel-nested" style={{ marginBottom: 14 }}>
-              <div className="h2">Choosing the right next step</div>
+              <div className="public-eyebrow">Best Fit</div>
+              <div className="h2" style={{ marginTop: 10 }}>Who this service is usually for</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                Request a visit if you are ready to move forward with this service. Start with Vital AI if you want guided routing first, or contact the clinic if you want help deciding.
-              </div>
-              <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
-                Public requests are reviewed by the clinic before scheduling details, treatment fit, and provider follow-up are finalized.
+                {service.idealFor}
               </div>
             </div>
 
-            <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-              <Link to={bookingPath} className="btn btn-primary">
-                {primaryCta?.label ?? "Request Visit"}
-              </Link>
-              <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-secondary">
-                Contact Us
-              </Link>
-              <Link to={guidedPath} className="btn btn-secondary">
-                Start with Vital AI
-              </Link>
+            <div className="card card-pad card-light surface-light public-panel-nested">
+              <div className="public-eyebrow">Next Step</div>
+              <div className="h2" style={{ marginTop: 10 }}>Choose one clear way to move forward.</div>
+              <div className="surface-light-helper" style={{ marginTop: 8, lineHeight: 1.7 }}>
+                Public requests are reviewed by the clinic before scheduling details, treatment fit, and provider follow-up are finalized.
+              </div>
+              <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "stretch", marginTop: 14 }}>
+                {nextStepOptions.map((option) => (
+                  <div
+                    key={option.key}
+                    className="card card-pad card-light surface-light public-panel-nested"
+                    style={{ flex: "1 1 220px", minWidth: 220 }}
+                  >
+                    <div className="h2">{option.title}</div>
+                    <div className="surface-light-body" style={{ marginTop: 10, lineHeight: 1.7 }}>
+                      {option.description}
+                    </div>
+                    <div style={{ marginTop: 14 }}>
+                      {option.key === "direct" ? (
+                        <Link to={bookingPath} className="btn btn-primary">
+                          {primaryCta?.label ?? "Request Visit"}
+                        </Link>
+                      ) : option.key === "guided" ? (
+                        <Link to={guidedPath} className="btn btn-secondary">
+                          Start with Vital AI
+                        </Link>
+                      ) : (
+                        <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-secondary">
+                          Contact Us
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -158,29 +199,20 @@ export default function PublicServiceDetail() {
             </div>
 
             <div className="card card-pad card-light surface-light public-panel-nested" style={{ flex: "1 1 320px" }}>
-              <div className="h2">Ideal For</div>
-              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                {service.idealFor}
-              </div>
-            </div>
-          </div>
-
-          <div className="space" />
-
-          <div className="row" style={{ gap: 14, flexWrap: "wrap", alignItems: "stretch" }}>
-            <div className="card card-pad card-light surface-light public-panel-nested" style={{ flex: "1 1 320px" }}>
-              <div className="h2">Service Details</div>
-              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                {service.serviceDetails}
-              </div>
-            </div>
-
-            <div className="card card-pad card-light surface-light public-panel-nested" style={{ flex: "1 1 320px" }}>
               <div className="h2">What To Expect</div>
               <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
                 {service.whatToExpect}
               </div>
               {service.duration ? <div className="surface-light-helper" style={{ marginTop: 10, fontSize: 13 }}>Typical timing: {service.duration}</div> : null}
+            </div>
+          </div>
+
+          <div className="space" />
+
+          <div className="card card-pad card-light surface-light public-panel-nested">
+            <div className="h2">Service Details</div>
+            <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75, maxWidth: 860 }}>
+              {service.serviceDetails}
             </div>
           </div>
 
@@ -204,23 +236,20 @@ export default function PublicServiceDetail() {
           <div className="card card-pad card-light surface-light public-panel">
             <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
               <div>
-                <div className="h2">Ready to move forward?</div>
+                <div className="h2">Still deciding?</div>
                 <div className="surface-light-helper" style={{ marginTop: 6 }}>
-                  Request a visit, contact the clinic, or begin with guided Vital AI intake if you want help being routed first.
+                  If you want guided intake instead of a direct service request, Vital AI is the cleanest next step.
                 </div>
               </div>
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-                 <Link to={bookingPath} className="btn btn-primary">
-                   {primaryCta?.label ?? "Request Visit"}
-                 </Link>
                  <Link to={guidedPath} className="btn btn-secondary">
                    Start with Vital AI
                  </Link>
-                 <Link to={getPublicAccessRoute("login")} className="btn btn-secondary">
-                   Sign In
-                 </Link>
                  <Link to={`/contact?serviceId=${encodeURIComponent(service.slug)}`} className="btn btn-secondary">
                    Contact Us
+                 </Link>
+                 <Link to={getPublicAccessRoute("login")} className="btn btn-secondary">
+                   Sign In
                  </Link>
               </div>
             </div>
