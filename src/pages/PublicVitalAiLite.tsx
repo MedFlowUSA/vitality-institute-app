@@ -334,6 +334,32 @@ export default function PublicVitalAiLite() {
 
       <div className="space" />
 
+      <details className="card card-pad card-light surface-light public-disclosure">
+        <summary>
+          <div className="public-disclosure-title">
+            <div>
+              <div className="h2" style={{ margin: 0 }}>More About This Intake</div>
+              <div className="surface-light-helper" style={{ marginTop: 4 }}>
+                When to use this page, how markets work, and when to use the full intake instead.
+              </div>
+            </div>
+            <div className="v-chip">Tap to expand</div>
+          </div>
+        </summary>
+        <div className="space" />
+        <div className="public-disclosure-copy">
+          Vital AI Lite is best for a shorter first step. It helps the clinic understand your concern before a callback, booking step, or deeper intake.
+        </div>
+        <div className="public-disclosure-copy" style={{ marginTop: 10 }}>
+          Live clinics can move toward intake review and scheduling follow-up. Coming-soon markets stay in a waitlist lane until that city opens, even if you complete this guided request today.
+        </div>
+        <div className="public-disclosure-copy" style={{ marginTop: 10 }}>
+          If you want the fuller saved-session experience with more care context, use the full intake from the patient portal instead.
+        </div>
+      </details>
+
+      <div className="space" />
+
       <div className="card card-pad card-light surface-light">
         <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           <div className="h2" style={{ margin: 0 }}>

@@ -193,6 +193,35 @@
   color: rgba(76, 46, 119, 0.78);
 }
 
+.public-disclosure {
+  border: 1px solid rgba(184, 164, 255, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.public-disclosure summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.public-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.public-disclosure-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.public-disclosure-copy {
+  font-size: 13px;
+  line-height: 1.72;
+  color: rgba(76, 46, 119, 0.84);
+}
+
 @media (max-width: 640px) {
   .market-select-shell {
     padding: 12px;

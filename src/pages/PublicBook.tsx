@@ -681,6 +681,37 @@ export default function PublicBook() {
               </div>
             </div>
 
+            <details className="card card-pad card-light surface-light public-disclosure" style={{ marginBottom: 14 }}>
+              <summary>
+                <div className="public-disclosure-title">
+                  <div>
+                    <div className="h2" style={{ margin: 0 }}>More Booking Details</div>
+                    <div className="surface-light-helper" style={{ marginTop: 4 }}>
+                      Live clinics, guest flow, promo codes, and what happens after you continue.
+                    </div>
+                  </div>
+                  <div className="v-chip">Tap to expand</div>
+                </div>
+              </summary>
+              <div className="space" />
+              <div className="public-disclosure-copy">
+                {isComingSoonLocation
+                  ? "Coming-soon markets save waitlist interest instead of creating a live clinic booking. The team can follow up when that market opens or help redirect you to an active location."
+                  : "Live clinics can continue into intake, coordinator review, and scheduling confirmation. Final timing and care fit are always confirmed by the clinic."}
+              </div>
+              {!user?.id ? (
+                <div className="public-disclosure-copy" style={{ marginTop: 10 }}>
+                  You can still start this request before creating your account. If you continue as a guest, your selections stay attached while you move through account setup and intake.
+                </div>
+              ) : null}
+              <div className="public-disclosure-copy" style={{ marginTop: 10 }}>
+                If you have a promo code, enter it below before continuing. Verification may be requested at the time of service for certain discounts.
+              </div>
+              <div className="public-disclosure-copy" style={{ marginTop: 10 }}>
+                Need the full walkthrough? <Link to="/how-to-use-the-app">Read the patient guide</Link>.
+              </div>
+            </details>
+
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 220px" }}>
                 <MarketGroupedSelect
@@ -772,8 +803,8 @@ export default function PublicBook() {
 
             <div className="space" />
 
-            <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-              <button
+              <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+                <button
                 type="button"
                 className="btn btn-primary"
                 onClick={() => void confirmBooking()}
@@ -793,6 +824,31 @@ export default function PublicBook() {
                 Need help first?
               </Link>
             </div>
+
+            {!expansionRequestId ? (
+              <>
+                <div className="space" />
+                <details className="card card-pad card-light surface-light public-disclosure">
+                  <summary>
+                    <div className="public-disclosure-title">
+                      <div>
+                        <div className="h2" style={{ margin: 0 }}>What Happens Next</div>
+                        <div className="surface-light-helper" style={{ marginTop: 4 }}>
+                          A quick preview of the follow-up after you submit.
+                        </div>
+                      </div>
+                      <div className="v-chip">Tap to expand</div>
+                    </div>
+                  </summary>
+                  <div className="space" />
+                  <div className="public-disclosure-copy">
+                    {isComingSoonLocation
+                      ? "Your selection is treated as expansion-interest capture. The team may contact you when that market opens or help redirect you to a nearby active clinic."
+                      : "Once you send your request, our team will review it and follow up with the right next step. Depending on your concern, we may help you schedule first or have a provider review your information before confirming the visit."}
+                  </div>
+                </details>
+              </>
+            ) : null}
 
             {expansionRequestId ? (
               <>
