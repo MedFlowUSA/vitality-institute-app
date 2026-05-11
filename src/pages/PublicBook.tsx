@@ -13,7 +13,7 @@ import { getPublicOfferingBySlug, PUBLIC_OFFERINGS, type PublicOffering } from "
 import { getRequestIdForBookingSelection, readPublicBookingDraft, savePublicBookingDraft } from "../lib/publicBookingDraft";
 import { PROVIDER_ROUTES } from "../lib/providerRoutes";
 import { buildAuthRoute, buildOnboardingRoute, buildPatientIntakePath, sanitizeInternalPath } from "../lib/routeFlow";
-import { LAW_ENFORCEMENT_DISCOUNT_CODE, LAW_ENFORCEMENT_DISCOUNT_PERCENT } from "../lib/lawEnforcementDiscount";
+import { LAW_ENFORCEMENT_DISCOUNT_CODE } from "../lib/lawEnforcementDiscount";
 import {
   formatCatalogLocationDetails,
   formatCatalogLocationName,
@@ -198,18 +198,6 @@ export default function PublicBook() {
   const locationGroups = useMemo(
     () => getCatalogLocationSelectGroups(locations, { includeComingSoon: true }),
     [locations]
-  );
-  const liveLocations = useMemo(
-    () => locations.filter((location) => !isPlaceholderMarket(location)),
-    [locations]
-  );
-  const comingSoonLocations = useMemo(
-    () => locations.filter((location) => isPlaceholderMarket(location)),
-    [locations]
-  );
-  const featuredExpansionMarkets = useMemo(
-    () => comingSoonLocations.slice(0, 6).map((location) => formatCatalogLocationName(location)),
-    [comingSoonLocations]
   );
   const isComingSoonLocation = Boolean(selectedLocation && isPlaceholderMarket(selectedLocation));
   const comingSoonLocationLabel = useMemo(() => {
@@ -654,134 +642,45 @@ export default function PublicBook() {
               </div>
             ) : null}
 
-            <div className="card card-pad card-light surface-light public-growth-panel" style={{ marginBottom: 14 }}>
-              <div className="public-growth-header">
-                <div>
-                  <div className="public-eyebrow">Nationwide Growth Markets</div>
-                  <div className="h2 public-section-title" style={{ marginTop: 10 }}>
-                    Choose a live clinic now or join the waitlist for a city on the way.
-                  </div>
-                </div>
-                <div className="public-growth-badge">
-                  {isComingSoonLocation ? "Waitlist path active" : "Live booking stays separate"}
-                </div>
-              </div>
-
-              <div className="surface-light-body public-growth-copy" style={{ marginTop: 12 }}>
-                Vitality Institute keeps live operational booking separate from expansion-interest
-                capture. That means you can raise your hand for a coming-soon market without being
-                dropped into provider routing, fulfillment, or appointment scheduling before that
-                city is activated.
-              </div>
-
-              <div className="public-growth-stat-grid" style={{ marginTop: 18 }}>
-                <div className="public-growth-stat">
-                  <div className="public-mini-title">Live Clinics</div>
-                  <div className="public-growth-stat-value">{liveLocations.length}</div>
-                  <div className="surface-light-helper">Ready for real scheduling and intake flow today.</div>
-                </div>
-                <div className="public-growth-stat">
-                  <div className="public-mini-title">Coming Soon Markets</div>
-                  <div className="public-growth-stat-value">{comingSoonLocations.length}</div>
-                  <div className="surface-light-helper">Selectable for expansion interest and waitlist follow-up.</div>
-                </div>
-                <div className="public-growth-stat">
-                  <div className="public-mini-title">Current Selection</div>
-                  <div className="public-growth-stat-value">
-                    {isComingSoonLocation ? "Waitlist" : selectedLocation ? "Live clinic" : "Choose a market"}
-                  </div>
-                  <div className="surface-light-helper">
-                    {isComingSoonLocation
-                      ? "You will save market demand instead of a live appointment request."
-                      : "Live clinics continue into booking, intake, and clinic review."}
-                  </div>
-                </div>
-              </div>
-
-              {featuredExpansionMarkets.length > 0 ? (
-                <div className="public-growth-market-shell" style={{ marginTop: 18 }}>
-                  <div className="public-mini-title">Featured Expansion Cities</div>
-                  <div className="public-growth-market-list" style={{ marginTop: 12 }}>
-                    {featuredExpansionMarkets.map((market) => (
-                      <span key={market} className="public-growth-market-chip">
-                        {market}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="card card-pad card-light surface-light public-panel" style={{ marginBottom: 14 }}>
-              <div className="h2">How this works</div>
-              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                {isComingSoonLocation
-                  ? "Choose the market and service you care about now. We will save this as expansion interest instead of routing you into live scheduling."
-                  : user?.id
-                  ? "Choose your service and preferred time now, then continue into a guided intake before your visit."
-                  : "Choose your service and preferred time now. We will save your request first, then guide you through sign-in or account setup and intake while the clinic reviews availability."}
-              </div>
-              <div className="surface-light-helper" style={{ marginTop: 10, lineHeight: 1.7 }}>
-                Need the full walkthrough? <Link to="/how-to-use-the-app">Read the full step-by-step patient guide</Link>.
-              </div>
-              {isComingSoonLocation ? (
-                <div style={{ marginTop: 12 }}>
-                  <span className="public-expansion-pill">Waitlist only - not live scheduling</span>
-                </div>
-              ) : null}
-            </div>
-
-            {isComingSoonLocation ? (
-              <div style={{ marginBottom: 14 }}>
-                <PublicFlowStatusCard
-                  eyebrow="Coming Soon Market"
-                  title={`${comingSoonLocationLabel ?? "This market"} is not booking live visits yet`}
-                  body="You can still select this city and service to join the expansion waitlist. We will treat it as market-interest capture, not as a live operational clinic booking."
-                  detail="No provider routing, fulfillment, or appointment scheduling will start from this selection. If a nearby live clinic can help sooner, the team can redirect you there during follow-up."
-                />
-              </div>
-            ) : null}
-
-            <div className="card card-pad card-light surface-light public-panel" style={{ marginBottom: 14 }}>
-              <div className="h2">Law Enforcement Discount</div>
-              <div className="surface-light-body" style={{ marginTop: 8, lineHeight: 1.75 }}>
-                Police officers and other law enforcement professionals may use code <strong>{LAW_ENFORCEMENT_DISCOUNT_CODE}</strong> for {LAW_ENFORCEMENT_DISCOUNT_PERCENT}% off eligible Vitality Institute services.
-              </div>
-            </div>
-
-            {!user?.id ? (
-              <div style={{ marginBottom: 14 }}>
-                <PublicFlowStatusCard
-                  eyebrow="Guest Flow"
-                  title="You can start here before creating your account"
-                  body="We'll save your request first, then move you into account setup and intake with your visit details carried forward."
-                  detail="You do not need to stop and register before choosing the location, service, and preferred timing that fit best. If you already have an account, you can sign in instead."
-                  actions={[
-                    { label: "Create Account First", to: guestSignupPath, variant: "ghost" },
-                    { label: "Sign In Instead", to: guestLoginPath, variant: "ghost" },
-                  ]}
-                />
-              </div>
-            ) : null}
-
             <div style={{ marginBottom: 14 }}>
               <PublicFlowStatusCard
-                eyebrow="Next Step"
-                title={user?.id ? "Intake follows this booking step" : "Request first, then account setup and intake"}
-                body={
-                  user?.id
-                    ? "After you continue, you'll move into intake so the care team has the right context before the visit is finalized."
-                    : "After you continue, your request is saved for review while you move through account setup and intake."
+                eyebrow="How Booking Works"
+                title={
+                  isComingSoonLocation
+                    ? "Choose the city and service. We will save it as waitlist interest."
+                    : user?.id
+                      ? "Choose your location, service, and timing. Intake follows next."
+                      : "Choose your location, service, and timing first. Account setup follows next."
                 }
-                detail="A coordinator may follow up to confirm timing and next steps. Provider review may be required depending on the concern or service selected, and final scheduling is confirmed by the clinic."
-                actions={!user?.id ? [
-                  { label: "Create Account Now", to: guestSignupPath, variant: "ghost" },
-                  { label: "Already Have an Account?", to: guestLoginPath, variant: "ghost" },
-                ] : undefined}
+                body={
+                  isComingSoonLocation
+                    ? "Coming-soon markets stay separate from live scheduling. Your selection will be saved so the team can follow up when that city opens or help redirect you to an active clinic."
+                    : user?.id
+                      ? "After you continue, you will move straight into intake so the care team has the right context before the visit is finalized."
+                      : "After you continue, we will save your request first, then guide you through account setup and intake with your selections carried forward."
+                }
+                detail="A coordinator may follow up to confirm timing and next steps. Provider review may be required depending on the concern or service selected, and final scheduling is always confirmed by the clinic."
+                actions={
+                  !user?.id
+                    ? [
+                        { label: "Create Account First", to: guestSignupPath, variant: "ghost" },
+                        { label: "Sign In Instead", to: guestLoginPath, variant: "ghost" },
+                      ]
+                    : [{ label: "Read the Patient Guide", to: "/how-to-use-the-app", variant: "ghost" }]
+                }
               />
             </div>
 
-            <div className="space" />
+            <div className="card card-pad card-light surface-light" style={{ marginBottom: 14 }}>
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                {["1. Choose location", "2. Choose service", "3. Choose timing", "4. Continue"].map((label) => (
+                  <div key={label} className="v-chip">
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
               <div style={{ flex: "1 1 220px" }}>
                 <MarketGroupedSelect
@@ -858,7 +757,7 @@ export default function PublicBook() {
                   placeholder={LAW_ENFORCEMENT_DISCOUNT_CODE}
                 />
                 <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                  Vitality Institute law enforcement clients may use {LAW_ENFORCEMENT_DISCOUNT_CODE} for {LAW_ENFORCEMENT_DISCOUNT_PERCENT}% off. Verification may be requested at the time of service.
+                  Enter a valid promo code here if one applies to your visit. Law enforcement verification may be requested at the time of service.
                 </div>
               </div>
               <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>Notes (optional)</div>
@@ -895,26 +794,21 @@ export default function PublicBook() {
               </Link>
             </div>
 
-            <div className="space" />
-
-            <PublicFlowStatusCard
-              eyebrow={expansionRequestId ? "Expansion Waitlist" : "What Happens Next"}
-              title={expansionRequestId ? "You joined the waitlist for this market" : "What Happens Next"}
-              body={
-                expansionRequestId
-                  ? "Your expansion interest is saved. Our team will reach out when this market opens or if a nearby live clinic can help sooner."
-                  : "Once you send your request, our team will review it and follow up with the right next step."
-              }
-              detail={
-                expansionRequestId
-                  ? `Expansion request saved with reference ${expansionRequestId}. This does not place you into live scheduling or clinical routing until the market is activated.`
-                  : "Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit. If you are not signed in yet, we will carry this request into account setup and intake for you."
-              }
-              actions={[
-                { label: "Start with Vital AI", to: returnTo ? `/vital-ai?returnTo=${encodeURIComponent(bookBackTo)}` : "/vital-ai", variant: "ghost" },
-                { label: "Explore Services", to: bookBackTo, variant: "ghost" },
-              ]}
-            />
+            {expansionRequestId ? (
+              <>
+                <div className="space" />
+                <PublicFlowStatusCard
+                  eyebrow="Expansion Waitlist"
+                  title="You joined the waitlist for this market"
+                  body="Your expansion interest is saved. Our team will reach out when this market opens or if a nearby live clinic can help sooner."
+                  detail={`Expansion request saved with reference ${expansionRequestId}. This does not place you into live scheduling or clinical routing until the market is activated.`}
+                  actions={[
+                    { label: "Start with Vital AI", to: returnTo ? `/vital-ai?returnTo=${encodeURIComponent(bookBackTo)}` : "/vital-ai", variant: "ghost" },
+                    { label: "Explore Services", to: bookBackTo, variant: "ghost" },
+                  ]}
+                />
+              </>
+            ) : null}
           </>
         )}
       </div>

@@ -131,18 +131,6 @@ export default function PublicVitalAiLite() {
     () => getCatalogLocationSelectGroups(locations, { includeComingSoon: true }),
     [locations]
   );
-  const liveLocations = useMemo(
-    () => locations.filter((location) => !isPlaceholderMarket(location)),
-    [locations]
-  );
-  const comingSoonLocations = useMemo(
-    () => locations.filter((location) => isPlaceholderMarket(location)),
-    [locations]
-  );
-  const featuredExpansionMarkets = useMemo(
-    () => comingSoonLocations.slice(0, 6).map((location) => formatCatalogLocationName(location)),
-    [comingSoonLocations]
-  );
   const selectedPreferredLocation = useMemo(
     () => locations.find((location) => location.id === preferredLocationId) ?? null,
     [locations, preferredLocationId]
@@ -322,106 +310,27 @@ export default function PublicVitalAiLite() {
 
       <div className="space" />
 
-      {user?.id ? (
-        <>
-          <PublicFlowStatusCard
-            eyebrow="Signed In"
-            title={role === "patient" ? "Prefer the full guided intake?" : "You are already signed in"}
-            body={
-              role === "patient"
-                ? "Your full Vital AI intake is available in the patient portal if you want the richer workflow with saved sessions, uploads, and provider review routing."
-                : "This public page is meant for patient intake. You can still submit the lightweight request here, or return to your dashboard."
-            }
-            detail={
-              role === "patient"
-                ? "This public version is still useful for a lightweight request, but the full portal experience keeps more of your progress and care context together."
-                : "If you are helping a patient begin intake, it is usually better to route them through the public or patient flow directly."
-            }
-            actions={[fullPortalAction]}
-          />
-          <div className="space" />
-        </>
-      ) : (
-        <>
-          <PublicFlowStatusCard
-            eyebrow="Guest Friendly"
-            title="You can complete this guided request without an account"
-            body="This public version is designed for a lightweight start. You can answer the questions now and the clinic can still review your request."
-            detail="If you later need the full portal intake, uploads, or saved session flow, we will route you there clearly."
-            actions={[fullPortalAction, { label: "Already Have an Account?", to: guestLoginPath, variant: "ghost" }]}
-          />
-          <div className="space" />
-        </>
-      )}
-
-      {bookingDraft?.requestId || bookingDraft?.serviceId || bookingDraft?.locationId ? (
-        <>
-          <PublicFlowStatusCard
-            eyebrow="Saved Visit Context"
-            title="Your request details will stay connected"
-            body={`${bookingDraft?.serviceName || "Your selected service"} at ${bookingDraft?.locationName || "your preferred location"}${bookingDraft?.startTimeLocal ? ` with a preferred time of ${new Date(bookingDraft.startTimeLocal).toLocaleString()}` : ""} will be included with this request.`}
-            detail={bookingDraft?.notes ? `Visit note: ${bookingDraft.notes}` : "This helps our team review the request and coordinate the right next step."}
-          />
-          <div className="space" />
-        </>
-      ) : null}
-
-      <div className="card card-pad card-light surface-light public-growth-panel">
-        <div className="public-growth-header">
-          <div>
-            <div className="public-eyebrow">Nationwide Growth Markets</div>
-            <div className="h2 public-section-title" style={{ marginTop: 10 }}>
-              Start guided intake for a live clinic or raise your hand for a city still opening.
-            </div>
-          </div>
-          <div className="public-growth-badge">
-            {isComingSoonPreferredLocation ? "Expansion-interest path" : "Live clinics stay primary"}
-          </div>
-        </div>
-
-        <div className="surface-light-body public-growth-copy" style={{ marginTop: 12 }}>
-          Vital AI Lite keeps public guidance clear across both paths. Live clinics can move toward
-          scheduling and provider review, while coming-soon cities stay in a separate expansion-interest
-          lane so market demand is captured without acting like an operational clinic.
-        </div>
-
-        <div className="public-growth-stat-grid" style={{ marginTop: 18 }}>
-          <div className="public-growth-stat">
-            <div className="public-mini-title">Live Clinics</div>
-            <div className="public-growth-stat-value">{liveLocations.length}</div>
-            <div className="surface-light-helper">Available now for real intake review and follow-up.</div>
-          </div>
-          <div className="public-growth-stat">
-            <div className="public-mini-title">Coming Soon Markets</div>
-            <div className="public-growth-stat-value">{comingSoonLocations.length}</div>
-            <div className="surface-light-helper">Selectable for waitlist demand and expansion follow-up.</div>
-          </div>
-          <div className="public-growth-stat">
-            <div className="public-mini-title">Current Path</div>
-            <div className="public-growth-stat-value">
-              {isComingSoonPreferredLocation ? "Expansion waitlist" : "Guided intake"}
-            </div>
-            <div className="surface-light-helper">
-              {isComingSoonPreferredLocation
-                ? "Your selected market stays out of live routing until that city activates."
-                : "A live clinic can continue through intake, review, and scheduling coordination."}
-            </div>
-          </div>
-        </div>
-
-        {featuredExpansionMarkets.length > 0 ? (
-          <div className="public-growth-market-shell" style={{ marginTop: 18 }}>
-            <div className="public-mini-title">Featured Expansion Cities</div>
-            <div className="public-growth-market-list" style={{ marginTop: 12 }}>
-              {featuredExpansionMarkets.map((market) => (
-                <span key={market} className="public-growth-market-chip">
-                  {market}
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
+      <PublicFlowStatusCard
+        eyebrow="Before You Start"
+        title={user?.id ? "This is the quick guided-intake path" : "You can complete this guided request without an account"}
+        body={
+          user?.id
+            ? role === "patient"
+              ? "If you want the richer saved-session experience, you can open the full intake from your patient portal. This page is best for a short public request."
+              : "This public page is meant for patient intake. You can still use it for a lightweight request or return to your dashboard."
+            : "Choose a care direction, answer a few questions, and leave the best way for the clinic to reach you."
+        }
+        detail={
+          bookingDraft?.requestId || bookingDraft?.serviceId || bookingDraft?.locationId
+            ? `${bookingDraft?.serviceName || "Your selected service"} at ${bookingDraft?.locationName || "your preferred location"}${bookingDraft?.startTimeLocal ? ` with a preferred time of ${new Date(bookingDraft.startTimeLocal).toLocaleString()}` : ""} will stay connected to this request.${bookingDraft?.notes ? ` Visit note: ${bookingDraft.notes}` : ""}`
+            : "Live clinics can move toward intake review and scheduling follow-up. Coming-soon markets stay in a waitlist lane until that city opens."
+        }
+        actions={
+          !user?.id
+            ? [fullPortalAction, { label: "Already Have an Account?", to: guestLoginPath, variant: "ghost" }]
+            : [fullPortalAction]
+        }
+      />
 
       <div className="space" />
 
@@ -791,21 +700,6 @@ export default function PublicVitalAiLite() {
         />
       ) : null}
 
-      <div className="space" />
-
-      <PublicFlowStatusCard
-        title="What Happens Next"
-        body={
-          isComingSoonPreferredLocation
-            ? "Once you send your request, our team will treat it as expansion-market follow-up and care-interest capture."
-            : "Once you send your request, our team will review it and follow up with the right next step."
-        }
-        detail={isComingSoonPreferredLocation
-          ? "This market preference does not act like a live clinic booking. We may contact you when the market opens or help redirect you to a currently active location if appropriate."
-          : pathway === "wound_care"
-          ? "Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit. For wound-care concerns, your answers also help us understand urgency and whether faster follow-up is needed."
-          : "Depending on your concern, we may help you schedule first or have a provider review your information before confirming your visit."}
-      />
     </PublicSiteLayout>
   );
 }
