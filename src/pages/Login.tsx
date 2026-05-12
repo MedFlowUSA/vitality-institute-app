@@ -272,6 +272,7 @@ export default function Login() {
                     <div style={{ marginBottom: 14 }}>
                       <label style={labelStyle}>Email</label>
                       <input
+                        type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         autoComplete="email"

@@ -770,7 +770,7 @@ function WoundIntakeDetail({
         {uploads.length === 0 ? (
           <div className="muted" style={intakeValueStyle}>No uploads attached to this intake.</div>
         ) : signedUploads.length > 0 ? (
-          <ul className="text-sm list-disc pl-5" style={{ color: "#2F2748" }}>
+          <ul style={{ fontSize: 13, listStyleType: "disc", paddingLeft: 20, color: "#2F2748" }}>
             {signedUploads.map((u, idx) => (
               <li key={`${u.url}-${idx}`}>
                 <span className="muted" style={{ color: "#5B4E86" }}>{u.category}:</span>{" "}
@@ -781,7 +781,7 @@ function WoundIntakeDetail({
             ))}
           </ul>
         ) : (
-          <ul className="text-sm list-disc pl-5" style={{ color: "#2F2748" }}>
+          <ul style={{ fontSize: 13, listStyleType: "disc", paddingLeft: 20, color: "#2F2748" }}>
             {uploads.map((u, idx) => (
               <li key={`${u.path}-${idx}`}>
                 <span className="muted" style={{ color: "#5B4E86" }}>{u.category}:</span> {u.filename || u.path}

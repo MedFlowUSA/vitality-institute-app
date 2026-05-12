@@ -52,28 +52,6 @@ export default function VitalityHeader({
         )}
       </div>
 
-      {/* STAT GRID */}
-      <div className="v-statgrid">
-        <div className="v-stat">
-          <div className="k">Modules Built</div>
-          <div className="v">7</div>
-        </div>
-
-        <div className="v-stat">
-          <div className="k">Patient Flows</div>
-          <div className="v">Intake | Booking | Messages</div>
-        </div>
-
-        <div className="v-stat">
-          <div className="k">Provider Tools</div>
-          <div className="v">Review | Sign-Off</div>
-        </div>
-
-        <div className="v-stat">
-          <div className="k">Next Upgrade</div>
-          <div className="v">AI + Labs</div>
-        </div>
-      </div>
     </div>
   );
 }

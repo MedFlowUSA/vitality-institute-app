@@ -180,6 +180,7 @@ export default function AdminStaffManagement() {
               <div className="space" />
 
               <input
+                type="email"
                 className="input"
                 placeholder="Email"
                 value={email}

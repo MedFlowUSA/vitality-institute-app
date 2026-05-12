@@ -130,8 +130,8 @@ export default function PublicContact() {
 
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
             <input className="input" style={{ flex: "1 1 220px" }} placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
-            <input className="input" style={{ flex: "1 1 220px" }} placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            <input className="input" style={{ flex: "1 1 260px" }} placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input type="tel" className="input" style={{ flex: "1 1 220px" }} placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <input type="email" className="input" style={{ flex: "1 1 260px" }} placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
 
           <div className="space" />

@@ -106,16 +106,36 @@ export default function PublicSiteLayout({
 
         <div className="space" />
 
-        <div className="row" style={{ justifyContent: "space-between", gap: 12, flexWrap: "wrap", paddingBottom: 20 }}>
-          <div className="muted" style={{ fontSize: 12 }}>
-            Vitality Institute
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+            paddingBottom: 24,
+            paddingTop: 8,
+            borderTop: "1px solid rgba(184,164,255,0.14)",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#1f1633" }}>Vitality Institute</span>
+            <span className="muted" style={{ fontSize: 12 }}>
+              Physician-led care across Southern California
+            </span>
           </div>
-          <div className="row" style={{ gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+            <a href="tel:+12139126838" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
+              (213) 912-6838
+            </a>
+            <Link to="/contact" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
+              Contact
+            </Link>
             <Link to="/privacy-policy" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
-              Privacy Policy
+              Privacy
             </Link>
             <Link to="/terms-of-service" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
-              Terms of Service
+              Terms
             </Link>
           </div>
         </div>

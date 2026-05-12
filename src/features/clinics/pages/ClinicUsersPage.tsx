@@ -360,7 +360,7 @@ export default function ClinicUsersPage() {
               <div className="space" />
 
               <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-                <input className="input" style={{ flex: "2 1 260px" }} placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
+                <input type="email" className="input" style={{ flex: "2 1 260px" }} placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
                 <input className="input" style={{ flex: "1 1 220px" }} type="password" placeholder="Temporary password" value={tempPassword} onChange={(event) => setTempPassword(event.target.value)} />
               </div>
 

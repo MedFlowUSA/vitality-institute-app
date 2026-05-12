@@ -418,6 +418,7 @@ export default function PatientAuth() {
             <label style={{ display: "block", marginBottom: 12 }}>
               <div style={labelStyle}>Email</div>
               <input
+                type="email"
                 className="input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

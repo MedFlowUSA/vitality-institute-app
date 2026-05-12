@@ -567,16 +567,16 @@ input[type="checkbox"] + label {
    System Status Bar
    ========================= */
 .v-statusbar {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.24);
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.18);
+  margin-top: 12px;
 }
 
 .v-statusbar-left,
@@ -616,21 +616,6 @@ input[type="checkbox"] + label {
 .v-dot-checking { background: rgba(255,190,60,0.85); }
 .v-dot-online { background: rgba(60,255,190,0.85); }
 .v-dot-offline { background: rgba(255,80,110,0.85); }
-/* =========================
-   System Status Bar (visible polish)
-   ========================= */
-
-.v-statusbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(0,0,0,0.18);
-  margin-top: 12px;
-}
 
 .v-status-left,
 .v-status-right {

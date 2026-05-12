@@ -552,8 +552,8 @@ export default function PublicVitalAiLite() {
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
             <input className="input" style={{ flex: "1 1 220px" }} placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
             <input className="input" style={{ flex: "1 1 220px" }} placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-            <input className="input" style={{ flex: "1 1 220px" }} placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
-            <input className="input" style={{ flex: "1 1 260px" }} placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input type="tel" className="input" style={{ flex: "1 1 220px" }} placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <input type="email" className="input" style={{ flex: "1 1 260px" }} placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="space" />
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>

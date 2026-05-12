@@ -64,54 +64,87 @@ export default function WoundTimeline() {
     if (patientId) load();
   }, [patientId]);
 
+  const backTo = patientId ? providerPatientCenterPath(patientId) : PROVIDER_ROUTES.patients;
+
   if (loading) {
     return (
-      <div className="p-6">
-        <VitalityHero
-          title="Wound Timeline"
-          subtitle="Loading photos..."
-          secondaryCta={{ label: "Back", to: patientId ? providerPatientCenterPath(patientId) : PROVIDER_ROUTES.patients }}
-        />
+      <div className="app-bg">
+        <div className="shell">
+          <VitalityHero
+            title="Wound Timeline"
+            subtitle="Loading photos..."
+            secondaryCta={{ label: "Back", to: backTo }}
+          />
+        </div>
       </div>
     );
   }
 
   if (err) {
     return (
-      <div className="p-6">
-        <VitalityHero
-          title="Wound Timeline Error"
-          subtitle={err}
-          secondaryCta={{ label: "Back", to: patientId ? providerPatientCenterPath(patientId) : PROVIDER_ROUTES.patients }}
-        />
+      <div className="app-bg">
+        <div className="shell">
+          <VitalityHero
+            title="Wound Timeline Error"
+            subtitle={err}
+            secondaryCta={{ label: "Back", to: backTo }}
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <VitalityHero
-        title="Wound Healing Timeline"
-        subtitle="Visual progression of wound healing"
-        secondaryCta={{ label: "Back", to: patientId ? providerPatientCenterPath(patientId) : PROVIDER_ROUTES.patients }}
-      />
+    <div className="app-bg">
+      <div className="shell">
+        <VitalityHero
+          title="Wound Healing Timeline"
+          subtitle="Visual progression of wound healing"
+          secondaryCta={{ label: "Back", to: backTo }}
+        />
 
-      <div className="max-w-5xl mx-auto mt-6 grid md:grid-cols-3 gap-6">
-        {photos.length === 0 ? (
-          <div>No wound photos found.</div>
-        ) : (
-          photos.map((p) => (
-            <div key={p.id} className="bg-white/70 border rounded-xl overflow-hidden">
-              <img src={p.url} alt={p.filename} className="w-full h-56 object-cover" />
-
-              <div className="p-3 text-sm">
-                <div className="font-semibold">{new Date(p.created_at).toLocaleDateString()}</div>
-
-                <div className="opacity-70 text-xs">{new Date(p.created_at).toLocaleTimeString()}</div>
-              </div>
+        <div style={{ marginTop: 20 }}>
+          {photos.length === 0 ? (
+            <div className="card card-pad" style={{ color: "var(--v-muted)" }}>
+              No wound photos found.
             </div>
-          ))
-        )}
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: 16,
+              }}
+            >
+              {photos.map((p) => (
+                <div
+                  key={p.id}
+                  className="card"
+                  style={{ overflow: "hidden", padding: 0 }}
+                >
+                  <img
+                    src={p.url}
+                    alt={p.filename}
+                    style={{
+                      width: "100%",
+                      height: 224,
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                  <div style={{ padding: "12px 14px" }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>
+                      {new Date(p.created_at).toLocaleDateString()}
+                    </div>
+                    <div style={{ marginTop: 2, fontSize: 12, color: "var(--v-muted)" }}>
+                      {new Date(p.created_at).toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
