@@ -136,7 +136,7 @@ export default function PublicLandingSimplified() {
           Physician-Led Care Across Southern California
         </div>
         <div className="h1 public-hero-heading" style={{ marginTop: 18, maxWidth: 760 }}>
-          Choose the right care path in minutes, not after a maze of pages.
+          Choose the right care path in minutes.
         </div>
         <div className="surface-light-body public-hero-body" style={{ marginTop: 18, lineHeight: 1.75, maxWidth: 720 }}>
           Book directly when you already know what you want, or start with guided intake when you want help deciding the right next step for wound care, weight care, IV therapy, or wellness support.
